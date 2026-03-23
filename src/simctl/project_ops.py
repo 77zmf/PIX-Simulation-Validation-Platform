@@ -359,7 +359,8 @@ def send_digest_email(
     recipients = _resolve_csv_env(email_cfg.get("recipients_env", "TEAM_REMINDER_TO"))
     cc = _resolve_csv_env(email_cfg.get("cc_env", "TEAM_REMINDER_CC"))
     smtp_host = os.environ.get(email_cfg.get("smtp_host_env", "SMTP_HOST"), "")
-    smtp_port = int(os.environ.get(email_cfg.get("smtp_port_env", "SMTP_PORT"), "587"))
+    smtp_port_raw = os.environ.get(email_cfg.get("smtp_port_env", "SMTP_PORT"), "") or "587"
+    smtp_port = int(smtp_port_raw)
     smtp_username = os.environ.get(email_cfg.get("smtp_username_env", "SMTP_USERNAME"), "")
     smtp_password = os.environ.get(email_cfg.get("smtp_password_env", "SMTP_PASSWORD"), "")
     smtp_from = os.environ.get(email_cfg.get("smtp_from_env", "SMTP_FROM"), "")
