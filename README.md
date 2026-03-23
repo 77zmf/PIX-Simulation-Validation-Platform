@@ -1,50 +1,98 @@
-# simctl
+# Autoware + CARLA Simulation Validation Platform
 
-`simctl` 是这个仓库的控制平面，用来编排两条仿真验证线：
+This repository is the control plane for an autonomous-driving simulation validation platform.
 
-- `stable`：`Autoware Universe main + ROS 2 Humble + CARLA 0.9.15`
-- `ue5`：远端 GPU 主机上的 `CARLA 0.10.x / UE5`
+It is not just an environment setup repo. The current goal is to build a team-usable validation baseline for:
 
-这个仓库不直接托管大型点云、地图切片和 UE 资产；它托管的是脚本、配置、场景定义、KPI 门禁、适配器接口和轻量运行工件。
+- `Autoware Universe main + ROS 2 Humble + CARLA 0.9.15` stable closed-loop verification
+- automated regression, replay, KPI gating, and reporting
+- site proxy and corner-case accumulation from real map and pointcloud assets
+- a future `UE5 / E2E` experiment line that starts with `BEV baseline + VAD shadow`
 
-## Layout
+## Current Focus
+
+The current three-month delivery is organized around four priorities:
+
+1. Make the `stable` stack usable in closed loop.
+2. Make `bootstrap / up / run / batch / replay / report` usable for daily validation.
+3. Turn the `gy_qyhx_gsh20260302` site assets into reusable site proxy and corner-case inputs.
+4. Prepare `UE5 / E2E shadow` as the next-stage capability without destabilizing the main line.
+
+## Public Entry Points
+
+- Repository: [77zmf/zmf_ws](https://github.com/77zmf/zmf_ws)
+- GitHub Project: [Autoware + CARLA 团队执行看板](https://github.com/users/77zmf/projects/1)
+- GitHub Pages: [77zmf.github.io/zmf_ws](https://77zmf.github.io/zmf_ws/)
+- Notion project book: [项目书](https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f)
+- Notion execution board: [Program Board](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec)
+- Notion two-week view: [Next 2 Weeks](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec?v=32cef7e6aaa9819b9826000c4b519313)
+
+## Team Ownership
+
+- `朱民峰`: stable stack, control plane, automation, project rhythm
+- `罗顺雄 / lsx`: site proxy, real-site map and pointcloud assets, corner-case replay
+- `杨志鹏 / Zhipeng Yang`: UE5 remote line, perception and E2E shadow preparation
+
+## Technical Tracks
+
+### Stable Main Line
+
+- Windows host runs CARLA rendering and host-side orchestration
+- WSL2 Ubuntu 22.04 runs Autoware Universe, ROS 2 Humble, and bridge components
+- CARLA version is fixed to `0.9.15`
+- Primary success signal is a repeatable closed loop:
+  `startup -> localization -> planning -> control -> goal reached -> report`
+
+### Site Proxy and Corner Cases
+
+- First site bundle: `site_gy_qyhx_gsh20260302`
+- Target asset bundle shape:
+  - `lanelet2_map.osm`
+  - `map_projector_info.yaml`
+  - `pointcloud_map.pcd/`
+  - `metadata.yaml`
+- Large raw assets stay out of Git history and are referenced by manifests
+
+### Future E2E Route
+
+The current recommended route is:
+
+- keep the existing `BEV` perception stack as the production baseline
+- run `VAD` in `shadow` mode first
+- compare trajectory, behavior, collision, TTC, and route-completion signals
+- preserve fallback to the classical planning and control chain
+
+This repository does not treat direct end-to-end control takeover as the first milestone.
+
+## Repository Layout
 
 ```text
-infra/       Host and remote preparation scripts
-stack/       Stack launch profiles and helper scripts
-assets/      Asset manifests, map metadata, sensor profiles
+infra/       Host, WSL2, Ubuntu, and remote preparation scripts
+stack/       Stable and UE5 stack profiles plus launch helpers
+assets/      Asset manifests, site metadata, and sensor profiles
 scenarios/   L0-L3 and UE5 scenario definitions
-evaluation/  KPI gates, reports, failure taxonomy
-adapters/    Algorithm profile examples
+evaluation/  KPI gates, reports, and failure taxonomy
+adapters/    Planning, perception, and E2E profile examples
 src/simctl/  CLI and control-plane implementation
 tests/       Local verification for the control plane
+docs/        Public portal, team plan, and project-management snapshots
 ```
 
-## Team Planning
+## Control Plane Commands
 
-The repo-side quarter plan and operating documents live in:
+The unified CLI entrypoints are:
 
-- `docs/TEAM_90_DAY_PLAN.md`
-- `docs/TEAM_OPERATING_RHYTHM.md`
-- `docs/QUARTER_ACCEPTANCE.md`
-- `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
-
-These documents should stay aligned with the team Notion project pages and the current `Program Board`.
-
-## Project Management Portal
-
-The current project-management snapshot is available in:
-
-- `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
-- `docs/index.html`
-
-If GitHub Pages is enabled for this repository, the static portal is expected at:
-
-- `https://77zmf.github.io/zmf_ws/`
+- `bootstrap`
+- `up`
+- `down`
+- `run`
+- `batch`
+- `replay`
+- `report`
 
 ## Quick Start
 
-1. Create a virtual environment and install the package:
+1. Create a virtual environment and install the package.
 
    ```powershell
    python -m venv .venv
@@ -53,45 +101,39 @@ If GitHub Pages is enabled for this repository, the static portal is expected at
    python -m pip install -e .
    ```
 
-2. Inspect bootstrap plans for the stable stack:
+2. Inspect the stable bootstrap plan.
 
    ```powershell
    simctl bootstrap --stack stable
    ```
 
-3. Run a local stub smoke scenario and generate a report:
+3. Run a local smoke scenario and generate a report.
 
    ```powershell
    simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root runs
    simctl report --run-root runs
    ```
 
-4. Batch a few scenarios with synthetic pass/fail outcomes:
+4. Batch a set of scenarios.
 
    ```powershell
    simctl batch --glob "scenarios/l1/*.yaml" --run-root runs --mock-result passed
    simctl report --run-root runs
    ```
 
-## Key Concepts
+## Current Planning Documents
 
-- `asset_bundle`: a reusable site or map bundle that points to the authoritative map and pointcloud assets.
-- `scenario.yaml`: the execution contract for one experiment.
-- `kpi_gate`: threshold policy that determines whether a run passes.
-- `run_result.json`: the canonical output for one run.
+The repo-side planning documents live in:
 
-## Environment Defaults
+- `docs/TEAM_90_DAY_PLAN.md`
+- `docs/TEAM_OPERATING_RHYTHM.md`
+- `docs/QUARTER_ACCEPTANCE.md`
+- `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
 
-- Windows host runs CARLA rendering and local orchestration.
-- WSL2 Ubuntu 22.04 runs Autoware Universe, ROS 2 Humble, and CARLA bridge components.
-- UE5 workloads are submitted to a remote GPU host.
+The public portal entry is:
 
-## Current Site Asset
+- `docs/index.html`
 
-The first site proxy bundle is `site_gy_qyhx_gsh20260302`. It references:
+## Current Asset Note
 
-- `lanelet2_map.osm`
-- `map_projector_info.yaml`
-- `pointcloud_map.pcd/` tiles from `gy_qyhx_gsh20260302_map.zip`
-
-The archive itself remains out of Git history and is referenced through the asset manifest.
+The archive `gy_qyhx_gsh20260302_map.zip` remains outside Git tracking because of GitHub file-size constraints. The repository tracks manifests and normalized paths instead of the raw archive itself.
