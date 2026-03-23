@@ -21,17 +21,19 @@ The current three-month delivery is organized around four priorities:
 ## Public Entry Points
 
 - Repository: [77zmf/zmf_ws](https://github.com/77zmf/zmf_ws)
-- GitHub Project: [Autoware + CARLA 团队执行看板](https://github.com/users/77zmf/projects/1)
+- GitHub Project: [Task Board](https://github.com/users/77zmf/projects/1)
+- GitHub Scenario Project: [Scenario Board](https://github.com/users/77zmf/projects/2)
 - GitHub Pages: [77zmf.github.io/zmf_ws](https://77zmf.github.io/zmf_ws/)
-- Notion project book: [项目书](https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f)
+- Notion project book: [Project Book](https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f)
 - Notion execution board: [Program Board](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec)
 - Notion two-week view: [Next 2 Weeks](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec?v=32cef7e6aaa9819b9826000c4b519313)
+- Notion scenario backlog: [Scenario Backlog](https://www.notion.so/2fb616fb48d5429cbb01a7b6299b84e9)
 
 ## Team Ownership
 
-- `朱民峰`: stable stack, control plane, automation, project rhythm
-- `罗顺雄 / lsx`: site proxy, real-site map and pointcloud assets, corner-case replay
-- `杨志鹏 / Zhipeng Yang`: UE5 remote line, perception and E2E shadow preparation
+- `Zhu Minfeng`: stable stack, control plane, automation, project rhythm
+- `Luo Shunxiong / lsx`: site proxy, real-site map and pointcloud assets, corner-case replay
+- `Yang Zhipeng / Zhipeng Yang`: UE5 remote line, perception and E2E shadow preparation
 
 ## Technical Tracks
 
@@ -89,6 +91,7 @@ The unified CLI entrypoints are:
 - `batch`
 - `replay`
 - `report`
+- `digest`
 
 ## Quick Start
 
@@ -121,6 +124,12 @@ The unified CLI entrypoints are:
    simctl report --run-root runs
    ```
 
+5. Generate the project digest used by the management automation.
+
+   ```powershell
+   simctl digest --config ops/project_automation.yaml --output-dir artifacts/project_digest
+   ```
+
 ## Current Planning Documents
 
 The repo-side planning documents live in:
@@ -129,6 +138,8 @@ The repo-side planning documents live in:
 - `docs/TEAM_OPERATING_RHYTHM.md`
 - `docs/QUARTER_ACCEPTANCE.md`
 - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
+- `docs/PROJECT_CYCLE_AND_FEASIBILITY.md`
+- `docs/PROJECT_AUTOMATION.md`
 
 The public portal entry is:
 

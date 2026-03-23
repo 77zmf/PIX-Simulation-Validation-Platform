@@ -34,3 +34,4 @@ jobs:
           python -m simctl bootstrap --stack stable
           python -m simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root ci_runs
           python -m simctl report --run-root ci_runs
+          python -m simctl digest --config ops/project_automation.yaml --tasks-json tests/fixtures/project_tasks.json --scenarios-json tests/fixtures/project_scenarios.json --output-dir ci_digest

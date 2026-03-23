@@ -2,12 +2,24 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .assets import asset_snapshot, load_asset_bundle
 from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, make_run_id, to_wsl_path, utc_now
 from .evaluation import evaluate_metrics, load_kpi_gate, synthetic_metrics
+from .project_ops import (
+    load_project_automation_config,
+    load_project_items,
+    load_run_summary,
+    render_digest_html,
+    render_digest_markdown,
+    send_digest_email,
+    summarize_items,
+    write_digest_outputs,
+)
 from .reporting import aggregate_run_results, discover_run_results, load_run_result, write_report
 from .runtime import build_context, execute_plan, load_stack_profile, persist_plan, render_action
 from .scenarios import load_scenario
@@ -281,6 +293,89 @@ def handle_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_digest(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    config_path = Path(args.config).resolve() if args.config else (repo_root / "ops" / "project_automation.yaml")
+    config = load_project_automation_config(config_path)
+
+    timezone_name = str(config.get("timezone", "Asia/Shanghai"))
+    try:
+        today = datetime.now(ZoneInfo(timezone_name)).date()
+    except ZoneInfoNotFoundError:
+        today = datetime.now().date()
+    due_soon_days = int(config.get("reporting", {}).get("due_soon_days", 3))
+
+    task_cfg = config["projects"]["tasks"]
+    scenario_cfg = config["projects"]["scenarios"]
+    task_items = load_project_items(
+        owner=str(task_cfg["owner"]),
+        number=int(task_cfg["number"]),
+        json_override=args.tasks_json,
+    )
+    scenario_items = load_project_items(
+        owner=str(scenario_cfg["owner"]),
+        number=int(scenario_cfg["number"]),
+        json_override=args.scenarios_json,
+    )
+
+    task_summary = summarize_items(task_items, today=today, due_soon_days=due_soon_days)
+    scenario_summary = summarize_items(scenario_items, today=today, due_soon_days=due_soon_days)
+    run_root = Path(args.run_root).resolve() if args.run_root else (repo_root / "runs")
+    run_summary = load_run_summary(run_root)
+
+    markdown_text = render_digest_markdown(
+        config=config,
+        today=today,
+        task_summary=task_summary,
+        scenario_summary=scenario_summary,
+        run_summary=run_summary,
+    )
+    html_text = render_digest_html(markdown_text)
+    email_result = {"sent": False, "reason": "disabled"}
+    if args.send_email:
+        subject_prefix = str(config.get("email", {}).get("subject_prefix", "[Autoware+CARLA]"))
+        email_result = send_digest_email(
+            config=config,
+            subject=f"{subject_prefix} Project Digest {today.isoformat()}",
+            markdown_text=markdown_text,
+            html_text=html_text,
+        )
+
+    payload = {
+        "generated_on": today.isoformat(),
+        "timezone": timezone_name,
+        "task_summary": {
+            "total": task_summary["total"],
+            "active": task_summary["active"],
+            "statuses": task_summary["statuses"],
+            "tracks": task_summary["tracks"],
+            "priorities": task_summary["priorities"],
+            "overdue_titles": [item.title for item in task_summary["overdue"]],
+            "due_soon_titles": [item.title for item in task_summary["due_soon"]],
+            "blocked_titles": [item.title for item in task_summary["blocked"]],
+        },
+        "scenario_summary": {
+            "total": scenario_summary["total"],
+            "active": scenario_summary["active"],
+            "statuses": scenario_summary["statuses"],
+            "tracks": scenario_summary["tracks"],
+            "priorities": scenario_summary["priorities"],
+            "due_soon_titles": [item.title for item in scenario_summary["due_soon"]],
+        },
+        "run_summary_available": run_summary is not None,
+        "email": email_result,
+    }
+    output_dir = Path(args.output_dir).resolve() if args.output_dir else (repo_root / "artifacts" / "project_digest")
+    outputs = write_digest_outputs(
+        output_dir=output_dir,
+        markdown_text=markdown_text,
+        html_text=html_text,
+        payload=payload,
+    )
+    _print_json({**outputs, "email": email_result})
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="simctl", description="Simulation control-plane CLI")
     parser.add_argument("--repo-root", help="Override repository root")
@@ -328,6 +423,15 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--batch-index")
     report.add_argument("--output-dir")
     report.set_defaults(func=handle_report)
+
+    digest = subparsers.add_parser("digest", help="Generate a GitHub Project digest and optional email reminder")
+    digest.add_argument("--config", help="Path to project automation config YAML")
+    digest.add_argument("--output-dir")
+    digest.add_argument("--run-root")
+    digest.add_argument("--tasks-json", help="Use a local GitHub Project JSON export for task items")
+    digest.add_argument("--scenarios-json", help="Use a local GitHub Project JSON export for scenario items")
+    digest.add_argument("--send-email", action="store_true")
+    digest.set_defaults(func=handle_digest)
 
     return parser
 

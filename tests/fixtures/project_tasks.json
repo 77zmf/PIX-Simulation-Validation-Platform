@@ -1,0 +1,32 @@
+{
+  "items": [
+    {
+      "title": "Set up WSL2 and Ubuntu 22.04",
+      "status": "In Progress",
+      "priority": "P0",
+      "phase": "Phase 0 Foundation",
+      "track": "Stable Stack",
+      "due Date": "2026-03-26",
+      "owner": "Zhu Minfeng",
+      "blocked": "No",
+      "notion URL": "https://example.com/tasks/wsl2",
+      "content": {
+        "body": "Stable stack foundation task."
+      }
+    },
+    {
+      "title": "Confirm remote GPU host access",
+      "status": "Todo",
+      "priority": "P1",
+      "phase": "Phase 3 UE5/E2E",
+      "track": "UE5 Lab",
+      "due Date": "2026-03-25",
+      "owner": "Yang Zhipeng",
+      "blocked": "Yes",
+      "notion URL": "https://example.com/tasks/gpu",
+      "content": {
+        "body": "Waiting for remote machine credentials."
+      }
+    }
+  ]
+}

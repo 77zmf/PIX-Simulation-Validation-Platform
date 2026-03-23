@@ -1,0 +1,25 @@
+timezone: Asia/Shanghai
+
+projects:
+  tasks:
+    owner: 77zmf
+    number: 1
+    url: https://github.com/users/77zmf/projects/1
+  scenarios:
+    owner: 77zmf
+    number: 2
+    url: https://github.com/users/77zmf/projects/2
+
+reporting:
+  due_soon_days: 3
+
+email:
+  subject_prefix: "[Autoware+CARLA]"
+  recipients_env: TEAM_REMINDER_TO
+  cc_env: TEAM_REMINDER_CC
+  smtp_host_env: SMTP_HOST
+  smtp_port_env: SMTP_PORT
+  smtp_username_env: SMTP_USERNAME
+  smtp_password_env: SMTP_PASSWORD
+  smtp_from_env: SMTP_FROM
+  smtp_starttls_env: SMTP_STARTTLS

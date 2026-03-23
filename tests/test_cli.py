@@ -78,6 +78,33 @@ class CliTests(unittest.TestCase):
             self.assertTrue((report_dir / "report.md").exists())
             self.assertTrue((report_dir / "report.html").exists())
 
+    def test_digest_from_fixture_json(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "digest",
+                        "--config",
+                        str(REPO_ROOT / "ops" / "project_automation.yaml"),
+                        "--tasks-json",
+                        str(REPO_ROOT / "tests" / "fixtures" / "project_tasks.json"),
+                        "--scenarios-json",
+                        str(REPO_ROOT / "tests" / "fixtures" / "project_scenarios.json"),
+                        "--output-dir",
+                        tempdir,
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            outputs = json.loads(stream.getvalue())
+            summary = json.loads(Path(outputs["summary"]).read_text(encoding="utf-8"))
+            self.assertIn("Confirm remote GPU host access", summary["task_summary"]["blocked_titles"])
+            self.assertIn("Blind curve encounter", summary["scenario_summary"]["due_soon_titles"])
+            self.assertTrue(Path(outputs["markdown"]).exists())
+            self.assertTrue(Path(outputs["html"]).exists())
+
 
 if __name__ == "__main__":
     unittest.main()

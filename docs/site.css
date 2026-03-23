@@ -160,6 +160,10 @@ a {
   margin-bottom: 24px;
 }
 
+.status-strip.five-up {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .status-card {
   padding: 16px 18px;
   border-radius: 20px;
@@ -190,6 +194,12 @@ a {
 .grid.two-up {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.grid.three-up {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -332,6 +342,10 @@ a {
   text-decoration: none;
 }
 
+.person-card .inline-link {
+  margin-top: 14px;
+}
+
 .checklist {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -349,7 +363,9 @@ a {
 @media (max-width: 960px) {
   .hero,
   .status-strip,
+  .status-strip.five-up,
   .grid.two-up,
+  .grid.three-up,
   .split-panel,
   .link-grid,
   .checklist,

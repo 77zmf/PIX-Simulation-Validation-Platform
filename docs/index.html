@@ -6,7 +6,7 @@
     <title>Autoware + CARLA 仿真验证平台</title>
     <meta
       name="description"
-      content="Autoware Universe + CARLA 自动驾驶仿真验证平台公开主页，展示项目目标、季度路线、团队分工、BEV + VAD 路线和项目入口。"
+      content="Autoware Universe + CARLA 自动驾驶仿真验证平台公开主页，展示项目周期、可行性、双 GitHub 看板、BEV + VAD 路线和自动提醒机制。"
     >
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,127 +23,119 @@
           <p class="eyebrow">Autoware + CARLA Simulation Validation</p>
           <h1>自动驾驶仿真验证平台</h1>
           <p class="lede">
-            这个项目不是单独搭一个仿真环境，而是建设一套面向规划控制、感知和新算法验证的自动驾驶仿真底座。
+            这个项目的目标不是单独搭一个仿真环境，而是建设一套面向规划控制、感知、site proxy、
+            corner case 和未来端到端算法验证的工程化底座。
           </p>
           <div class="hero-actions">
             <a class="button primary" href="https://github.com/77zmf/zmf_ws">GitHub 仓库</a>
+            <a class="button secondary" href="https://github.com/users/77zmf/projects/1">任务看板</a>
+            <a class="button secondary" href="https://github.com/users/77zmf/projects/2">场景看板</a>
             <a class="button secondary" href="https://www.notion.so/32cef7e6aaa98199b912f040068b57dd">Notion 总览</a>
           </div>
         </div>
         <div class="hero-card">
-          <p class="hero-card-label">当前项目判断</p>
+          <p class="hero-card-label">当前判断</p>
           <ul>
-            <li><strong>主闭环：</strong> Autoware Universe main + ROS 2 Humble + CARLA 0.9.15</li>
-            <li><strong>实验线：</strong> UE5 放到远端 GPU，不占当前主线资源</li>
-            <li><strong>E2E：</strong> 先走 BEV 基线 + VAD shadow，不直接替换主控制</li>
+            <li><strong>稳定主线：</strong>Autoware Universe main + ROS 2 Humble + CARLA 0.9.15</li>
+            <li><strong>场景主线：</strong>site proxy + corner case 先服务稳定验证</li>
+            <li><strong>算法路线：</strong>BEV 基线 + VAD shadow，不直接替换主控制链路</li>
+            <li><strong>自动化：</strong>GitHub 双看板 + 每日 digest + 条件邮件提醒</li>
           </ul>
         </div>
       </header>
 
-      <section class="status-strip">
+      <section class="status-strip five-up">
         <div class="status-card">
-          <span class="status-label">当前周期</span>
-          <strong>90 天项目建设</strong>
+          <span class="status-label">项目周期</span>
+          <strong>12 周</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">当前重点</span>
-          <strong>稳定闭环 + 自动化验证</strong>
+          <span class="status-label">第一优先级</span>
+          <strong>稳定闭环</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">场景路线</span>
-          <strong>site proxy + corner case</strong>
+          <span class="status-label">第二优先级</span>
+          <strong>自动化回归</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">算法路线</span>
-          <strong>BEV + VAD shadow</strong>
+          <span class="status-label">第三优先级</span>
+          <strong>site proxy / 场景</strong>
+        </div>
+        <div class="status-card">
+          <span class="status-label">并行准备</span>
+          <strong>UE5 / E2E</strong>
         </div>
       </section>
 
       <main>
         <section class="panel">
           <div class="section-heading">
-            <p class="section-kicker">项目定义</p>
-            <h2>你现在真正要做的事</h2>
-          </div>
-          <div class="grid two-up">
-            <article class="card">
-              <h3>稳定主线</h3>
-              <p>把 Autoware + CARLA 的稳定闭环先跑通，优先服务规划控制验证，而不是一开始就做重型数字孪生。</p>
-            </article>
-            <article class="card">
-              <h3>自动化验证</h3>
-              <p>把启动、运行、批量回归、回放、报告和 KPI 门禁固化，形成可重复使用的实验工作流。</p>
-            </article>
-            <article class="card">
-              <h3>现场场景前移</h3>
-              <p>用现场地图、点云和问题案例构建 site proxy 与 corner case，让现场问题能提前在仿真里复现。</p>
-            </article>
-            <article class="card">
-              <h3>未来算法接入</h3>
-              <p>为 UE5 和端到端算法准备实验底座，但不让它们反向拖慢当前闭环主线。</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="section-heading">
-            <p class="section-kicker">系统路线</p>
-            <h2>当前技术架构</h2>
-          </div>
-          <div class="architecture">
-            <article class="arch-card">
-              <span class="arch-tag">Stable</span>
-              <h3>Windows + WSL2 主线</h3>
-              <p>Windows 主机负责 CARLA 图形和录制回放，WSL2 Ubuntu 22.04 负责 ROS 2 Humble、Autoware 和 bridge。</p>
-            </article>
-            <article class="arch-arrow">-></article>
-            <article class="arch-card">
-              <span class="arch-tag">Validation</span>
-              <h3>控制平面</h3>
-              <p>`simctl` 统一管理 `bootstrap / up / run / batch / replay / report`，沉淀场景、KPI、资产清单和结果工件。</p>
-            </article>
-            <article class="arch-arrow">-></article>
-            <article class="arch-card">
-              <span class="arch-tag">Future</span>
-              <h3>UE5 / E2E 实验线</h3>
-              <p>UE5 放到远端 GPU，端到端优先用 BEV 基线 + VAD shadow，不直接跳过当前安全门禁。</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="section-heading">
-            <p class="section-kicker">季度路线</p>
-            <h2>三个月怎么推进</h2>
+            <p class="section-kicker">项目周期</p>
+            <h2>完整的 12 周推进方式</h2>
           </div>
           <div class="timeline">
             <article class="timeline-item">
-              <span class="timeline-badge">01</span>
+              <span class="timeline-badge">1-2</span>
               <div>
-                <h3>第 1-4 周：环境与最小闭环</h3>
-                <p>准备 Windows、WSL2、Ubuntu 22.04、ROS 2 Humble、Autoware 工作区，并启动 CARLA 0.9.15。</p>
+                <h3>环境与底座</h3>
+                <p>完成 Windows、WSL2、Ubuntu 22.04、ROS 2 Humble、Autoware 工作区和 CARLA 0.9.15 的可重复准备。</p>
               </div>
             </article>
             <article class="timeline-item">
-              <span class="timeline-badge">02</span>
+              <span class="timeline-badge">3-4</span>
               <div>
-                <h3>第 5-8 周：自动化验证</h3>
-                <p>打通 autoware_carla_interface，固化 L0/L1 回归，统一 run_result、回放和报告。</p>
+                <h3>最小闭环与桥接</h3>
+                <p>打通 autoware_carla_interface、clock、TF、控制反馈与 L0 smoke 报告模板。</p>
               </div>
             </article>
             <article class="timeline-item">
-              <span class="timeline-badge">03</span>
+              <span class="timeline-badge">5-6</span>
               <div>
-                <h3>第 9-12 周：site proxy 与 corner case</h3>
-                <p>标准化现场资产，沉淀场景模板，并完成高价值 corner case 梳理。</p>
+                <h3>自动化验证</h3>
+                <p>固化 run_result、回放、报告、KPI 门禁和第一批 L1 回归，形成日常可复用验证链路。</p>
+              </div>
+            </article>
+            <article class="timeline-item">
+              <span class="timeline-badge">7-8</span>
+              <div>
+                <h3>资产与场景输入</h3>
+                <p>标准化 gy_qyhx_gsh 资产束，梳理现场 rosbag、地图、点云和 Top 5 corner case。</p>
+              </div>
+            </article>
+            <article class="timeline-item">
+              <span class="timeline-badge">9-10</span>
+              <div>
+                <h3>site proxy 落地</h3>
+                <p>至少让 1 个 site proxy 场景和 1 个高价值 corner case 进入正常验证链路。</p>
               </div>
             </article>
             <article class="timeline-item accent">
-              <span class="timeline-badge">P</span>
+              <span class="timeline-badge">11-12</span>
               <div>
-                <h3>并行准备：UE5 与端到端</h3>
-                <p>明确远端 GPU、建立 shadow 指标和试验入口，不与稳定主线抢资源。</p>
+                <h3>季度收口与下一周期准备</h3>
+                <p>冻结季度验收集，复盘风险和阻塞项，并把 UE5 / E2E shadow 的下一周期入口准备好。</p>
               </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <p class="section-kicker">可行性验证</p>
+            <h2>什么现在能做，什么本季度能落地</h2>
+          </div>
+          <div class="grid three-up">
+            <article class="card">
+              <h3>现在可行</h3>
+              <p>GitHub 双看板、Notion 计划管理、公开主页、控制平面 CLI、项目 digest 和自动提醒管线都已经能落地。</p>
+            </article>
+            <article class="card">
+              <h3>本季度可行</h3>
+              <p>稳定闭环、L0/L1 回归、第一批 site proxy 资产和首个场景模板，都属于本季度的现实交付范围。</p>
+            </article>
+            <article class="card emphasis">
+              <h3>依赖外部条件</h3>
+              <p>真实邮件发送需要 SMTP Secrets，UE5 重载实验需要远端 GPU 机器，真实闭环效果取决于外部运行时环境完成度。</p>
             </article>
           </div>
         </section>
@@ -151,91 +143,110 @@
         <section class="panel split-panel">
           <div>
             <div class="section-heading">
-              <p class="section-kicker">团队执行</p>
-              <h2>分工</h2>
+              <p class="section-kicker">执行管理</p>
+              <h2>双 GitHub 看板</h2>
             </div>
             <div class="stack">
               <article class="person-card">
-                <h3>朱民峰</h3>
-                <p>稳定主线、控制平面、自动化脚本、KPI、项目推进</p>
+                <h3>任务看板</h3>
+                <p>同步 Notion Program Board 的未来两周任务，跟踪负责人、优先级、阶段、赛道、到期日和阻塞项。</p>
+                <p><a class="inline-link" href="https://github.com/users/77zmf/projects/1">打开任务看板</a></p>
               </article>
               <article class="person-card">
-                <h3>罗顺雄 / lsx</h3>
-                <p>地图点云资产、site proxy、corner case、现场问题复现</p>
-              </article>
-              <article class="person-card">
-                <h3>杨志鹏 / Zhipeng Yang</h3>
-                <p>UE5 远端实验线、感知 / E2E shadow、GPU 与试验链路</p>
+                <h3>场景看板</h3>
+                <p>同步 Scenario Backlog，公开展示 site proxy、回归场景、UE5 场景和 E2E 相关场景的节奏。</p>
+                <p><a class="inline-link" href="https://github.com/users/77zmf/projects/2">打开场景看板</a></p>
               </article>
             </div>
           </div>
           <div>
             <div class="section-heading">
-              <p class="section-kicker">管理入口</p>
-              <h2>今天的项目管理</h2>
+              <p class="section-kicker">详细入口</p>
+              <h2>项目书、计划与自动化</h2>
             </div>
             <div class="link-grid">
               <a class="link-card" href="https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f">
                 <span>项目书</span>
-                <small>完整方案、范围、KPI、风险</small>
-              </a>
-              <a class="link-card" href="https://www.notion.so/32cef7e6aaa98199b912f040068b57dd">
-                <span>项目总览与导航</span>
-                <small>先看项目定位和全部入口</small>
+                <small>方案、范围、KPI、风险和整体路线</small>
               </a>
               <a class="link-card" href="https://www.notion.so/32cef7e6aaa9815aa0cfdc6a155047ed">
-                <span>三个月执行计划</span>
-                <small>季度路线图和验收口径</small>
-              </a>
-              <a class="link-card" href="https://www.notion.so/32cef7e6aaa981d389d9cb9524af81c2">
-                <span>项目执行管理页</span>
-                <small>执行中枢</small>
-              </a>
-              <a class="link-card" href="https://www.notion.so/32cef7e6aaa981e2ae5bf83a85fa2588">
-                <span>Weekly Review</span>
-                <small>每周推进模板</small>
+                <span>季度计划</span>
+                <small>12 周路线与验收口径</small>
               </a>
               <a class="link-card" href="https://www.notion.so/dc730999bb7140338b871dd33dfbfeec">
                 <span>Program Board</span>
-                <small>任务、里程碑、风险</small>
+                <small>任务、里程碑、风险和两周排期</small>
+              </a>
+              <a class="link-card" href="https://www.notion.so/2fb616fb48d5429cbb01a7b6299b84e9">
+                <span>Scenario Backlog</span>
+                <small>场景优先级、来源、成功信号和排期</small>
+              </a>
+              <a class="link-card" href="./PROJECT_CYCLE_AND_FEASIBILITY.md">
+                <span>Project Cycle</span>
+                <small>仓库内 12 周周期与可行性说明</small>
+              </a>
+              <a class="link-card" href="./PROJECT_AUTOMATION.md">
+                <span>Automation</span>
+                <small>每日 digest、Secrets 和提醒机制</small>
               </a>
             </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <p class="section-kicker">自动管理</p>
+            <h2>项目自动化如何运行</h2>
+          </div>
+          <div class="grid two-up">
+            <article class="card">
+              <h3>每日 digest</h3>
+              <p>GitHub Actions 会在工作日早上生成任务和场景 digest，抓取 overdue、due soon、blocked、场景关注项和最新验证快照。</p>
+            </article>
+            <article class="card">
+              <h3>条件邮件提醒</h3>
+              <p>如果配置了 SMTP Secrets，就自动发送给团队；如果没有，则保留 digest artifact 和 workflow summary，先保证流程可验证。</p>
+            </article>
+            <article class="card">
+              <h3>管理规则</h3>
+              <p>P0 延期、阻塞项和新场景必须进入周会；Notion 保持详细计划，GitHub 保持公开执行镜像和自动提醒输入。</p>
+            </article>
+            <article class="card emphasis">
+              <h3>验证原则</h3>
+              <p>自动化优先服务稳定闭环和自动回归，不让 UE5 / E2E 预研反向拖慢主线交付。</p>
+            </article>
           </div>
         </section>
 
         <section class="panel">
           <div class="section-heading">
             <p class="section-kicker">算法路线</p>
-            <h2>未来端到端怎么做</h2>
+            <h2>未来怎么做端到端</h2>
           </div>
           <div class="grid two-up">
             <article class="card emphasis">
               <h3>推荐路线：BEV 基线 + VAD shadow</h3>
-              <p>当前不建议直接替换主感知和主控制。BEV 继续做主感知基线，VAD 并行运行，先做感知 + 规划一体化的 shadow 验证。</p>
+              <p>现有 BEV 感知继续作为主基线，VAD 先并行运行，先做感知与规划一体化的 shadow 评测，再进入固定路线受控闭环。</p>
             </article>
             <article class="card">
               <h3>推进顺序</h3>
-              <p>并行推理 -> 指标对比 -> 固定路线受控闭环 -> site proxy / corner case -> 后续微调与升级。</p>
+              <p>BEV 输出映射 -> shadow 指标 -> 一致性样例 -> fallback 策略 -> 受控闭环，不直接上端到端控制接管。</p>
             </article>
-          </div>
-          <div class="callout-row">
-            <a class="inline-link" href="https://www.notion.so/32cef7e6aaa981b3a90fec9ceed85e3a">未来端到端技术路线建议（优先 VAD）</a>
-            <a class="inline-link" href="https://www.notion.so/32cef7e6aaa9814f9eeffeac4cce97a0">BEV 感知与 VAD 端到端结合方案</a>
           </div>
         </section>
 
         <section class="panel">
           <div class="section-heading">
-            <p class="section-kicker">验收标准</p>
-            <h2>本季度怎么判断做成了</h2>
+            <p class="section-kicker">季度验收</p>
+            <h2>什么时候算做成</h2>
           </div>
           <div class="checklist">
-            <div class="check-item">至少 1 条稳定闭环链路可重复执行</div>
-            <div class="check-item">`bootstrap / up / run / batch / replay / report` 主链路可执行</div>
-            <div class="check-item">`gy_qyhx_gsh20260302` 形成标准资产束</div>
-            <div class="check-item">至少 1 个 `site proxy` 场景进入验证流程</div>
-            <div class="check-item">`BEV 基线 + VAD shadow` 路线形成可执行方案</div>
-            <div class="check-item">团队每周都有周推进、风险动作和新工件沉淀</div>
+            <div class="check-item">至少 1 条稳定闭环链路可重复执行并产出统一工件</div>
+            <div class="check-item">`bootstrap / up / run / batch / replay / report` 主链路可用</div>
+            <div class="check-item">`gy_qyhx_gsh20260302` 形成标准资产束并接入场景</div>
+            <div class="check-item">任务看板与场景看板都能支撑日常执行和提醒</div>
+            <div class="check-item">自动 digest 能生成 owner 维度的提醒信息</div>
+            <div class="check-item">`BEV + VAD shadow` 路线形成下一周期可执行入口</div>
           </div>
         </section>
       </main>
