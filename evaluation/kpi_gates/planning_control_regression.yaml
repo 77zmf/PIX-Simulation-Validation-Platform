@@ -1,0 +1,25 @@
+gate_id: planning_control_regression
+description: Primary gate for batch planning-control regression
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - control_stability_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.98
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.8
+  lateral_error_m:
+    op: "<="
+    value: 0.35
+  longitudinal_error_m:
+    op: "<="
+    value: 0.8
+  jerk_mps3:
+    op: "<="
+    value: 2.5

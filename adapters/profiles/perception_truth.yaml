@@ -1,0 +1,8 @@
+profile_id: perception_truth
+type: perception
+description: Simplified perception profile backed by CARLA ground truth
+inputs:
+  sensors: simulated_truth
+outputs:
+  detections: truth_objects
+  occupancy: truth_occupancy

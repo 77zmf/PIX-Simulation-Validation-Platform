@@ -1,0 +1,33 @@
+scenario_id: stable_l3_occluded_pedestrian
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  spawn_point: Town01/17
+goal:
+  route_id: Town01/occluded_crosswalk
+traffic_profile:
+  mode: stress
+  vehicles: 28
+  pedestrians: 18
+  scripted_agents:
+    - occluded_crosswalk_pedestrian
+weather_profile:
+  preset: HardRainSunset
+sensor_profile: production_perception
+algorithm_profile: planning_control_baseline
+seed: 909
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/occluded_pedestrian
+  carla_recorder:
+    enabled: true
+    path: carla/occluded_pedestrian.log
+kpi_gate: planning_control_regression
+labels:
+  - L3
+  - stress
+  - occlusion
+execution:
+  mode: external

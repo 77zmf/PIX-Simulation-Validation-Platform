@@ -1,0 +1,20 @@
+bundle_id: carla-town01
+site_id: carla-town01
+description: Built-in CARLA Town01 smoke and regression map bundle
+source:
+  type: built_in
+  provider: carla
+  version: 0.9.15
+maps:
+  lanelet2:
+    path: builtin://carla/Town01
+  projector:
+    path: builtin://carla/Town01/projector
+  pointcloud_dir:
+    path: builtin://carla/Town01/pointcloud
+metadata:
+  mode: built_in
+  tags:
+    - smoke
+    - regression
+    - carla

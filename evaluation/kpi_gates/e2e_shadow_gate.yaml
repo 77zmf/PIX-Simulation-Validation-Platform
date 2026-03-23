@@ -1,0 +1,18 @@
+gate_id: e2e_shadow_gate
+description: Shadow gate for UE5 or E2E experiments before online takeover
+failure_labels:
+  - shadow_divergence
+  - shadow_safety_violation
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  trajectory_divergence_m:
+    op: "<="
+    value: 0.75
+  min_ttc_sec:
+    op: ">="
+    value: 1.8

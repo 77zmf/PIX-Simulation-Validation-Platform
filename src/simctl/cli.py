@@ -1,0 +1,338 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+from .assets import asset_snapshot, load_asset_bundle
+from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, make_run_id, to_wsl_path, utc_now
+from .evaluation import evaluate_metrics, load_kpi_gate, synthetic_metrics
+from .reporting import aggregate_run_results, discover_run_results, load_run_result, write_report
+from .runtime import build_context, execute_plan, load_stack_profile, persist_plan, render_action
+from .scenarios import load_scenario
+
+
+def _repo_root(explicit: str | None) -> Path:
+    return Path(explicit).resolve() if explicit else find_repo_root()
+
+
+def _asset_root(repo_root: Path, explicit: str | None) -> Path:
+    return Path(explicit).resolve() if explicit else (repo_root / "artifacts" / "assets")
+
+
+def _print_json(payload: dict[str, Any] | list[Any]) -> None:
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+def handle_bootstrap(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    asset_root = _asset_root(repo_root, args.asset_root)
+    profile = load_stack_profile(args.stack, repo_root)
+    context = build_context(repo_root, None, None, asset_root, execute=args.execute)
+    plan = render_action(profile, "bootstrap", context)
+    if args.execute:
+        output_dir = ensure_dir(repo_root / "artifacts" / "bootstrap" / args.stack)
+        logs = execute_plan(plan, output_dir)
+        dump_json(output_dir / "bootstrap_logs.json", logs)
+    _print_json(plan)
+    return 0
+
+
+def _create_run_context(args: argparse.Namespace) -> tuple[Path, Path, Any, Any, Any, Path]:
+    repo_root = _repo_root(args.repo_root)
+    asset_root = _asset_root(repo_root, args.asset_root)
+    scenario = load_scenario(args.scenario, repo_root)
+    bundle = load_asset_bundle(scenario.asset_bundle, repo_root, asset_root)
+    gate = load_kpi_gate(scenario.kpi_gate, repo_root)
+    run_root = Path(args.run_root).resolve() if args.run_root else (repo_root / "runs")
+    run_dir = ensure_dir(run_root / make_run_id(scenario.scenario_id))
+    return repo_root, asset_root, scenario, bundle, gate, run_dir
+
+
+def _artifact_paths(run_dir: Path, recording: dict[str, Any]) -> dict[str, str]:
+    artifacts = {
+        "run_dir": str(run_dir),
+        "scenario_snapshot": str(run_dir / "scenario_snapshot.yaml"),
+        "asset_snapshot": str(run_dir / "asset_snapshot.json"),
+        "launch_plan": str(run_dir / "start_plan.json"),
+        "run_result": str(run_dir / "run_result.json"),
+        "report_dir": str(run_dir / "report"),
+    }
+    rosbag_cfg = recording.get("rosbag2", {})
+    if rosbag_cfg.get("enabled", False):
+        rosbag_rel = rosbag_cfg.get("path", "rosbags/latest")
+        artifacts["rosbag2"] = str(run_dir / Path(rosbag_rel))
+    carla_cfg = recording.get("carla_recorder", {})
+    if carla_cfg.get("enabled", False):
+        carla_rel = carla_cfg.get("path", "carla/latest.log")
+        artifacts["carla_recorder"] = str(run_dir / Path(carla_rel))
+    return artifacts
+
+
+def _scenario_snapshot(scenario: Any) -> dict[str, Any]:
+    return {
+        "scenario_id": scenario.scenario_id,
+        "stack": scenario.stack,
+        "map_id": scenario.map_id,
+        "asset_bundle": scenario.asset_bundle,
+        "ego_init": scenario.ego_init,
+        "goal": scenario.goal,
+        "traffic_profile": scenario.traffic_profile,
+        "weather_profile": scenario.weather_profile,
+        "sensor_profile": scenario.sensor_profile,
+        "algorithm_profile": scenario.algorithm_profile,
+        "seed": scenario.seed,
+        "recording": scenario.recording,
+        "kpi_gate": scenario.kpi_gate,
+        "labels": scenario.labels,
+        "execution": scenario.execution,
+        "scenario_path": str(scenario.scenario_path),
+    }
+
+
+def _build_run_result(
+    *,
+    scenario: Any,
+    profile: Any,
+    gate: Any,
+    run_dir: Path,
+    artifacts: dict[str, str],
+    metrics: dict[str, float],
+    gate_eval: dict[str, Any],
+    status: str,
+    logs: list[dict[str, Any]] | None,
+) -> dict[str, Any]:
+    return {
+        "run_id": run_dir.name,
+        "scenario_id": scenario.scenario_id,
+        "stack": scenario.stack,
+        "status": status,
+        "started_at": utc_now(),
+        "finished_at": utc_now(),
+        "software_versions": profile.software_versions,
+        "scenario_path": str(scenario.scenario_path),
+        "scenario_params": {
+            "map_id": scenario.map_id,
+            "asset_bundle": scenario.asset_bundle,
+            "ego_init": scenario.ego_init,
+            "goal": scenario.goal,
+            "traffic_profile": scenario.traffic_profile,
+            "weather_profile": scenario.weather_profile,
+            "sensor_profile": scenario.sensor_profile,
+            "algorithm_profile": scenario.algorithm_profile,
+            "seed": scenario.seed,
+            "labels": scenario.labels,
+        },
+        "kpis": metrics,
+        "gate": {"gate_id": gate.gate_id, **gate_eval},
+        "failure_labels": gate_eval.get("failure_labels", []),
+        "artifacts": artifacts,
+        "replay": {
+            "stack": scenario.stack,
+            "rosbag2": artifacts.get("rosbag2"),
+            "carla_recorder": artifacts.get("carla_recorder"),
+        },
+        "execution_logs": logs or [],
+        "notes": [
+            f"execution_mode={scenario.execution.get('mode', 'external')}",
+            f"recording_enabled={bool(artifacts.get('rosbag2') or artifacts.get('carla_recorder'))}",
+        ],
+    }
+
+
+def handle_up_or_down(args: argparse.Namespace, action: str) -> int:
+    repo_root = _repo_root(args.repo_root)
+    asset_root = _asset_root(repo_root, args.asset_root)
+    scenario = load_scenario(args.scenario, repo_root) if args.scenario else None
+    asset_bundle_id = scenario.asset_bundle if scenario else ""
+    profile = load_stack_profile(args.stack, repo_root)
+    output_dir = ensure_dir(repo_root / "artifacts" / "plans" / args.stack)
+    context = build_context(repo_root, output_dir, scenario, asset_root, asset_bundle_id=asset_bundle_id, execute=args.execute)
+    plan = render_action(profile, "start" if action == "up" else "stop", context)
+    plan_path = persist_plan(output_dir, action, plan)
+    if args.execute:
+        logs = execute_plan(plan, output_dir)
+        dump_json(output_dir / f"{action}_logs.json", logs)
+    print(str(plan_path))
+    return 0
+
+
+def handle_run(args: argparse.Namespace) -> int:
+    repo_root, asset_root, scenario, bundle, gate, run_dir = _create_run_context(args)
+    profile = load_stack_profile(scenario.stack, repo_root)
+    context = build_context(repo_root, run_dir, scenario, asset_root, asset_bundle_id=bundle.bundle_id, execute=args.execute)
+    plan = render_action(profile, "start", context)
+    persist_plan(run_dir, "start", plan)
+    dump_yaml(run_dir / "scenario_snapshot.yaml", {"scenario": _scenario_snapshot(scenario)})
+    dump_json(run_dir / "asset_snapshot.json", asset_snapshot(bundle))
+
+    logs: list[dict[str, Any]] = []
+    mode = str(scenario.execution.get("mode", "external"))
+    if args.execute and mode != "stub":
+        logs = execute_plan(plan, run_dir)
+        status = "launch_submitted"
+        metrics: dict[str, float] = {}
+        gate_eval = {
+            "passed": False,
+            "violations": [{"metric": "execution", "reason": "external_execution_requires_runtime"}],
+            "failure_labels": [],
+        }
+    else:
+        outcome = args.mock_result or scenario.execution.get("stub_outcome")
+        if mode == "stub" and outcome is None:
+            outcome = "passed"
+        if outcome:
+            metrics = synthetic_metrics(gate, outcome)
+            gate_eval = evaluate_metrics(metrics, gate)
+            status = "passed" if gate_eval["passed"] else "failed"
+        else:
+            metrics = {}
+            gate_eval = {
+                "passed": False,
+                "violations": [{"metric": "execution", "reason": "planned_only"}],
+                "failure_labels": [],
+            }
+            status = "planned"
+
+    artifacts = _artifact_paths(run_dir, scenario.recording)
+    result = _build_run_result(
+        scenario=scenario,
+        profile=profile,
+        gate=gate,
+        run_dir=run_dir,
+        artifacts=artifacts,
+        metrics=metrics,
+        gate_eval=gate_eval,
+        status=status,
+        logs=logs,
+    )
+    dump_json(run_dir / "run_result.json", result)
+    _print_json(result)
+    return 0
+
+
+def handle_batch(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    run_root = Path(args.run_root).resolve() if args.run_root else (repo_root / "runs")
+    scenario_paths = [Path(path) for path in args.scenarios]
+    if args.glob:
+        scenario_paths.extend(sorted(repo_root.glob(args.glob)))
+    if not scenario_paths:
+        raise SystemExit("batch requires at least one scenario or --glob")
+
+    batch_records = []
+    for scenario_path in scenario_paths:
+        run_args = argparse.Namespace(
+            repo_root=str(repo_root),
+            asset_root=args.asset_root,
+            scenario=str(scenario_path),
+            run_root=str(run_root),
+            execute=args.execute,
+            mock_result=args.mock_result,
+        )
+        handle_run(run_args)
+        latest_run = sorted(run_root.iterdir())[-1]
+        batch_records.append({"scenario": str(scenario_path), "run_result": str(latest_run / "run_result.json")})
+
+    batch_index = {"generated_at": utc_now(), "records": batch_records}
+    batch_dir = ensure_dir(run_root / make_run_id("batch"))
+    dump_json(batch_dir / "batch_index.json", batch_index)
+    print(str(batch_dir / "batch_index.json"))
+    return 0
+
+
+def handle_replay(args: argparse.Namespace) -> int:
+    run_result_path = Path(args.run_result).resolve()
+    result = load_run_result(run_result_path)
+    repo_root = _repo_root(args.repo_root)
+    asset_root = _asset_root(repo_root, args.asset_root)
+    profile = load_stack_profile(result["stack"], repo_root)
+    fake_scenario = type(
+        "ReplayScenario",
+        (),
+        {"scenario_path": Path(result["scenario_path"]), "scenario_id": result["scenario_id"]},
+    )()
+    context = build_context(repo_root, Path(result["artifacts"]["run_dir"]), fake_scenario, asset_root, execute=False)
+    context.update(
+        {
+            "rosbag_path_wsl": to_wsl_path(result["artifacts"]["rosbag2"]) if result["artifacts"].get("rosbag2") else "",
+            "carla_recorder_path": result["artifacts"].get("carla_recorder", ""),
+        }
+    )
+    plan = render_action(profile, "replay", context)
+    _print_json(plan)
+    return 0
+
+
+def handle_report(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    run_root = Path(args.run_root).resolve() if args.run_root else (repo_root / "runs")
+    if args.batch_index:
+        batch = json.loads(Path(args.batch_index).read_text(encoding="utf-8"))
+        run_result_paths = [Path(item["run_result"]).resolve() for item in batch["records"]]
+    else:
+        run_result_paths = discover_run_results(run_root)
+    results = [load_run_result(path) for path in run_result_paths]
+    summary = aggregate_run_results(results)
+    output_dir = Path(args.output_dir).resolve() if args.output_dir else (run_root / "report")
+    outputs = write_report(output_dir, summary)
+    _print_json(outputs)
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="simctl", description="Simulation control-plane CLI")
+    parser.add_argument("--repo-root", help="Override repository root")
+    parser.add_argument("--asset-root", help="Override extracted asset root")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    bootstrap = subparsers.add_parser("bootstrap", help="Prepare host, WSL, or remote nodes")
+    bootstrap.add_argument("--stack", choices=["stable", "ue5"], required=True)
+    bootstrap.add_argument("--execute", action="store_true")
+    bootstrap.set_defaults(func=handle_bootstrap)
+
+    up = subparsers.add_parser("up", help="Render or execute stack startup plan")
+    up.add_argument("--stack", choices=["stable", "ue5"], required=True)
+    up.add_argument("--scenario")
+    up.add_argument("--execute", action="store_true")
+    up.set_defaults(func=lambda args: handle_up_or_down(args, "up"))
+
+    down = subparsers.add_parser("down", help="Render or execute stack shutdown plan")
+    down.add_argument("--stack", choices=["stable", "ue5"], required=True)
+    down.add_argument("--scenario")
+    down.add_argument("--execute", action="store_true")
+    down.set_defaults(func=lambda args: handle_up_or_down(args, "down"))
+
+    run = subparsers.add_parser("run", help="Create one run directory and run_result.json")
+    run.add_argument("--scenario", required=True)
+    run.add_argument("--run-root")
+    run.add_argument("--execute", action="store_true")
+    run.add_argument("--mock-result", choices=["passed", "failed"])
+    run.set_defaults(func=handle_run)
+
+    batch = subparsers.add_parser("batch", help="Run a scenario list or glob")
+    batch.add_argument("scenarios", nargs="*")
+    batch.add_argument("--glob")
+    batch.add_argument("--run-root")
+    batch.add_argument("--execute", action="store_true")
+    batch.add_argument("--mock-result", choices=["passed", "failed"])
+    batch.set_defaults(func=handle_batch)
+
+    replay = subparsers.add_parser("replay", help="Render replay commands for one run_result.json")
+    replay.add_argument("--run-result", required=True)
+    replay.set_defaults(func=handle_replay)
+
+    report = subparsers.add_parser("report", help="Aggregate run results into Markdown/HTML")
+    report.add_argument("--run-root")
+    report.add_argument("--batch-index")
+    report.add_argument("--output-dir")
+    report.set_defaults(func=handle_report)
+
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    return args.func(args)

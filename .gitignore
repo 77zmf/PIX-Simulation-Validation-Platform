@@ -1,1 +1,12 @@
 gy_qyhx_gsh20260302_map.zip
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.egg-info/
+.coverage
+.pytest_cache/
+runs/
+artifacts/
+reports/

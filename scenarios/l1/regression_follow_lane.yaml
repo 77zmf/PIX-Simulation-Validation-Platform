@@ -1,0 +1,30 @@
+scenario_id: stable_l1_follow_lane
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  spawn_point: Town01/5
+goal:
+  route_id: Town01/follow_lane_loop
+traffic_profile:
+  mode: mixed_regression
+  vehicles: 20
+  pedestrians: 10
+weather_profile:
+  preset: WetCloudyNoon
+sensor_profile: ground_truth_control_baseline
+algorithm_profile: planning_control_baseline
+seed: 101
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/follow_lane
+  carla_recorder:
+    enabled: true
+    path: carla/follow_lane.log
+kpi_gate: planning_control_regression
+labels:
+  - L1
+  - regression
+execution:
+  mode: external

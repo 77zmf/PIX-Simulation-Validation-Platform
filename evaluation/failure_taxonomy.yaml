@@ -1,0 +1,10 @@
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - control_stability_failure
+  - localization_drop
+  - map_projection_mismatch
+  - traffic_negotiation_failure
+  - occlusion_failure
+  - shadow_divergence
+  - shadow_safety_violation

@@ -1,0 +1,29 @@
+profiles:
+  ground_truth_control_baseline:
+    description: CARLA truth or simplified perception for planning-control bring-up
+    sensors:
+      - front_camera
+      - imu
+      - gnss
+      - lidar
+    truth_mode: enabled
+  production_perception:
+    description: Production-like perception wiring for real stack validation
+    sensors:
+      - front_camera
+      - surround_cameras
+      - imu
+      - gnss
+      - lidar
+      - radar
+    truth_mode: disabled
+  ue5_high_fidelity:
+    description: Remote UE5 visual stack for perception and E2E experiments
+    sensors:
+      - cinematic_front_camera
+      - wide_front_camera
+      - surround_cameras
+      - imu
+      - gnss
+      - lidar
+    truth_mode: shadow

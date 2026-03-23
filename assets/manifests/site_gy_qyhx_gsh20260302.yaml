@@ -1,0 +1,34 @@
+bundle_id: site_gy_qyhx_gsh20260302
+site_id: gy_qyhx_gsh
+description: Site proxy asset bundle for the March 2026 lanelet2 and pointcloud capture
+source:
+  type: local_archive
+  archive_path: ${REPO_ROOT}/gy_qyhx_gsh20260302_map.zip
+  preferred_extract_dir: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260302
+  archive_members:
+    - gy_qyhx_gsh20260302_map/lanelet2_map.osm
+    - gy_qyhx_gsh20260302_map/map_projector_info.yaml
+    - gy_qyhx_gsh20260302_map/pointcloud_map.pcd/
+maps:
+  lanelet2:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260302/lanelet2_map.osm
+    fallback_repo_path: ${REPO_ROOT}/lanelet2_map.osm
+  projector:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260302/map_projector_info.yaml
+  pointcloud_dir:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260302/pointcloud_map.pcd
+metadata:
+  pointcloud_tiles: 3215
+  map_origin:
+    latitude: 26.648465
+    longitude: 106.620033
+    altitude: 1263.969482005
+  available_lanelet_variants:
+    - lanelet2_map.osm
+    - lanelet2_map20260314.osm
+    - lanelet2_map20260316.osm
+  tags:
+    - site_proxy
+    - lanelet2
+    - pointcloud
+    - autoware

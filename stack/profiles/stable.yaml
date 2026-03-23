@@ -1,0 +1,41 @@
+stack_id: stable
+description: Stable validation stack for Autoware Universe main + CARLA 0.9.15
+software_versions:
+  autoware_universe: main
+  ros2: humble
+  carla: 0.9.15
+  unreal_engine: 4.26
+bootstrap:
+  - name: prepare-windows-host
+    runner: powershell
+    command: "& '{repo_root}\\infra\\windows\\bootstrap_host.ps1' -WorkspaceRoot '{repo_root}' -AssetRoot '{asset_root}' {execute_flag}"
+  - name: prepare-wsl-ubuntu
+    runner: powershell
+    command: "wsl.exe bash -lc 'cd {repo_root_wsl} && ./infra/wsl/bootstrap_ubuntu.sh {execute_flag}'"
+start:
+  - name: start-carla-server
+    runner: powershell
+    background: true
+    command: "& '{repo_root}\\stack\\stable\\start_carla_windows.ps1' -RunDir '{run_dir}' -AssetRoot '{asset_root}' {execute_flag}"
+  - name: start-autoware-bridge
+    runner: powershell
+    background: true
+    command: "wsl.exe bash -lc 'cd {repo_root_wsl} && ./stack/stable/start_bridge_wsl.sh --scenario {scenario_path_wsl} --run-dir {run_dir_wsl} --asset-bundle {asset_bundle_id} {execute_flag}'"
+  - name: start-autoware-stack
+    runner: powershell
+    background: true
+    command: "wsl.exe bash -lc 'cd {repo_root_wsl} && ./stack/stable/start_autoware_wsl.sh --scenario {scenario_path_wsl} --run-dir {run_dir_wsl} --asset-bundle {asset_bundle_id} {execute_flag}'"
+stop:
+  - name: stop-autoware-stack
+    runner: powershell
+    command: "wsl.exe bash -lc 'cd {repo_root_wsl} && ./stack/stable/stop_stable_stack.sh {execute_flag}'"
+  - name: stop-carla-server
+    runner: powershell
+    command: "& '{repo_root}\\stack\\stable\\stop_carla_windows.ps1' {execute_flag}"
+replay:
+  - name: replay-rosbag
+    runner: powershell
+    command: "wsl.exe bash -lc 'source /opt/ros/humble/setup.bash && ros2 bag play {rosbag_path_wsl} --clock'"
+  - name: replay-carla
+    runner: powershell
+    command: "& '{repo_root}\\stack\\stable\\replay_carla_windows.ps1' -RecorderPath '{carla_recorder_path}'"

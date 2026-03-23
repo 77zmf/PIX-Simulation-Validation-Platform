@@ -1,0 +1,11 @@
+profile_id: e2e_shadow
+type: e2e
+description: Shadow-only end-to-end planner for offline and closed-loop comparison
+inputs:
+  sensors: production_or_ue5_sensor_profile
+outputs:
+  trajectory: shadow_trajectory
+  control: shadow_control
+constraints:
+  shadow_only: true
+  requires_gate_pass_before_online: true

@@ -1,0 +1,14 @@
+gate_id: planning_control_smoke
+description: Minimal gate for stable stack smoke tests
+failure_labels:
+  - planning_control_gate_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.5

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Autoware + CARLA 项目管理总览</title>
+    <meta
+      name="description"
+      content="Autoware Universe + CARLA 仿真验证平台项目总览，包含季度目标、团队分工、端到端路线与项目入口。"
+    >
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    >
+    <link rel="stylesheet" href="./site.css">
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Autoware + CARLA Validation Platform</p>
+          <h1>朱民峰团队项目管理总览</h1>
+          <p class="lede">
+            这不是单独搭一个仿真环境，而是建设一套面向规划控制、感知和新算法验证的自动驾驶仿真底座。
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/77zmf/zmf_ws">查看仓库</a>
+            <a class="button secondary" href="https://www.notion.so/32cef7e6aaa98199b912f040068b57dd">打开 Notion 总览</a>
+          </div>
+        </div>
+        <div class="hero-card">
+          <p class="hero-card-label">当前主线</p>
+          <ul>
+            <li><strong>Stable：</strong> Autoware Universe main + ROS 2 Humble + CARLA 0.9.15</li>
+            <li><strong>UE5：</strong> 远端 GPU 高保真实验线</li>
+            <li><strong>E2E：</strong> BEV 基线 + VAD shadow</li>
+          </ul>
+        </div>
+      </header>
+
+      <main>
+        <section class="panel">
+          <div class="section-heading">
+            <p class="section-kicker">你现在要做的事</p>
+            <h2>项目目标</h2>
+          </div>
+          <div class="grid two-up">
+            <article class="card">
+              <h3>稳定闭环</h3>
+              <p>建立稳定的 Autoware + CARLA 主线，优先服务规划控制算法验证。</p>
+            </article>
+            <article class="card">
+              <h3>自动化验证</h3>
+              <p>形成一键启动、批量回归、回放、报告和 KPI 门禁能力。</p>
+            </article>
+            <article class="card">
+              <h3>site proxy 与 corner case</h3>
+              <p>把现场地图、点云和问题案例转成可复用场景模板。</p>
+            </article>
+            <article class="card">
+              <h3>UE5 / E2E 预备能力</h3>
+              <p>为下一周期的高保真视觉与端到端验证提前准备实验路径。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <p class="section-kicker">90 天路线</p>
+            <h2>三个月怎么推进</h2>
+          </div>
+          <div class="timeline">
+            <article class="timeline-item">
+              <span class="timeline-badge">01</span>
+              <div>
+                <h3>第 1-4 周：环境与最小闭环</h3>
+                <p>准备 Windows、WSL2、Ubuntu 22.04、ROS 2 Humble、Autoware 工作区，并启动 CARLA 0.9.15。</p>
+              </div>
+            </article>
+            <article class="timeline-item">
+              <span class="timeline-badge">02</span>
+              <div>
+                <h3>第 5-8 周：自动化验证</h3>
+                <p>打通 autoware_carla_interface，固化 L0/L1 回归，统一 run_result、回放和报告。</p>
+              </div>
+            </article>
+            <article class="timeline-item">
+              <span class="timeline-badge">03</span>
+              <div>
+                <h3>第 9-12 周：site proxy 与 corner case</h3>
+                <p>标准化现场资产，沉淀场景模板，并完成高价值 corner case 梳理。</p>
+              </div>
+            </article>
+            <article class="timeline-item accent">
+              <span class="timeline-badge">P</span>
+              <div>
+                <h3>并行准备：UE5 与端到端</h3>
+                <p>明确远端 GPU、建立 shadow 指标和试验入口，不与稳定主线抢资源。</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel split-panel">
+          <div>
+            <div class="section-heading">
+              <p class="section-kicker">团队执行</p>
+              <h2>分工</h2>
+            </div>
+            <div class="stack">
+              <article class="person-card">
+                <h3>朱民峰</h3>
+                <p>稳定主线、控制平面、自动化脚本、KPI、项目推进</p>
+              </article>
+              <article class="person-card">
+                <h3>罗顺雄 / lsx</h3>
+                <p>地图点云资产、site proxy、corner case、现场问题复现</p>
+              </article>
+              <article class="person-card">
+                <h3>杨志鹏 / Zhipeng Yang</h3>
+                <p>UE5 远端实验线、感知 / E2E shadow、GPU 与试验链路</p>
+              </article>
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="section-kicker">项目入口</p>
+              <h2>今天的项目管理</h2>
+            </div>
+            <div class="link-grid">
+              <a class="link-card" href="https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f">
+                <span>项目书</span>
+                <small>完整方案、范围、KPI、风险</small>
+              </a>
+              <a class="link-card" href="https://www.notion.so/32cef7e6aaa98199b912f040068b57dd">
+                <span>项目总览与导航</span>
+                <small>1 分钟看懂项目全貌</small>
+              </a>
+              <a class="link-card" href="https://www.notion.so/32cef7e6aaa9815aa0cfdc6a155047ed">
+                <span>三个月执行计划</span>
+                <small>季度路线图和验收口径</small>
+              </a>
+              <a class="link-card" href="https://www.notion.so/32cef7e6aaa981d389d9cb9524af81c2">
+                <span>项目执行管理页</span>
+                <small>执行中枢</small>
+              </a>
+              <a class="link-card" href="https://www.notion.so/32cef7e6aaa981e2ae5bf83a85fa2588">
+                <span>Weekly Review</span>
+                <small>每周推进模板</small>
+              </a>
+              <a class="link-card" href="https://www.notion.so/dc730999bb7140338b871dd33dfbfeec">
+                <span>Program Board</span>
+                <small>任务、里程碑、风险</small>
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <p class="section-kicker">未来算法</p>
+            <h2>端到端怎么做</h2>
+          </div>
+          <div class="grid two-up">
+            <article class="card emphasis">
+              <h3>推荐路线：BEV 基线 + VAD shadow</h3>
+              <p>当前不建议直接替换主感知和主控制。BEV 继续做主感知基线，VAD 并行运行，先做感知 + 规划一体化的 shadow 验证。</p>
+            </article>
+            <article class="card">
+              <h3>落地顺序</h3>
+              <p>并行推理 -> 指标对比 -> 固定路线受控闭环 -> site proxy / corner case -> 后续微调。</p>
+            </article>
+          </div>
+          <div class="callout-row">
+            <a class="inline-link" href="https://www.notion.so/32cef7e6aaa981b3a90fec9ceed85e3a">未来端到端技术路线建议（优先 VAD）</a>
+            <a class="inline-link" href="https://www.notion.so/32cef7e6aaa9814f9eeffeac4cce97a0">BEV 感知与 VAD 端到端结合方案</a>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <p class="section-kicker">季度门槛</p>
+            <h2>验收口径</h2>
+          </div>
+          <div class="checklist">
+            <div class="check-item">至少 1 条稳定闭环链路可重复执行</div>
+            <div class="check-item">`bootstrap / up / run / batch / replay / report` 主链路可执行</div>
+            <div class="check-item">`gy_qyhx_gsh20260302` 形成标准资产束</div>
+            <div class="check-item">至少 1 个 `site proxy` 场景进入验证流程</div>
+            <div class="check-item">`BEV 基线 + VAD shadow` 路线形成可执行方案</div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

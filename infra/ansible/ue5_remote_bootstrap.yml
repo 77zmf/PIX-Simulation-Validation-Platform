@@ -1,0 +1,30 @@
+- name: Prepare UE5 remote node
+  hosts: ue5_remote
+  become: true
+  vars:
+    apt_packages:
+      - build-essential
+      - clang
+      - cmake
+      - curl
+      - git
+      - jq
+      - python3-pip
+      - rsync
+      - unzip
+  tasks:
+    - name: Install base packages
+      ansible.builtin.apt:
+        update_cache: true
+        name: "{{ apt_packages }}"
+        state: present
+    - name: Ensure CARLA workspace exists
+      ansible.builtin.file:
+        path: /opt/carla
+        state: directory
+        mode: "0755"
+    - name: Ensure experiment artifact root exists
+      ansible.builtin.file:
+        path: /srv/simctl
+        state: directory
+        mode: "0755"

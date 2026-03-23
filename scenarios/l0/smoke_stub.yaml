@@ -1,0 +1,31 @@
+scenario_id: stable_l0_smoke_stub
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  spawn_point: Town01/1
+goal:
+  route_id: Town01/simple_loop
+traffic_profile:
+  mode: background_light
+  vehicles: 8
+  pedestrians: 4
+weather_profile:
+  preset: ClearNoon
+sensor_profile: ground_truth_control_baseline
+algorithm_profile: planning_control_baseline
+seed: 7
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/smoke
+  carla_recorder:
+    enabled: true
+    path: carla/smoke.log
+kpi_gate: planning_control_smoke
+labels:
+  - L0
+  - smoke
+execution:
+  mode: stub
+  stub_outcome: passed

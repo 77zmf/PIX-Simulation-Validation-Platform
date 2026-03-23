@@ -1,0 +1,10 @@
+profile_id: planning_control_baseline
+type: planning_control
+description: Baseline Autoware planning and control stack
+inputs:
+  localization: tier4_localization_stack
+  map: lanelet2
+  obstacles: carla_truth_or_perception
+outputs:
+  trajectory: autoware_planning
+  control: autoware_control

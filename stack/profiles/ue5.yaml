@@ -1,0 +1,23 @@
+stack_id: ue5
+description: Remote GPU validation stack for CARLA 0.10.x / UE5
+software_versions:
+  autoware_universe: n/a
+  ros2: humble
+  carla: 0.10.x
+  unreal_engine: 5.5
+bootstrap:
+  - name: prepare-remote-ue5-host
+    runner: powershell
+    command: "& '{repo_root}\\stack\\ue5\\submit_remote_job.ps1' -Mode bootstrap -RepoRoot '{repo_root}' {execute_flag}"
+start:
+  - name: submit-ue5-job
+    runner: powershell
+    command: "& '{repo_root}\\stack\\ue5\\submit_remote_job.ps1' -Mode run -RepoRoot '{repo_root}' -ScenarioPath '{scenario_path}' -RunDir '{run_dir}' -AssetBundle '{asset_bundle_id}' {execute_flag}"
+stop:
+  - name: stop-ue5-job
+    runner: powershell
+    command: "& '{repo_root}\\stack\\ue5\\submit_remote_job.ps1' -Mode stop -RepoRoot '{repo_root}' -RunDir '{run_dir}' {execute_flag}"
+replay:
+  - name: pull-ue5-artifacts
+    runner: powershell
+    command: "& '{repo_root}\\stack\\ue5\\submit_remote_job.ps1' -Mode replay -RepoRoot '{repo_root}' -RunDir '{run_dir}'"

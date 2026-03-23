@@ -1,0 +1,39 @@
+scenario_id: stable_l2_site_proxy_blind_curve
+stack: stable
+map_id: gy_qyhx_gsh_site_proxy
+asset_bundle: site_gy_qyhx_gsh20260302
+ego_init:
+  local_pose:
+    x: 1048.0
+    y: -2888.0
+    yaw_deg: 125.0
+goal:
+  local_pose:
+    x: 920.0
+    y: -2841.0
+    yaw_deg: 109.0
+traffic_profile:
+  mode: site_proxy
+  vehicles: 6
+  pedestrians: 0
+  scripted_agents:
+    - slow_oncoming_van
+weather_profile:
+  preset: ClearSunset
+sensor_profile: production_perception
+algorithm_profile: planning_control_baseline
+seed: 20260302
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/site_proxy_blind_curve
+  carla_recorder:
+    enabled: true
+    path: carla/site_proxy_blind_curve.log
+kpi_gate: planning_control_regression
+labels:
+  - L2
+  - site_proxy
+  - blind_curve
+execution:
+  mode: external

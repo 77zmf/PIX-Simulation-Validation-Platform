@@ -1,0 +1,38 @@
+scenario_id: ue5_small_scene_e2e_shadow
+stack: ue5
+map_id: ue5_small_corner_case
+asset_bundle: site_gy_qyhx_gsh20260302
+ego_init:
+  local_pose:
+    x: 1036.8
+    y: -2877.8
+    yaw_deg: 124.0
+goal:
+  local_pose:
+    x: 872.1
+    y: -2823.4
+    yaw_deg: 100.0
+traffic_profile:
+  mode: ue5_corner_case
+  vehicles: 4
+  pedestrians: 6
+  scripted_agents:
+    - occluded_non_motor
+weather_profile:
+  preset: ClearNoon
+sensor_profile: ue5_high_fidelity
+algorithm_profile: e2e_shadow
+seed: 55
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/e2e_shadow
+  carla_recorder:
+    enabled: false
+kpi_gate: e2e_shadow_gate
+labels:
+  - ue5
+  - e2e
+  - shadow
+execution:
+  mode: external
