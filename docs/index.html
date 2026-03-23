@@ -30,6 +30,7 @@
             <a class="button primary" href="https://github.com/77zmf/zmf_ws">GitHub 仓库</a>
             <a class="button secondary" href="https://github.com/users/77zmf/projects/1">任务看板</a>
             <a class="button secondary" href="https://github.com/users/77zmf/projects/2">场景看板</a>
+            <a class="button secondary" href="https://github.com/77zmf/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest">Digest Inbox</a>
             <a class="button secondary" href="https://www.notion.so/32cef7e6aaa98199b912f040068b57dd">Notion 总览</a>
           </div>
         </div>
@@ -206,6 +207,10 @@
             <article class="card">
               <h3>条件邮件提醒</h3>
               <p>如果配置了 SMTP Secrets，就自动发送给团队；如果没有，则保留 digest artifact 和 workflow summary，先保证流程可验证。</p>
+            </article>
+            <article class="card">
+              <h3>GitHub Digest Inbox</h3>
+              <p>即使暂时没有 SMTP，也会自动创建或更新仓库里的 digest issue，作为团队的公开提醒入口。</p>
             </article>
             <article class="card">
               <h3>管理规则</h3>

@@ -48,6 +48,7 @@ Outputs:
 - `digest.html`
 - `digest_summary.json`
 - GitHub Actions job summary
+- one auto-maintained GitHub digest issue in the repo
 - email delivery if SMTP settings are present
 
 ## Required Secrets For Email Delivery
@@ -83,6 +84,12 @@ The digest currently highlights:
 - scenarios due within 3 days
 - owner-specific action lists
 - the latest validation snapshot, when local report data exists
+
+When SMTP secrets are not configured, the workflow still stays useful because it:
+
+- uploads the digest as an artifact
+- writes the digest to the workflow summary
+- creates or updates a GitHub issue labeled `project-digest`
 
 ## Recommended Operating Model
 

@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,6 +48,16 @@ jobs:
         with:
           name: project-digest
           path: automation_outputs/project_digest
+
+      - name: Publish digest issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python tools/publish_digest_issue.py \
+            --repo 77zmf/zmf_ws \
+            --digest automation_outputs/project_digest/digest.md \
+            --summary automation_outputs/project_digest/digest_summary.json
 
       - name: Publish step summary
         run: cat automation_outputs/project_digest/digest.md >> "$GITHUB_STEP_SUMMARY"

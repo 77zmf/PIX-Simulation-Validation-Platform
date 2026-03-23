@@ -23,6 +23,7 @@ The current three-month delivery is organized around four priorities:
 - Repository: [77zmf/zmf_ws](https://github.com/77zmf/zmf_ws)
 - GitHub Project: [Task Board](https://github.com/users/77zmf/projects/1)
 - GitHub Scenario Project: [Scenario Board](https://github.com/users/77zmf/projects/2)
+- GitHub Digest Inbox: [project-digest issues](https://github.com/77zmf/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
 - GitHub Pages: [77zmf.github.io/zmf_ws](https://77zmf.github.io/zmf_ws/)
 - Notion project book: [Project Book](https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f)
 - Notion execution board: [Program Board](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec)
