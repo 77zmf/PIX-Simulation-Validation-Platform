@@ -1,17 +1,17 @@
 # 项目管理总览
 
-## 1. 项目到底要做什么
+## 1. 这个项目到底要做什么
 
-这个项目不是单独搭一个 `Autoware` 或 `CARLA` 环境，而是建设一套自动驾驶仿真验证底座，核心目标有四个：
+这个项目不是单独搭一套 `Autoware` 或 `CARLA` 环境，而是建设一套面向自动驾驶研发的仿真验证底座。当前目标聚焦 4 件事：
 
 - 打通 `Autoware Universe main + ROS 2 Humble + CARLA 0.9.15` 的稳定闭环
 - 固化自动化验证、回归、回放、KPI 门禁和报告
 - 复用现场地图、点云和问题案例，沉淀 `site proxy` 与 `corner case`
-- 为未来 `UE5 / E2E` 实验线准备入口，但不影响当前稳定主线
+- 为未来 `UE5 / E2E` 实验线准备入口，但不破坏当前稳定主线
 
 ## 2. 当前完整项目周期
 
-当前项目周期按 12 周推进：
+当前项目按 12 周推进：
 
 ### Weeks 1-2
 
@@ -35,7 +35,7 @@
 
 - 标准化 `gy_qyhx_gsh20260302` 资产束
 - 整理地图、点云、rosbag、案例索引
-- 完成 Top 5 corner case 初版梳理
+- 完成 Top 5 corner case 首版梳理
 
 ### Weeks 9-10
 
@@ -46,7 +46,7 @@
 
 - 收口季度验收项
 - 复盘阻塞项和风险
-- 为下一周期的 UE5 / E2E 做好宿主、指标和入口准备
+- 为下一周期的 `UE5 / E2E` 做好宿主、指标和入口准备
 
 ## 3. 可行性判断
 
@@ -74,7 +74,7 @@
 
 ### 稳定主线
 
-- Windows 主机负责 CARLA 图形和主机编排
+- Windows 主机负责 CARLA 图形和宿主编排
 - WSL2 Ubuntu 22.04 负责 Autoware、ROS 2 和桥接
 - `simctl` 统一负责 `bootstrap / up / run / batch / replay / report`
 
@@ -120,8 +120,8 @@
 - GitHub 双看板作为公开执行镜像
 - `simctl digest` 每日汇总任务、场景、阻塞项和验证快照
 - GitHub Actions 在工作日自动运行 digest
-- 如果配置了 SMTP Secrets，则自动发邮件提醒团队
-- 如果没有配置邮件，则至少保留 artifact 和 workflow summary
+- 如已配置 SMTP Secrets，则自动发邮件提醒团队
+- 如未配置邮件，则保留 artifact、workflow summary 和 digest issue
 
 ## 7. 当前团队分工
 

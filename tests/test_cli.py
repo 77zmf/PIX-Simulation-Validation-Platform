@@ -78,6 +78,32 @@ class CliTests(unittest.TestCase):
             self.assertTrue((report_dir / "report.md").exists())
             self.assertTrue((report_dir / "report.html").exists())
 
+    def test_batch_ignores_existing_report_directory_when_indexing_results(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            (Path(tempdir) / "report").mkdir()
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "batch",
+                        "--glob",
+                        "scenarios/l1/*.yaml",
+                        "--run-root",
+                        tempdir,
+                        "--mock-result",
+                        "passed",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            batch_dirs = sorted(path for path in Path(tempdir).iterdir() if path.is_dir() and "__batch" in path.name)
+            self.assertEqual(len(batch_dirs), 1)
+            batch_index = json.loads((batch_dirs[0] / "batch_index.json").read_text(encoding="utf-8"))
+            for record in batch_index["records"]:
+                self.assertTrue(Path(record["run_result"]).exists())
+                self.assertEqual(Path(record["run_result"]).name, "run_result.json")
+
     def test_digest_from_fixture_json(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             stream = io.StringIO()

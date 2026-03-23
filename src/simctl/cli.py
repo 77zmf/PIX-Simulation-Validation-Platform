@@ -235,6 +235,7 @@ def handle_batch(args: argparse.Namespace) -> int:
 
     batch_records = []
     for scenario_path in scenario_paths:
+        before = set(discover_run_results(run_root)) if run_root.exists() else set()
         run_args = argparse.Namespace(
             repo_root=str(repo_root),
             asset_root=args.asset_root,
@@ -244,8 +245,11 @@ def handle_batch(args: argparse.Namespace) -> int:
             mock_result=args.mock_result,
         )
         handle_run(run_args)
-        latest_run = sorted(run_root.iterdir())[-1]
-        batch_records.append({"scenario": str(scenario_path), "run_result": str(latest_run / "run_result.json")})
+        after = set(discover_run_results(run_root))
+        new_results = sorted(after - before)
+        if not new_results:
+            raise RuntimeError(f"Unable to identify the run_result.json produced for {scenario_path}")
+        batch_records.append({"scenario": str(scenario_path), "run_result": str(new_results[-1])})
 
     batch_index = {"generated_at": utc_now(), "records": batch_records}
     batch_dir = ensure_dir(run_root / make_run_id("batch"))

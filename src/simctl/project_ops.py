@@ -17,7 +17,7 @@ from .config import dump_json, ensure_dir, load_yaml
 from .reporting import aggregate_run_results, discover_run_results, load_run_result
 
 
-STATUS_DONE = {"done", "completed", "完成"}
+STATUS_DONE = {"done", "completed", "完成", "已完成"}
 
 
 @dataclass(slots=True)
@@ -380,12 +380,21 @@ def send_digest_email(
     message.set_content(markdown_text)
     message.add_alternative(html_text, subtype="html")
 
-    with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
-        if use_starttls:
-            server.starttls()
-        if smtp_username and smtp_password:
-            server.login(smtp_username, smtp_password)
-        server.send_message(message)
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+            if use_starttls:
+                server.starttls()
+            if smtp_username and smtp_password:
+                server.login(smtp_username, smtp_password)
+            server.send_message(message)
+    except (OSError, smtplib.SMTPException) as exc:
+        return {
+            "sent": False,
+            "reason": "smtp_error",
+            "error": str(exc),
+            "recipients": recipients,
+            "cc": cc,
+        }
 
     return {"sent": True, "reason": "delivered", "recipients": recipients, "cc": cc}
 

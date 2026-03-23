@@ -141,10 +141,19 @@ The repo-side planning documents live in:
 - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
 - `docs/PROJECT_CYCLE_AND_FEASIBILITY.md`
 - `docs/PROJECT_AUTOMATION.md`
+- `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
 
 The public portal entry is:
 
 - `docs/index.html`
+
+## Current Gaps
+
+The project-management and control-plane layers are in place, but three delivery gates still matter most:
+
+- the real `Autoware + CARLA` runtime path still needs to be brought up on the target machine
+- the first reusable `site proxy` scenario still needs to move from asset structure into repeatable validation input
+- digest automation works now, but real mail delivery still depends on SMTP secrets and remote UE5 work still depends on a GPU host
 
 ## Current Asset Note
 
