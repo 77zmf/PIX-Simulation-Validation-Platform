@@ -61,6 +61,12 @@
 - `VADv2` 作为对照路线，用于规划不确定性和行为比较
 - 先做轨迹级和行为级验证，再决定是否进入更深的 E2E 路线
 
+### 当前服务器编译基线
+
+- 已有 `CARLA UE5` 源码开发线：`~/zmf_ws/projects/carla_source/CarlaUE5`
+- 已有 `Autoware.Universe` 工作区线：`~/zmf_ws/projects/autoware_universe/autoware`
+- 当前 Ubuntu host 的推进应沿用这两条现有目录，而不是完全从零重建
+
 ## 4. 团队分工
 
 - `朱民峰`：稳定主线、控制平面、自动化、KPI、项目推进

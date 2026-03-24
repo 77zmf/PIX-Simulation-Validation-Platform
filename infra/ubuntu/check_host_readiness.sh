@@ -49,6 +49,23 @@ check_cmd "python3" python3
 check_cmd "pip" pip3
 check_cmd "colcon" colcon
 check_cmd "rosdep" rosdep
+check_cmd "vcs" vcs
+
+if command -v nvidia-smi >/dev/null 2>&1; then
+  pass "nvidia-smi available"
+else
+  warn "nvidia-smi missing; GPU checks unavailable"
+fi
+
+if sudo dpkg --audit | grep -q .; then
+  fail "dpkg audit reports broken packages"
+else
+  pass "dpkg audit clean"
+fi
+
+if [[ -n "${CONDA_PREFIX:-}" ]]; then
+  warn "Conda environment active: ${CONDA_PREFIX}"
+fi
 
 if command -v ros2 >/dev/null 2>&1; then
   pass "ros2 available: $(command -v ros2)"
@@ -61,9 +78,14 @@ else
   fail "ros2 missing"
 fi
 
-AUTOWARE_WS="${AUTOWARE_WS:-$HOME/autoware_ws}"
+AUTOWARE_WS="${AUTOWARE_WS:-$HOME/zmf_ws/projects/autoware_universe/autoware}"
 if [[ -d "$AUTOWARE_WS" ]]; then
   pass "AUTOWARE_WS exists: $AUTOWARE_WS"
+  if [[ -d "$AUTOWARE_WS/src" ]]; then
+    pass "Autoware src directory present"
+  else
+    warn "Autoware workspace exists but src directory is missing"
+  fi
   if [[ -f "$AUTOWARE_WS/install/setup.bash" ]]; then
     pass "Autoware install/setup.bash present"
   else
@@ -73,13 +95,32 @@ else
   warn "AUTOWARE_WS not found: $AUTOWARE_WS"
 fi
 
+CARLA_SOURCE_ROOT="${CARLA_SOURCE_ROOT:-$HOME/zmf_ws/projects/carla_source/CarlaUE5}"
+if [[ -d "$CARLA_SOURCE_ROOT" ]]; then
+  pass "CARLA source root exists: $CARLA_SOURCE_ROOT"
+  if [[ -f "$CARLA_SOURCE_ROOT/CarlaSetup.sh" ]]; then
+    pass "CARLA source setup script present"
+  else
+    warn "CARLA source root exists but CarlaSetup.sh is missing"
+  fi
+else
+  warn "CARLA source root not found: $CARLA_SOURCE_ROOT"
+fi
+
+CARLA_UE_PATH="${CARLA_UNREAL_ENGINE_PATH:-$HOME/zmf_ws/projects/carla_source/UnrealEngine5_carla}"
+if [[ -d "$CARLA_UE_PATH" ]]; then
+  pass "CARLA Unreal Engine path exists: $CARLA_UE_PATH"
+else
+  warn "CARLA Unreal Engine path not found: $CARLA_UE_PATH"
+fi
+
 CARLA_ROOT="${CARLA_0915_ROOT:-$HOME/CARLA_0.9.15}"
 if [[ -d "$CARLA_ROOT" ]]; then
   pass "CARLA_0915_ROOT exists: $CARLA_ROOT"
   if [[ -x "$CARLA_ROOT/CarlaUE4.sh" ]]; then
     pass "CarlaUE4.sh found"
   else
-    warn "CARLA root exists but CarlaUE4.sh is missing"
+    warn "CARLA runtime root exists but CarlaUE4.sh is missing"
   fi
 else
   warn "CARLA_0915_ROOT not found: $CARLA_ROOT"
