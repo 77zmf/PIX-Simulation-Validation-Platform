@@ -86,10 +86,12 @@ Notes:
 - The integration must have access to the relevant Notion databases.
 - The config is set to `provider: auto`, so the digest will prefer Notion when `NOTION_TOKEN` is available and fall back to GitHub Projects otherwise.
 - `python -m simctl notion-check` prints the resolved data source status and visible property names, which is useful when the Notion schema changes.
+- If you want to use Codex MCP instead of `NOTION_TOKEN`, the local Codex config must enable `rmcp_client`, add the Notion MCP server, and complete OAuth login before restarting Codex.
 
 Notes:
 
 - `GH_PROJECT_TOKEN` is only needed if the default workflow token cannot read the user-owned GitHub Projects.
+- For GitHub Project v2, the token must include `read:project` to read the board and `project` to write it.
 - `SMTP_USERNAME` and `SMTP_PASSWORD` are only required when the mail server requires authentication.
 
 ## Reminder Policy
@@ -118,4 +120,7 @@ When SMTP secrets are not configured, the workflow still stays useful because it
 
 ## Current Limitation
 
-The pipeline is implemented and verifiable in dry-run mode. Real email delivery still depends on mail credentials being configured in GitHub Secrets.
+- The pipeline is implemented and verifiable in dry-run mode.
+- Real email delivery still depends on mail credentials being configured in GitHub Secrets.
+- Live GitHub Project v2 sync still depends on a token with `read:project` or `project` scopes.
+- Live Notion sync still depends on either a valid `NOTION_TOKEN` or a completed local Notion MCP login.

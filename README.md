@@ -150,6 +150,7 @@ The repo-side planning documents live in:
 - `docs/TEAM_90_DAY_PLAN.md`
 - `docs/TEAM_OPERATING_RHYTHM.md`
 - `docs/QUARTER_ACCEPTANCE.md`
+- `docs/PLANNING_SYNC_SNAPSHOT_CN.md`
 - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
 - `docs/PROJECT_CYCLE_AND_FEASIBILITY.md`
 - `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
