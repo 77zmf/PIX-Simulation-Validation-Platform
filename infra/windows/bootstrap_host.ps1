@@ -26,7 +26,8 @@ foreach ($check in $checks) {
 if ($Execute) {
   New-Item -ItemType Directory -Force -Path $AssetRoot | Out-Null
   Write-Host "Ensured asset root exists: $AssetRoot"
-  Write-Host "WSL2, Ubuntu 22.04, CARLA 0.9.15, and self-hosted runner installation remain operator-controlled."
+  Write-Host "Local Windows setup is now limited to repository access, SSH tooling, and artifact review."
+  Write-Host "Stable runtime bring-up should happen on the company Ubuntu host."
 } else {
   Write-Host "Dry run only. Re-run with -Execute to create directories and apply host changes."
 }

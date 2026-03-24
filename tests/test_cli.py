@@ -25,6 +25,9 @@ class CliTests(unittest.TestCase):
         payload = json.loads(stream.getvalue())
         self.assertEqual(payload["stack_id"], "stable")
         self.assertEqual(payload["action"], "bootstrap")
+        self.assertEqual(payload["steps"][0]["runner"], "bash")
+        self.assertIn("infra/ubuntu/bootstrap_host.sh", payload["steps"][0]["command"])
+        self.assertNotIn("wsl.exe", payload["steps"][0]["command"].lower())
 
     def test_run_creates_passed_stub_result(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

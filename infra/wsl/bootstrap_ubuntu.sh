@@ -6,7 +6,7 @@ if [[ "${1:-}" == "-Execute" || "${1:-}" == "--execute" ]]; then
   EXECUTE=1
 fi
 
-echo "Preparing Ubuntu 22.04 / ROS 2 Humble / Autoware host"
+echo "Preparing legacy WSL Ubuntu helper"
 echo "EXECUTE=${EXECUTE}"
 
 COMMANDS=(
@@ -23,4 +23,5 @@ for cmd in "${COMMANDS[@]}"; do
   fi
 done
 
-echo "Autoware source checkout and workspace-specific tuning should happen after ROS 2 is verified."
+echo "This helper is retained only for legacy local experiments."
+echo "Main stable runtime bring-up should happen on the company Ubuntu host."

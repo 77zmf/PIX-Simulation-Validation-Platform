@@ -1,7 +1,7 @@
 {
   "items": [
     {
-      "title": "Set up WSL2 and Ubuntu 22.04",
+      "title": "Set up company Ubuntu host and ROS 2 Humble",
       "status": "In Progress",
       "priority": "P0",
       "phase": "Phase 0 Foundation",
@@ -9,7 +9,7 @@
       "due Date": "2026-03-26",
       "owner": "Zhu Minfeng",
       "blocked": "No",
-      "notion URL": "https://example.com/tasks/wsl2",
+      "notion URL": "https://example.com/tasks/ubuntu-host",
       "content": {
         "body": "Stable stack foundation task."
       }
