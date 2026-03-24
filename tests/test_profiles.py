@@ -8,6 +8,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
+from simctl.adapters import AdapterContext, load_reconstruction_adapter
 from simctl.profiles import load_algorithm_profile, load_sensor_profile
 
 
@@ -29,6 +30,21 @@ class ProfileLoaderTests(unittest.TestCase):
         self.assertEqual(profile.profile_id, "planning_control_baseline")
         self.assertEqual(profile.profile_type, "planning_control")
         self.assertIn("outputs", profile.payload)
+
+    def test_load_dynamic_reconstruction_adapter(self) -> None:
+        adapter = load_reconstruction_adapter("reconstruction_dynamic_public_road_gaussians")
+        output = adapter.reconstruct(
+            AdapterContext(
+                run_id="run-1",
+                scenario_id="scenario-1",
+                stack="stable",
+                sensor_profile="reconstruction_dense_multiview_capture",
+                algorithm_profile="reconstruction_dynamic_public_road_gaussians",
+                metadata={"run_dir": "D:/tmp/run-1"},
+            )
+        )
+        self.assertEqual(output.family, "dynamic_gaussians")
+        self.assertIn("dynamic_tracks", output.artifacts)
 
 
 if __name__ == "__main__":

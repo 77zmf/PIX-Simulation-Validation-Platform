@@ -101,6 +101,52 @@ class CliTests(unittest.TestCase):
                     ]
                 )
 
+    def test_run_static_reconstruction_outputs_algorithm_execution_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "run",
+                        "--scenario",
+                        "scenarios/l2/reconstruction_static_public_road_gaussian_base.yaml",
+                        "--run-root",
+                        tempdir,
+                        "--mock-result",
+                        "passed",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            result = json.loads(stream.getvalue())
+            self.assertEqual(result["algorithm_execution"]["family"], "static_gaussians")
+            self.assertEqual(result["algorithm_execution"]["stage"], "geometry_base")
+            self.assertIn("static_gaussians", result["algorithm_execution"]["artifacts"])
+
+    def test_run_dynamic_reconstruction_outputs_algorithm_execution_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "run",
+                        "--scenario",
+                        "scenarios/l3/reconstruction_dynamic_public_road_gaussian_replay.yaml",
+                        "--run-root",
+                        tempdir,
+                        "--mock-result",
+                        "passed",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            result = json.loads(stream.getvalue())
+            self.assertEqual(result["algorithm_execution"]["family"], "dynamic_gaussians")
+            self.assertEqual(result["algorithm_execution"]["stage"], "actor_aware_replay")
+            self.assertIn("dynamic_tracks", result["algorithm_execution"]["artifacts"])
+
     def test_batch_and_report(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             main(

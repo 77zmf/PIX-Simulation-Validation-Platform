@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from .adapters import AdapterContext, load_reconstruction_adapter
 from .assets import asset_snapshot, load_asset_bundle
 from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, make_run_id, to_wsl_path, utc_now
 from .evaluation import evaluate_metrics, load_kpi_gate, synthetic_metrics
@@ -114,6 +115,39 @@ def _scenario_snapshot(scenario: Any) -> dict[str, Any]:
     }
 
 
+def _algorithm_execution_snapshot(
+    *,
+    scenario: Any,
+    run_dir: Path,
+    algorithm_profile: Any,
+) -> dict[str, Any] | None:
+    if algorithm_profile.profile_type != "reconstruction":
+        return None
+    adapter = load_reconstruction_adapter(algorithm_profile.profile_id)
+    context = AdapterContext(
+        run_id=run_dir.name,
+        scenario_id=scenario.scenario_id,
+        stack=scenario.stack,
+        sensor_profile=scenario.sensor_profile,
+        algorithm_profile=algorithm_profile.profile_id,
+        metadata={
+            "run_dir": str(run_dir),
+            "map_id": scenario.map_id,
+            "asset_bundle": scenario.asset_bundle,
+        },
+    )
+    output = adapter.reconstruct(context)
+    return {
+        "profile_id": algorithm_profile.profile_id,
+        "profile_type": algorithm_profile.profile_type,
+        "source": output.source,
+        "family": output.family,
+        "stage": output.stage,
+        "artifacts": output.artifacts,
+        "notes": output.notes,
+    }
+
+
 def _build_run_result(
     *,
     scenario: Any,
@@ -127,6 +161,7 @@ def _build_run_result(
     logs: list[dict[str, Any]] | None,
     sensor_profile: Any,
     algorithm_profile: Any,
+    algorithm_execution: dict[str, Any] | None,
 ) -> dict[str, Any]:
     return {
         "run_id": run_dir.name,
@@ -156,6 +191,7 @@ def _build_run_result(
             "sensor": sensor_profile_snapshot(sensor_profile),
             "algorithm": algorithm_profile_snapshot(algorithm_profile),
         },
+        "algorithm_execution": algorithm_execution,
         "artifacts": artifacts,
         "replay": {
             "stack": scenario.stack,
@@ -217,6 +253,11 @@ def handle_run(args: argparse.Namespace) -> int:
     dump_json(run_dir / "asset_snapshot.json", asset_snapshot(bundle))
     dump_json(run_dir / "sensor_profile_snapshot.json", sensor_profile_snapshot(sensor_profile))
     dump_json(run_dir / "algorithm_profile_snapshot.json", algorithm_profile_snapshot(algorithm_profile))
+    algorithm_execution = _algorithm_execution_snapshot(
+        scenario=scenario,
+        run_dir=run_dir,
+        algorithm_profile=algorithm_profile,
+    )
 
     logs: list[dict[str, Any]] = []
     mode = str(scenario.execution.get("mode", "external"))
@@ -259,6 +300,7 @@ def handle_run(args: argparse.Namespace) -> int:
         logs=logs,
         sensor_profile=sensor_profile,
         algorithm_profile=algorithm_profile,
+        algorithm_execution=algorithm_execution,
     )
     dump_json(run_dir / "run_result.json", result)
     _print_json(result)
