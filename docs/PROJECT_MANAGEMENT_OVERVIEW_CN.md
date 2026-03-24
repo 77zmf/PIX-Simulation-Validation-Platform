@@ -127,7 +127,7 @@
 
 - `朱民峰`：稳定主线、控制平面、自动化、KPI、项目推进
 - `罗顺雄 / lsx`：地图点云资产、site proxy、corner case、现场问题前移
-- `杨志鹏 / Zhipeng Yang`：UE5 远端实验线、感知 / E2E shadow、GPU 条件准备
+- `杨志朋 / Zhipeng Yang`：UE5 远端实验线、感知 / E2E shadow、GPU 条件准备
 
 ## 8. 本季度验收口径
 

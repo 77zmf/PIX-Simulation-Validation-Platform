@@ -34,7 +34,7 @@ class ProjectOpsTests(unittest.TestCase):
                     "priority": "P1",
                     "track": "UE5 Lab",
                     "due Date": "2026-03-21",
-                    "owner": "杨志鹏",
+                    "owner": "杨志朋",
                     "blocked": "No",
                 }
             ),
