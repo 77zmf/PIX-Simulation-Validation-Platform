@@ -29,6 +29,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           TEAM_REMINDER_TO: ${{ secrets.TEAM_REMINDER_TO }}
           TEAM_REMINDER_CC: ${{ secrets.TEAM_REMINDER_CC }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}

@@ -10,10 +10,83 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from simctl.project_ops import item_from_payload, send_digest_email, summarize_items
+from simctl.project_ops import (
+    extract_notion_id,
+    item_from_payload,
+    load_project_items,
+    notion_connection_status,
+    notion_page_to_payload,
+    send_digest_email,
+    summarize_items,
+)
 
 
 class ProjectOpsTests(unittest.TestCase):
+    def test_extract_notion_id_from_url(self) -> None:
+        notion_id = extract_notion_id("https://www.notion.so/dc730999bb7140338b871dd33dfbfeec?v=32cef7e6aaa9819b9826000c4b519313")
+        self.assertEqual(notion_id, "dc730999-bb71-4033-8b87-1dd33dfbfeec")
+
+    def test_notion_page_to_payload_maps_common_property_types(self) -> None:
+        payload = notion_page_to_payload(
+            {
+                "url": "https://www.notion.so/example-page",
+                "properties": {
+                    "Name": {"type": "title", "title": [{"plain_text": "Confirm remote GPU host access"}]},
+                    "Status": {"type": "status", "status": {"name": "Todo"}},
+                    "Priority": {"type": "select", "select": {"name": "P1"}},
+                    "Due Date": {"type": "date", "date": {"start": "2026-03-25"}},
+                    "Owner": {"type": "people", "people": [{"name": "Yang Zhipeng"}]},
+                    "Blocked": {"type": "checkbox", "checkbox": True},
+                    "Summary": {"type": "rich_text", "rich_text": [{"plain_text": "Waiting for remote machine credentials."}]},
+                },
+            },
+            {
+                "title": "Name",
+                "status": "Status",
+                "priority": "Priority",
+                "due_date": "Due Date",
+                "owner": "Owner",
+                "blocked": "Blocked",
+                "body": "Summary",
+            },
+        )
+        item = item_from_payload(payload)
+        self.assertEqual(item.title, "Confirm remote GPU host access")
+        self.assertEqual(item.owner, "Yang Zhipeng")
+        self.assertEqual(item.blocked, "Yes")
+        self.assertEqual(item.body, "Waiting for remote machine credentials.")
+        self.assertEqual(item.notion_url, "https://www.notion.so/example-page")
+
+    def test_load_project_items_auto_falls_back_to_github_when_notion_token_missing(self) -> None:
+        with patch("simctl.project_ops.fetch_project_items", return_value=["github"]) as github_fetch:
+            items = load_project_items(
+                owner="77zmf",
+                number=1,
+                provider="auto",
+                notion_cfg={
+                    "token_env": "NOTION_TOKEN",
+                    "tasks": {"database_url": "https://www.notion.so/dc730999bb7140338b871dd33dfbfeec"},
+                },
+                source_name="tasks",
+            )
+        self.assertEqual(items, ["github"])
+        github_fetch.assert_called_once_with("77zmf", 1)
+
+    def test_notion_connection_status_reports_missing_token(self) -> None:
+        status = notion_connection_status(
+            {
+                "projects": {},
+                "notion": {
+                    "token_env": "NOTION_TOKEN",
+                    "tasks": {"database_url": "https://www.notion.so/dc730999bb7140338b871dd33dfbfeec"},
+                },
+            }
+        )
+        self.assertTrue(status["configured"])
+        self.assertFalse(status["token_present"])
+        self.assertFalse(status["sources"]["tasks"]["reachable"])
+        self.assertIn("Missing Notion token", status["sources"]["tasks"]["reason"])
+
     def test_summarize_items_treats_chinese_done_status_as_done(self) -> None:
         items = [
             item_from_payload(

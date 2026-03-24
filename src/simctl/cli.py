@@ -14,6 +14,7 @@ from .project_ops import (
     load_project_automation_config,
     load_project_items,
     load_run_summary,
+    notion_connection_status,
     render_digest_html,
     render_digest_markdown,
     send_digest_email,
@@ -312,14 +313,20 @@ def handle_digest(args: argparse.Namespace) -> int:
     task_cfg = config["projects"]["tasks"]
     scenario_cfg = config["projects"]["scenarios"]
     task_items = load_project_items(
-        owner=str(task_cfg["owner"]),
-        number=int(task_cfg["number"]),
+        owner=str(task_cfg.get("owner", "")),
+        number=int(task_cfg.get("number", 0) or 0),
         json_override=args.tasks_json,
+        provider=str(task_cfg.get("provider", "github_project")),
+        notion_cfg=config.get("notion"),
+        source_name="tasks",
     )
     scenario_items = load_project_items(
-        owner=str(scenario_cfg["owner"]),
-        number=int(scenario_cfg["number"]),
+        owner=str(scenario_cfg.get("owner", "")),
+        number=int(scenario_cfg.get("number", 0) or 0),
         json_override=args.scenarios_json,
+        provider=str(scenario_cfg.get("provider", "github_project")),
+        notion_cfg=config.get("notion"),
+        source_name="scenarios",
     )
 
     task_summary = summarize_items(task_items, today=today, due_soon_days=due_soon_days)
@@ -380,6 +387,14 @@ def handle_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_notion_check(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    config_path = Path(args.config).resolve() if args.config else (repo_root / "ops" / "project_automation.yaml")
+    config = load_project_automation_config(config_path)
+    _print_json(notion_connection_status(config))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="simctl", description="Simulation control-plane CLI")
     parser.add_argument("--repo-root", help="Override repository root")
@@ -436,6 +451,10 @@ def build_parser() -> argparse.ArgumentParser:
     digest.add_argument("--scenarios-json", help="Use a local GitHub Project JSON export for scenario items")
     digest.add_argument("--send-email", action="store_true")
     digest.set_defaults(func=handle_digest)
+
+    notion_check = subparsers.add_parser("notion-check", help="Validate Notion API configuration and access")
+    notion_check.add_argument("--config", help="Path to project automation config YAML")
+    notion_check.set_defaults(func=handle_notion_check)
 
     return parser
 

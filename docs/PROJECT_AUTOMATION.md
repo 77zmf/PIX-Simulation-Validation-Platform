@@ -14,6 +14,8 @@ The automation is designed to do three things:
 
 - Task board: `https://github.com/users/77zmf/projects/1`
 - Scenario board: `https://github.com/users/77zmf/projects/2`
+- Notion Program Board: `https://www.notion.so/dc730999bb7140338b871dd33dfbfeec`
+- Notion Scenario Backlog: `https://www.notion.so/2fb616fb48d5429cbb01a7b6299b84e9`
 - Local validation outputs: `runs/**/run_result.json` or `runs/report/summary.json`
 - Config: `ops/project_automation.yaml`
 
@@ -23,6 +25,12 @@ Generate a digest locally:
 
 ```powershell
 python -m simctl digest --config ops/project_automation.yaml --output-dir artifacts/project_digest
+```
+
+Validate the Notion connection path:
+
+```powershell
+python -m simctl notion-check --config ops/project_automation.yaml
 ```
 
 Generate a digest and attempt email delivery:
@@ -68,6 +76,16 @@ Optional secrets:
 - `SMTP_USERNAME`
 - `SMTP_PASSWORD`
 - `GH_PROJECT_TOKEN`
+
+## Required Secret For Notion API Access
+
+- `NOTION_TOKEN`
+
+Notes:
+
+- The integration must have access to the relevant Notion databases.
+- The config is set to `provider: auto`, so the digest will prefer Notion when `NOTION_TOKEN` is available and fall back to GitHub Projects otherwise.
+- `python -m simctl notion-check` prints the resolved data source status and visible property names, which is useful when the Notion schema changes.
 
 Notes:
 

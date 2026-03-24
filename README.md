@@ -93,6 +93,7 @@ The unified CLI entrypoints are:
 - `replay`
 - `report`
 - `digest`
+- `notion-check`
 
 ## Quick Start
 
@@ -129,6 +130,12 @@ The unified CLI entrypoints are:
 
    ```powershell
    simctl digest --config ops/project_automation.yaml --output-dir artifacts/project_digest
+   ```
+
+6. Validate the Notion API connection used by the automation.
+
+   ```powershell
+   simctl notion-check --config ops/project_automation.yaml
    ```
 
 ## Current Planning Documents
