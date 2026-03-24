@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from textwrap import dedent
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +47,59 @@ class CliTests(unittest.TestCase):
             result = json.loads((run_dirs[0] / "run_result.json").read_text(encoding="utf-8"))
             self.assertEqual(result["status"], "passed")
             self.assertTrue(result["gate"]["passed"])
+            self.assertEqual(result["resolved_profiles"]["sensor"]["profile_id"], "ground_truth_control_baseline")
+            self.assertEqual(result["resolved_profiles"]["algorithm"]["profile_id"], "planning_control_baseline")
+            self.assertTrue(Path(result["artifacts"]["sensor_profile_snapshot"]).exists())
+            self.assertTrue(Path(result["artifacts"]["algorithm_profile_snapshot"]).exists())
+
+    def test_run_fails_fast_for_missing_algorithm_profile(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            scenario_path = Path(tempdir) / "invalid_profile.yaml"
+            scenario_path.write_text(
+                dedent(
+                    """\
+                    scenario_id: invalid_algorithm_profile
+                    stack: stable
+                    map_id: Town01
+                    asset_bundle: carla_town01
+                    ego_init:
+                      spawn_point: Town01/1
+                    goal:
+                      route_id: Town01/simple_loop
+                    traffic_profile:
+                      mode: background_light
+                      vehicles: 1
+                      pedestrians: 0
+                    weather_profile:
+                      preset: ClearNoon
+                    sensor_profile: ground_truth_control_baseline
+                    algorithm_profile: missing_algorithm_profile
+                    seed: 1
+                    recording:
+                      rosbag2:
+                        enabled: false
+                      carla_recorder:
+                        enabled: false
+                    kpi_gate: planning_control_smoke
+                    execution:
+                      mode: stub
+                      stub_outcome: passed
+                    """
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(FileNotFoundError):
+                main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "run",
+                        "--scenario",
+                        str(scenario_path),
+                        "--run-root",
+                        tempdir,
+                    ]
+                )
 
     def test_batch_and_report(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

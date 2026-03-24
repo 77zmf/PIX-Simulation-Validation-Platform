@@ -10,6 +10,12 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from .assets import asset_snapshot, load_asset_bundle
 from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, make_run_id, to_wsl_path, utc_now
 from .evaluation import evaluate_metrics, load_kpi_gate, synthetic_metrics
+from .profiles import (
+    algorithm_profile_snapshot,
+    load_algorithm_profile,
+    load_sensor_profile,
+    sensor_profile_snapshot,
+)
 from .project_ops import (
     load_project_automation_config,
     load_project_items,
@@ -52,15 +58,17 @@ def handle_bootstrap(args: argparse.Namespace) -> int:
     return 0
 
 
-def _create_run_context(args: argparse.Namespace) -> tuple[Path, Path, Any, Any, Any, Path]:
+def _create_run_context(args: argparse.Namespace) -> tuple[Path, Path, Any, Any, Any, Any, Any, Path]:
     repo_root = _repo_root(args.repo_root)
     asset_root = _asset_root(repo_root, args.asset_root)
     scenario = load_scenario(args.scenario, repo_root)
     bundle = load_asset_bundle(scenario.asset_bundle, repo_root, asset_root)
     gate = load_kpi_gate(scenario.kpi_gate, repo_root)
+    sensor_profile = load_sensor_profile(scenario.sensor_profile, repo_root)
+    algorithm_profile = load_algorithm_profile(scenario.algorithm_profile, repo_root)
     run_root = Path(args.run_root).resolve() if args.run_root else (repo_root / "runs")
     run_dir = ensure_dir(run_root / make_run_id(scenario.scenario_id))
-    return repo_root, asset_root, scenario, bundle, gate, run_dir
+    return repo_root, asset_root, scenario, bundle, gate, sensor_profile, algorithm_profile, run_dir
 
 
 def _artifact_paths(run_dir: Path, recording: dict[str, Any]) -> dict[str, str]:
@@ -68,6 +76,8 @@ def _artifact_paths(run_dir: Path, recording: dict[str, Any]) -> dict[str, str]:
         "run_dir": str(run_dir),
         "scenario_snapshot": str(run_dir / "scenario_snapshot.yaml"),
         "asset_snapshot": str(run_dir / "asset_snapshot.json"),
+        "sensor_profile_snapshot": str(run_dir / "sensor_profile_snapshot.json"),
+        "algorithm_profile_snapshot": str(run_dir / "algorithm_profile_snapshot.json"),
         "launch_plan": str(run_dir / "start_plan.json"),
         "run_result": str(run_dir / "run_result.json"),
         "report_dir": str(run_dir / "report"),
@@ -115,6 +125,8 @@ def _build_run_result(
     gate_eval: dict[str, Any],
     status: str,
     logs: list[dict[str, Any]] | None,
+    sensor_profile: Any,
+    algorithm_profile: Any,
 ) -> dict[str, Any]:
     return {
         "run_id": run_dir.name,
@@ -140,6 +152,10 @@ def _build_run_result(
         "kpis": metrics,
         "gate": {"gate_id": gate.gate_id, **gate_eval},
         "failure_labels": gate_eval.get("failure_labels", []),
+        "resolved_profiles": {
+            "sensor": sensor_profile_snapshot(sensor_profile),
+            "algorithm": algorithm_profile_snapshot(algorithm_profile),
+        },
         "artifacts": artifacts,
         "replay": {
             "stack": scenario.stack,
@@ -159,9 +175,20 @@ def handle_up_or_down(args: argparse.Namespace, action: str) -> int:
     asset_root = _asset_root(repo_root, args.asset_root)
     scenario = load_scenario(args.scenario, repo_root) if args.scenario else None
     asset_bundle_id = scenario.asset_bundle if scenario else ""
+    sensor_profile = load_sensor_profile(scenario.sensor_profile, repo_root) if scenario else None
+    algorithm_profile = load_algorithm_profile(scenario.algorithm_profile, repo_root) if scenario else None
     profile = load_stack_profile(args.stack, repo_root)
     output_dir = ensure_dir(repo_root / "artifacts" / "plans" / args.stack)
-    context = build_context(repo_root, output_dir, scenario, asset_root, asset_bundle_id=asset_bundle_id, execute=args.execute)
+    context = build_context(
+        repo_root,
+        output_dir,
+        scenario,
+        asset_root,
+        asset_bundle_id=asset_bundle_id,
+        sensor_profile=sensor_profile,
+        algorithm_profile=algorithm_profile,
+        execute=args.execute,
+    )
     plan = render_action(profile, "start" if action == "up" else "stop", context)
     plan_path = persist_plan(output_dir, action, plan)
     if args.execute:
@@ -172,13 +199,24 @@ def handle_up_or_down(args: argparse.Namespace, action: str) -> int:
 
 
 def handle_run(args: argparse.Namespace) -> int:
-    repo_root, asset_root, scenario, bundle, gate, run_dir = _create_run_context(args)
+    repo_root, asset_root, scenario, bundle, gate, sensor_profile, algorithm_profile, run_dir = _create_run_context(args)
     profile = load_stack_profile(scenario.stack, repo_root)
-    context = build_context(repo_root, run_dir, scenario, asset_root, asset_bundle_id=bundle.bundle_id, execute=args.execute)
+    context = build_context(
+        repo_root,
+        run_dir,
+        scenario,
+        asset_root,
+        asset_bundle_id=bundle.bundle_id,
+        sensor_profile=sensor_profile,
+        algorithm_profile=algorithm_profile,
+        execute=args.execute,
+    )
     plan = render_action(profile, "start", context)
     persist_plan(run_dir, "start", plan)
     dump_yaml(run_dir / "scenario_snapshot.yaml", {"scenario": _scenario_snapshot(scenario)})
     dump_json(run_dir / "asset_snapshot.json", asset_snapshot(bundle))
+    dump_json(run_dir / "sensor_profile_snapshot.json", sensor_profile_snapshot(sensor_profile))
+    dump_json(run_dir / "algorithm_profile_snapshot.json", algorithm_profile_snapshot(algorithm_profile))
 
     logs: list[dict[str, Any]] = []
     mode = str(scenario.execution.get("mode", "external"))
@@ -219,6 +257,8 @@ def handle_run(args: argparse.Namespace) -> int:
         gate_eval=gate_eval,
         status=status,
         logs=logs,
+        sensor_profile=sensor_profile,
+        algorithm_profile=algorithm_profile,
     )
     dump_json(run_dir / "run_result.json", result)
     _print_json(result)

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import dump_json, ensure_dir, find_repo_root, interpolate, load_yaml, to_wsl_path
-from .models import CommandStep, ScenarioConfig, StackProfile
+from .models import AlgorithmProfile, CommandStep, ScenarioConfig, SensorProfile, StackProfile
 
 
 class SafeDict(dict[str, str]):
@@ -28,6 +28,8 @@ def build_context(
     scenario: ScenarioConfig | None,
     asset_root: Path,
     asset_bundle_id: str = "",
+    sensor_profile: SensorProfile | None = None,
+    algorithm_profile: AlgorithmProfile | None = None,
     execute: bool = False,
 ) -> dict[str, str]:
     scenario_path = scenario.scenario_path if scenario else None
@@ -42,6 +44,10 @@ def build_context(
         "scenario_path": str(scenario_path) if scenario_path else "",
         "scenario_path_wsl": to_wsl_path(scenario_path) if scenario_path else "",
         "asset_bundle_id": asset_bundle_id,
+        "sensor_profile_id": sensor_profile.profile_id if sensor_profile else (scenario.sensor_profile if scenario else ""),
+        "sensor_truth_mode": (sensor_profile.truth_mode or "") if sensor_profile else "",
+        "algorithm_profile_id": algorithm_profile.profile_id if algorithm_profile else (scenario.algorithm_profile if scenario else ""),
+        "algorithm_profile_type": algorithm_profile.profile_type if algorithm_profile else "",
         "execute_flag": "-Execute" if execute else "",
     }
     return context

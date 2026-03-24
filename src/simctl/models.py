@@ -82,6 +82,48 @@ class AssetBundle:
 
 
 @dataclass(slots=True)
+class SensorProfile:
+    profile_id: str
+    description: str
+    sensors: list[str]
+    truth_mode: str | None
+    payload: dict[str, Any]
+    profile_path: Path
+
+    @classmethod
+    def from_catalog_entry(cls, profile_id: str, payload: dict[str, Any], profile_path: Path) -> "SensorProfile":
+        require_keys(payload, ["description", "sensors"], where=f"{profile_path}:{profile_id}")
+        return cls(
+            profile_id=profile_id,
+            description=str(payload["description"]),
+            sensors=[str(item) for item in payload.get("sensors", [])],
+            truth_mode=str(payload["truth_mode"]) if payload.get("truth_mode") is not None else None,
+            payload={"profile_id": profile_id, **payload},
+            profile_path=profile_path,
+        )
+
+
+@dataclass(slots=True)
+class AlgorithmProfile:
+    profile_id: str
+    profile_type: str
+    description: str
+    payload: dict[str, Any]
+    profile_path: Path
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any], profile_path: Path) -> "AlgorithmProfile":
+        require_keys(payload, ["profile_id", "type", "description"], where=str(profile_path))
+        return cls(
+            profile_id=str(payload["profile_id"]),
+            profile_type=str(payload["type"]),
+            description=str(payload["description"]),
+            payload=payload,
+            profile_path=profile_path,
+        )
+
+
+@dataclass(slots=True)
 class ScenarioConfig:
     scenario_id: str
     stack: str
