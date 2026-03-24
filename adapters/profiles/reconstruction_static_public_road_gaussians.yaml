@@ -1,0 +1,28 @@
+profile_id: reconstruction_static_public_road_gaussians
+type: reconstruction
+description: Static public-road Gaussian reconstruction profile for map assets and localization support
+baseline: reconstruction_public_road_map_refresh
+research_focus:
+  - static_geometry_fidelity
+  - map_asset_refresh
+  - localization_support
+suggested_families:
+  - CityGaussianV2
+  - 2DGS
+  - LiHi-GS
+inputs:
+  raw_capture: rosbag2_and_calibration
+  sensor_profile: reconstruction_capture_or_dense_multiview_capture
+  localization: gnss_imu_or_slam
+  map_seed: lanelet2_and_pointcloud_prior
+outputs:
+  static_gaussians: public_road_static_gaussian_field
+  registered_pointcloud: public_road_pointcloud
+  lanelet_update: public_road_lanelet_candidate
+  diagnostics:
+    - lanelet_alignment_rmse_m
+    - reprojection_error_px
+    - pointcloud_coverage_ratio
+    - localization_drift_m
+    - replay_readiness_score
+acceptance_gate: reconstruction_static_public_road_gaussians_gate

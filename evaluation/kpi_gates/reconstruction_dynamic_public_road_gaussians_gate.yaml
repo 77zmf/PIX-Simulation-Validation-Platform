@@ -1,0 +1,25 @@
+gate_id: reconstruction_dynamic_public_road_gaussians_gate
+description: Research gate for dynamic public-road Gaussian reconstruction and future 4D replay
+failure_labels:
+  - dynamic_reconstruction_failure
+  - temporal_consistency_failure
+  - replay_readiness_failure
+metrics:
+  dynamic_actor_iou:
+    op: ">="
+    value: 0.70
+  temporal_consistency_score:
+    op: ">="
+    value: 0.82
+  motion_reprojection_error_px:
+    op: "<="
+    value: 2.00
+  ghosting_rate:
+    op: "<="
+    value: 0.08
+  dynamic_asset_publish_latency_hr:
+    op: "<="
+    value: 72
+  replay_readiness_score:
+    op: ">="
+    value: 0.80

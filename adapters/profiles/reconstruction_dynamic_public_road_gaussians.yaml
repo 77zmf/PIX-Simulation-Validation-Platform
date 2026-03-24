@@ -1,0 +1,29 @@
+profile_id: reconstruction_dynamic_public_road_gaussians
+type: reconstruction
+description: Dynamic public-road Gaussian reconstruction profile for actor-aware replay and future 4D scene modeling
+baseline: reconstruction_static_public_road_gaussians
+research_focus:
+  - dynamic_actor_separation
+  - temporal_consistency
+  - novel_view_replay
+suggested_families:
+  - DrivingGaussian
+  - DeSiRe-GS
+  - 4DGS
+inputs:
+  raw_capture: synchronized_multiview_and_calibration
+  sensor_profile: reconstruction_dense_multiview_capture
+  localization: gnss_imu_or_slam
+  map_seed: static_gaussian_prior_and_lanelet2
+  dynamic_priors: tracks_or_instance_masks
+outputs:
+  static_background: public_road_static_gaussian_field
+  dynamic_gaussians: public_road_dynamic_gaussian_field
+  dynamic_tracks: reconstructed_dynamic_tracks
+  diagnostics:
+    - dynamic_actor_iou
+    - temporal_consistency_score
+    - motion_reprojection_error_px
+    - ghosting_rate
+    - replay_readiness_score
+acceptance_gate: reconstruction_dynamic_public_road_gaussians_gate

@@ -1,0 +1,40 @@
+scenario_id: stable_l3_reconstruction_dynamic_public_road_gaussian_replay
+stack: stable
+map_id: gy_qyhx_public_road_segment
+asset_bundle: site_gy_qyhx_gsh20260302
+ego_init:
+  local_pose:
+    x: 1039.5
+    y: -2882.2
+    yaw_deg: 123.0
+goal:
+  local_pose:
+    x: 879.8
+    y: -2829.1
+    yaw_deg: 101.0
+traffic_profile:
+  mode: dynamic_gaussian_capture
+  vehicles: 18
+  pedestrians: 8
+  scripted_agents:
+    - occluded_non_motor
+    - assertive_cut_in_hatchback
+weather_profile:
+  preset: SoftRainSunset
+sensor_profile: reconstruction_dense_multiview_capture
+algorithm_profile: reconstruction_dynamic_public_road_gaussians
+seed: 20260324
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/reconstruction_dynamic_public_road_gaussian_replay
+  carla_recorder:
+    enabled: false
+kpi_gate: reconstruction_dynamic_public_road_gaussians_gate
+labels:
+  - L3
+  - public_road
+  - reconstruction
+  - dynamic_gaussians
+execution:
+  mode: external

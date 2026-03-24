@@ -55,6 +55,10 @@ The current three-month delivery is organized around four priorities:
   - `pointcloud_map.pcd/`
   - `metadata.yaml`
 - Large raw assets stay out of Git history and are referenced by manifests
+- Reconstruction direction is staged:
+  - `map refresh` for asset and localization support
+  - `static Gaussian` reconstruction for future geometry-rich replay assets
+  - `dynamic Gaussian` reconstruction for future actor-aware replay and high-fidelity simulation
 
 ### Future E2E Route
 

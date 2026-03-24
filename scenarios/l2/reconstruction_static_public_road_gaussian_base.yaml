@@ -1,0 +1,39 @@
+scenario_id: stable_l2_reconstruction_static_public_road_gaussian_base
+stack: stable
+map_id: gy_qyhx_public_road_segment
+asset_bundle: site_gy_qyhx_gsh20260302
+ego_init:
+  local_pose:
+    x: 1042.0
+    y: -2885.0
+    yaw_deg: 124.0
+goal:
+  local_pose:
+    x: 908.0
+    y: -2840.0
+    yaw_deg: 107.0
+traffic_profile:
+  mode: static_gaussian_capture
+  vehicles: 6
+  pedestrians: 0
+  scripted_agents:
+    - survey_vehicle_loop
+weather_profile:
+  preset: ClearNoon
+sensor_profile: reconstruction_capture
+algorithm_profile: reconstruction_static_public_road_gaussians
+seed: 20260324
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/reconstruction_static_public_road_gaussian_base
+  carla_recorder:
+    enabled: false
+kpi_gate: reconstruction_static_public_road_gaussians_gate
+labels:
+  - L2
+  - public_road
+  - reconstruction
+  - static_gaussians
+execution:
+  mode: external

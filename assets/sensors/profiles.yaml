@@ -28,7 +28,7 @@ profiles:
       - lidar
     truth_mode: shadow
   reconstruction_capture:
-    description: Capture profile for site-proxy reconstruction and asset refresh
+    description: Capture profile for public-road map refresh and static geometry reconstruction
     sensors:
       - front_camera
       - surround_cameras
@@ -41,3 +41,20 @@ profiles:
       - calibration
       - aligned_pointcloud
       - lanelet_candidate
+  reconstruction_dense_multiview_capture:
+    description: Dense multiview capture profile for future static and dynamic Gaussian-splatting reconstruction
+    sensors:
+      - front_camera
+      - surround_cameras
+      - rear_camera
+      - imu
+      - gnss
+      - lidar
+    truth_mode: disabled
+    deliverables:
+      - rosbag2
+      - calibration
+      - aligned_pointcloud
+      - synchronized_multiview_frames
+      - actor_masks
+      - dynamic_tracks

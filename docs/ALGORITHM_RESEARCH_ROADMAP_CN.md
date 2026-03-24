@@ -114,12 +114,16 @@
 ### 本季度目标
 
 - 把三维重建明确定位为公开道路地图资产刷新、定位回归和场景复现链路的一部分，而不是独立脱节的论文路线。
-- 形成一条 `采集 -> 对齐 -> 地图刷新候选 -> 场景可回放` 的最小研究路径。
+- 形成一条 `采集 -> 对齐 -> 地图刷新候选 -> 静态 GS 底座 -> 动态 GS 增强 -> 场景可回放` 的最小研究路径。
+- 在路线定义上区分两层：
+  - 静态层：以 `CityGaussianV2 / 2DGS / LiHi-GS` 这类几何优先路线服务地图资产和定位。
+  - 动态层：以 `DrivingGaussian / DeSiRe-GS / 4DGS` 这类时序建模路线服务动态 actor 重建和未来高保真 replay。
 
 ### 研究问题
 
 - lanelet、pointcloud、GNSS/IMU 和现场采集数据如何稳定对齐。
-- 重建结果能否稳定服务于地图资产更新、定位回归和公开道路场景复现，而不是只生成可视化结果。
+- 静态 Gaussian 底座能否稳定服务于地图资产更新、定位回归和公开道路场景复现，而不是只生成可视化结果。
+- 动态 Gaussian 路线是否值得进入主线，它在 actor 分离、时序一致性和 novel-view replay 上的收益是否足够明确。
 - 资产刷新延迟是否能满足周更或问题复盘节奏。
 
 ### 关注指标
@@ -128,21 +132,34 @@
 - pointcloud coverage ratio
 - localization drift
 - revisit consistency
+- reprojection error
+- dynamic actor IoU
+- temporal consistency score
+- ghosting rate
 - asset publish latency
 - replay readiness score
 
 ### 本仓库入口
 
-- 算法 profile: `adapters/profiles/reconstruction_public_road_map_refresh.yaml`
-- KPI gate: `evaluation/kpi_gates/reconstruction_public_road_map_refresh_gate.yaml`
-- 研究场景: `scenarios/l2/reconstruction_public_road_map_refresh.yaml`
+- 当前基线路径:
+  - 算法 profile: `adapters/profiles/reconstruction_public_road_map_refresh.yaml`
+  - KPI gate: `evaluation/kpi_gates/reconstruction_public_road_map_refresh_gate.yaml`
+  - 研究场景: `scenarios/l2/reconstruction_public_road_map_refresh.yaml`
+- 静态 GS 路径:
+  - 算法 profile: `adapters/profiles/reconstruction_static_public_road_gaussians.yaml`
+  - KPI gate: `evaluation/kpi_gates/reconstruction_static_public_road_gaussians_gate.yaml`
+  - 研究场景: `scenarios/l2/reconstruction_static_public_road_gaussian_base.yaml`
+- 动态 GS 路径:
+  - 算法 profile: `adapters/profiles/reconstruction_dynamic_public_road_gaussians.yaml`
+  - KPI gate: `evaluation/kpi_gates/reconstruction_dynamic_public_road_gaussians_gate.yaml`
+  - 研究场景: `scenarios/l3/reconstruction_dynamic_public_road_gaussian_replay.yaml`
 
 ## 执行顺序
 
 1. 先把规划控制研究线做实，因为它直接决定稳定闭环是否成立。
 2. 再把 `BEVFusion` 感知研究线做实，为 planning/control 和 E2E shadow 提供稳定输入。
 3. 然后把 `UniAD-style` 主 shadow 与 `VADv2` 对照接成公开道路实验线。
-4. 最后把三维重建研究线收敛到公开道路地图刷新、定位回归和场景复现，避免和主线争抢算力与时间。
+4. 最后把三维重建研究线按 `map_refresh -> static_gaussians -> dynamic_gaussians` 收敛到公开道路地图刷新、定位回归和场景复现，避免和主线争抢算力与时间。
 
 ## 每周最小输出
 

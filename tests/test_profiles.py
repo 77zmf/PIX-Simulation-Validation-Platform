@@ -18,6 +18,12 @@ class ProfileLoaderTests(unittest.TestCase):
         self.assertIn("lidar", profile.sensors)
         self.assertEqual(profile.truth_mode, "disabled")
 
+    def test_load_dense_multiview_reconstruction_sensor_profile(self) -> None:
+        profile = load_sensor_profile("reconstruction_dense_multiview_capture", REPO_ROOT)
+        self.assertEqual(profile.profile_id, "reconstruction_dense_multiview_capture")
+        self.assertIn("actor_masks", profile.payload["deliverables"])
+        self.assertIn("rear_camera", profile.sensors)
+
     def test_load_algorithm_profile_from_yaml(self) -> None:
         profile = load_algorithm_profile("planning_control_baseline", REPO_ROOT)
         self.assertEqual(profile.profile_id, "planning_control_baseline")

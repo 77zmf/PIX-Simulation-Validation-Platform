@@ -38,6 +38,17 @@ class ResearchConfigTests(unittest.TestCase):
         self.assertEqual(scenario.sensor_profile, "reconstruction_capture")
         self.assertEqual(scenario.algorithm_profile, "reconstruction_public_road_map_refresh")
 
+    def test_static_gaussian_reconstruction_scenario_loads(self) -> None:
+        scenario = load_scenario("scenarios/l2/reconstruction_static_public_road_gaussian_base.yaml", REPO_ROOT)
+        self.assertEqual(scenario.sensor_profile, "reconstruction_capture")
+        self.assertEqual(scenario.algorithm_profile, "reconstruction_static_public_road_gaussians")
+        self.assertEqual(scenario.kpi_gate, "reconstruction_static_public_road_gaussians_gate")
+
+    def test_dynamic_gaussian_reconstruction_gate_contains_temporal_metrics(self) -> None:
+        gate = load_kpi_gate("reconstruction_dynamic_public_road_gaussians_gate", REPO_ROOT)
+        self.assertIn("temporal_consistency_score", gate.metrics)
+        self.assertIn("ghosting_rate", gate.metrics)
+
 
 if __name__ == "__main__":
     unittest.main()

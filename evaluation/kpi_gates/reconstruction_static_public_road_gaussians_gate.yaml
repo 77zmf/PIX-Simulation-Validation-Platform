@@ -1,0 +1,25 @@
+gate_id: reconstruction_static_public_road_gaussians_gate
+description: Research gate for static public-road Gaussian reconstruction and geometry fidelity
+failure_labels:
+  - static_geometry_failure
+  - localization_reference_failure
+  - replay_readiness_failure
+metrics:
+  lanelet_alignment_rmse_m:
+    op: "<="
+    value: 0.22
+  pointcloud_coverage_ratio:
+    op: ">="
+    value: 0.92
+  reprojection_error_px:
+    op: "<="
+    value: 1.50
+  localization_drift_m:
+    op: "<="
+    value: 0.30
+  asset_publish_latency_hr:
+    op: "<="
+    value: 48
+  replay_readiness_score:
+    op: ">="
+    value: 0.88
