@@ -66,6 +66,7 @@
 - `朱民峰`：稳定主线、控制平面、自动化、KPI、项目推进
 - `罗顺雄 / lsx`：公开道路地图点云资产、重建输入、corner case、现场问题前移
 - `杨志朋 / Zhipeng Yang`：`BEVFusion` 基线、公开道路感知与 E2E shadow 预备、UE5 远端实验线
+- `Codex PMO 支持位`：每日 digest、周会材料、阻塞提醒、GitHub 和仓库侧管理同步
 
 ## 5. 管理结构
 
@@ -77,6 +78,12 @@
 - Program Board：任务、里程碑、风险、未来两周排期
 - Scenario Backlog：场景来源、优先级、成功信号
 - Weekly Review：每周推进和阻塞复盘
+
+### 团队机制
+
+- 项目推进团队与作战机制：`docs/PROJECT_OPERATING_TEAM_CN.md`
+- 团队由 3 个 owner 角色和 1 个 Codex PMO 支持位组成
+- 目标是让“任务板 + digest + 周会 + owner 行动”形成持续推进闭环
 
 ### GitHub
 

@@ -40,6 +40,7 @@ Current near-term gate:
 - `Zhu Minfeng`: stable stack, control plane, automation, project rhythm
 - `Luo Shunxiong / lsx`: public-road map and pointcloud assets, reconstruction inputs, corner-case replay
 - `Yang Zhipeng / Zhipeng Yang / 杨志朋`: `BEVFusion` perception baseline, public-road perception and E2E shadow preparation
+- `Codex PMO support`: digest generation, weekly review preparation, blocker aggregation, and repo-side management support
 
 ## Technical Tracks
 
@@ -160,6 +161,7 @@ The repo-side planning documents live in:
 
 - `docs/TEAM_90_DAY_PLAN.md`
 - `docs/TEAM_OPERATING_RHYTHM.md`
+- `docs/PROJECT_OPERATING_TEAM_CN.md`
 - `docs/QUARTER_ACCEPTANCE.md`
 - `docs/PLANNING_SYNC_SNAPSHOT_CN.md`
 - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`

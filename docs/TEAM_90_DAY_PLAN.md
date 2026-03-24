@@ -35,6 +35,11 @@ Over the next 3 months, the team will move the project from a scaffolded validat
 - Owns the `BEVFusion` perception baseline, public-road perception and E2E shadow preparation, and UE5 remote readiness.
 - Prepares the next-cycle high-fidelity validation path without destabilizing the current stable line.
 
+### Codex PMO Support
+
+- Owns digest generation, weekly review preparation, blocker aggregation, and repo-side management support.
+- Helps the team keep execution synchronized, but does not replace human owners for technical decisions and delivery.
+
 ## Phase Plan
 
 ## Phase 1: Foundation And Minimal Loop

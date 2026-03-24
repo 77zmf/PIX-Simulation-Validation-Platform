@@ -11,6 +11,7 @@ Participants:
 - Zhu Minfeng
 - Luo Shunxiong (`lsx`)
 - Yang Zhipeng (`Zhipeng Yang`, 杨志朋)
+- Codex PMO support
 
 Agenda:
 
@@ -55,6 +56,12 @@ Agenda:
 - `BEVFusion` perception baseline
 - Public-road perception and E2E shadow preparation
 - UE5 remote host preparation
+
+### Codex PMO support
+
+- Daily digest and blocker aggregation
+- Weekly review preparation
+- Repo-side management synchronization
 
 ## Escalation Rules
 
