@@ -127,6 +127,12 @@ Run the stable-line setup on the company Ubuntu host.
    simctl bootstrap --stack stable
    ```
 
+   Optional readiness check on the company Ubuntu host:
+
+   ```bash
+   bash infra/ubuntu/check_host_readiness.sh
+   ```
+
 3. Run a smoke scenario and generate a report.
 
    ```bash
@@ -166,6 +172,7 @@ The repo-side planning documents live in:
 - `docs/PLANNING_SYNC_SNAPSHOT_CN.md`
 - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
 - `docs/PROJECT_CYCLE_AND_FEASIBILITY.md`
+- `docs/UBUNTU_HOST_BRINGUP_CN.md`
 - `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
 - `docs/PROJECT_AUTOMATION.md`
 - `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
