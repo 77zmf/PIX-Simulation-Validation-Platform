@@ -1,0 +1,21 @@
+profile_id: planning_control_research
+type: planning_control
+description: Research profile for closed-loop planning and control regression
+baseline: planning_control_baseline
+research_focus:
+  - rule_compliance
+  - comfort_and_stability
+  - fallback_behavior
+inputs:
+  localization: tier4_localization_stack
+  map: lanelet2
+  obstacles: production_perception_or_truth
+  predictions: optional_prediction_stack
+outputs:
+  trajectory: autoware_planning
+  control: autoware_control
+  diagnostics:
+    - stop_line_overshoot_m
+    - comfort_cost
+    - fallback_count
+acceptance_gate: planning_control_research_gate

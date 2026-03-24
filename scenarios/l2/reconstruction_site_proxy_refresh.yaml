@@ -1,0 +1,39 @@
+scenario_id: stable_l2_reconstruction_site_proxy_refresh
+stack: stable
+map_id: gy_qyhx_gsh_site_proxy
+asset_bundle: site_gy_qyhx_gsh20260302
+ego_init:
+  local_pose:
+    x: 1032.2
+    y: -2895.6
+    yaw_deg: 121.0
+goal:
+  local_pose:
+    x: 889.4
+    y: -2835.2
+    yaw_deg: 103.0
+traffic_profile:
+  mode: mapping_capture
+  vehicles: 2
+  pedestrians: 0
+  scripted_agents:
+    - survey_vehicle
+weather_profile:
+  preset: ClearNoon
+sensor_profile: reconstruction_capture
+algorithm_profile: reconstruction_site_proxy
+seed: 20260326
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/reconstruction_site_proxy
+  carla_recorder:
+    enabled: false
+kpi_gate: reconstruction_site_proxy_gate
+labels:
+  - L2
+  - reconstruction
+  - site_proxy
+  - asset_refresh
+execution:
+  mode: external

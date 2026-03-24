@@ -1,0 +1,25 @@
+gate_id: perception_bev_shadow_gate
+description: Research gate for BEV perception quality and VAD shadow consistency
+failure_labels:
+  - perception_quality_failure
+  - tracking_instability
+  - shadow_interface_divergence
+metrics:
+  detection_recall:
+    op: ">="
+    value: 0.90
+  false_positive_per_frame:
+    op: "<="
+    value: 0.30
+  tracking_id_switches:
+    op: "<="
+    value: 2
+  occupancy_iou:
+    op: ">="
+    value: 0.70
+  latency_ms:
+    op: "<="
+    value: 120
+  vad_shadow_disagreement_rate:
+    op: "<="
+    value: 0.15

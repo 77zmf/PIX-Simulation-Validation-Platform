@@ -1,0 +1,34 @@
+scenario_id: stable_l2_planning_control_merge_regression
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  spawn_point: Town01/9
+goal:
+  route_id: Town01/merge_loop
+traffic_profile:
+  mode: merge_regression
+  vehicles: 14
+  pedestrians: 4
+  scripted_agents:
+    - aggressive_cut_in_hatchback
+weather_profile:
+  preset: CloudyNoon
+sensor_profile: production_perception
+algorithm_profile: planning_control_research
+seed: 20260324
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/planning_control_merge
+  carla_recorder:
+    enabled: true
+    path: carla/planning_control_merge.log
+kpi_gate: planning_control_research_gate
+labels:
+  - L2
+  - planning_control
+  - merge
+  - regression
+execution:
+  mode: external

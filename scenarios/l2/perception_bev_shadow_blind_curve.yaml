@@ -1,0 +1,40 @@
+scenario_id: stable_l2_perception_bev_shadow_blind_curve
+stack: stable
+map_id: gy_qyhx_gsh_site_proxy
+asset_bundle: site_gy_qyhx_gsh20260302
+ego_init:
+  local_pose:
+    x: 1048.0
+    y: -2888.0
+    yaw_deg: 125.0
+goal:
+  local_pose:
+    x: 920.0
+    y: -2841.0
+    yaw_deg: 109.0
+traffic_profile:
+  mode: perception_shadow
+  vehicles: 8
+  pedestrians: 3
+  scripted_agents:
+    - blind_curve_cyclist
+weather_profile:
+  preset: ClearSunset
+sensor_profile: production_perception
+algorithm_profile: perception_bev_shadow
+seed: 20260325
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/perception_bev_shadow
+  carla_recorder:
+    enabled: true
+    path: carla/perception_bev_shadow.log
+kpi_gate: perception_bev_shadow_gate
+labels:
+  - L2
+  - perception
+  - bev
+  - shadow
+execution:
+  mode: external

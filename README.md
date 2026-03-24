@@ -140,6 +140,7 @@ The repo-side planning documents live in:
 - `docs/QUARTER_ACCEPTANCE.md`
 - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
 - `docs/PROJECT_CYCLE_AND_FEASIBILITY.md`
+- `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
 - `docs/PROJECT_AUTOMATION.md`
 - `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
 

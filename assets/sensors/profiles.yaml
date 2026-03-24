@@ -27,3 +27,17 @@ profiles:
       - gnss
       - lidar
     truth_mode: shadow
+  reconstruction_capture:
+    description: Capture profile for site-proxy reconstruction and asset refresh
+    sensors:
+      - front_camera
+      - surround_cameras
+      - imu
+      - gnss
+      - lidar
+    truth_mode: disabled
+    deliverables:
+      - rosbag2
+      - calibration
+      - aligned_pointcloud
+      - lanelet_candidate

@@ -1,0 +1,25 @@
+gate_id: reconstruction_site_proxy_gate
+description: Research gate for site-proxy reconstruction and asset refresh quality
+failure_labels:
+  - map_alignment_failure
+  - reconstruction_coverage_failure
+  - asset_refresh_failure
+metrics:
+  lanelet_alignment_rmse_m:
+    op: "<="
+    value: 0.30
+  pointcloud_coverage_ratio:
+    op: ">="
+    value: 0.95
+  revisit_consistency_m:
+    op: "<="
+    value: 0.20
+  localization_drift_m:
+    op: "<="
+    value: 0.50
+  asset_publish_latency_hr:
+    op: "<="
+    value: 48
+  replay_readiness_score:
+    op: ">="
+    value: 0.90

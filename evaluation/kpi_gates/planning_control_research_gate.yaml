@@ -1,0 +1,29 @@
+gate_id: planning_control_research_gate
+description: Research gate for planning and control comparisons under closed-loop regression
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - rule_compliance_failure
+  - fallback_behavior_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.98
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.8
+  lateral_error_m:
+    op: "<="
+    value: 0.30
+  stop_line_overshoot_m:
+    op: "<="
+    value: 0.50
+  comfort_cost:
+    op: "<="
+    value: 1.00
+  fallback_count:
+    op: "<="
+    value: 0

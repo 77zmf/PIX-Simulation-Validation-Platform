@@ -1,0 +1,20 @@
+profile_id: perception_bev_shadow
+type: perception
+description: Research profile for BEV perception with VAD shadow comparison
+baseline: production_perception
+research_focus:
+  - bev_detection_quality
+  - tracking_stability
+  - vad_shadow_interface_consistency
+inputs:
+  sensors: production_perception_or_ue5_high_fidelity
+  calibration: required
+outputs:
+  detections: bev_objects
+  occupancy: bev_occupancy
+  tracks: tracked_objects
+  shadow_interface:
+    - vad_agent_history
+    - vad_lane_features
+    - vad_dynamic_objects
+acceptance_gate: perception_bev_shadow_gate
