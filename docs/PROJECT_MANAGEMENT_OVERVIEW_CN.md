@@ -84,6 +84,7 @@
 - 项目推进团队与作战机制：`docs/PROJECT_OPERATING_TEAM_CN.md`
 - 团队由 3 个 owner 角色和 1 个 Codex PMO 支持位组成
 - 目标是让“任务板 + digest + 周会 + owner 行动”形成持续推进闭环
+- 已明确边界：每个 owner 只对自己的交付负责，Codex PMO 负责推动和提醒，不替代技术拍板
 
 ### GitHub
 
