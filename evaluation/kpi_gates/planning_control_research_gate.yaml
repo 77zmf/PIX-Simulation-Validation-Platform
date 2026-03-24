@@ -1,5 +1,5 @@
 gate_id: planning_control_research_gate
-description: Research gate for planning and control comparisons under closed-loop regression
+description: Research gate for public-road planning and control comparisons under closed-loop regression
 failure_labels:
   - route_completion_failure
   - collision_failure
@@ -24,6 +24,12 @@ metrics:
   comfort_cost:
     op: "<="
     value: 1.00
+  red_light_violations:
+    op: "<="
+    value: 0
+  yield_rule_violations:
+    op: "<="
+    value: 0
   fallback_count:
     op: "<="
     value: 0

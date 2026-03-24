@@ -1,0 +1,21 @@
+profile_id: reconstruction_public_road_map_refresh
+type: reconstruction
+description: Public-road map refresh and localization-support reconstruction profile
+baseline: site_gy_qyhx_gsh20260302
+research_focus:
+  - lanelet_alignment
+  - localization_reference_stability
+  - replay_readiness
+inputs:
+  raw_capture: rosbag2_and_calibration
+  localization: gnss_imu_or_slam
+  map_seed: lanelet2_and_pointcloud_prior
+outputs:
+  registered_pointcloud: public_road_pointcloud
+  lanelet_update: public_road_lanelet_candidate
+  diagnostics:
+    - lanelet_alignment_rmse_m
+    - pointcloud_coverage_ratio
+    - localization_drift_m
+    - replay_readiness_score
+acceptance_gate: reconstruction_public_road_map_refresh_gate

@@ -127,7 +127,7 @@ class CliTests(unittest.TestCase):
             outputs = json.loads(stream.getvalue())
             summary = json.loads(Path(outputs["summary"]).read_text(encoding="utf-8"))
             self.assertIn("Confirm remote GPU host access", summary["task_summary"]["blocked_titles"])
-            self.assertIn("Blind curve encounter", summary["scenario_summary"]["due_soon_titles"])
+            self.assertIn("Unprotected left at signalized intersection", summary["scenario_summary"]["due_soon_titles"])
             self.assertTrue(Path(outputs["markdown"]).exists())
             self.assertTrue(Path(outputs["html"]).exists())
 

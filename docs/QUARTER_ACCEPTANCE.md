@@ -22,11 +22,11 @@ This document defines what "done enough for this quarter" means.
 
 All of the above must be usable and documented.
 
-### 3. Site Asset Standardization
+### 3. Public-Road Asset Standardization
 
-- `gy_qyhx_gsh20260302` is represented as a standardized asset bundle
+- `gy_qyhx_gsh20260302` is represented as a standardized public-road asset bundle
 - lanelet, projector info, and pointcloud tiles map cleanly into the asset manifest
-- the first site-proxy scenario input path is defined
+- the first public-road scenario input path is defined
 
 ### 4. Team Delivery Discipline
 
@@ -37,5 +37,5 @@ All of the above must be usable and documented.
 ### 5. Next-Cycle Readiness
 
 - UE5 remote host assumptions are documented
-- E2E shadow metrics are drafted
+- public-road E2E shadow metrics are drafted
 - the team can begin the next cycle without redesigning the experiment line

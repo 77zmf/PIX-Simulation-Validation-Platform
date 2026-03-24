@@ -1,0 +1,25 @@
+gate_id: reconstruction_public_road_map_refresh_gate
+description: Research gate for public-road map refresh and localization-support reconstruction
+failure_labels:
+  - map_alignment_failure
+  - localization_reference_failure
+  - replay_readiness_failure
+metrics:
+  lanelet_alignment_rmse_m:
+    op: "<="
+    value: 0.25
+  pointcloud_coverage_ratio:
+    op: ">="
+    value: 0.90
+  localization_drift_m:
+    op: "<="
+    value: 0.35
+  revisit_consistency_m:
+    op: "<="
+    value: 0.40
+  asset_publish_latency_hr:
+    op: "<="
+    value: 48
+  replay_readiness_score:
+    op: ">="
+    value: 0.85

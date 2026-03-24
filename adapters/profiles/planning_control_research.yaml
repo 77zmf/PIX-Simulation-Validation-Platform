@@ -1,14 +1,15 @@
 profile_id: planning_control_research
 type: planning_control
-description: Research profile for closed-loop planning and control regression
+description: Research profile for public-road closed-loop planning and control regression
 baseline: planning_control_baseline
 research_focus:
   - rule_compliance
+  - interaction_handling
   - comfort_and_stability
   - fallback_behavior
 inputs:
   localization: tier4_localization_stack
-  map: lanelet2
+  map: lanelet2_or_hd_map
   obstacles: production_perception_or_truth
   predictions: optional_prediction_stack
 outputs:
@@ -17,5 +18,7 @@ outputs:
   diagnostics:
     - stop_line_overshoot_m
     - comfort_cost
+    - red_light_violations
+    - yield_rule_violations
     - fallback_count
 acceptance_gate: planning_control_research_gate

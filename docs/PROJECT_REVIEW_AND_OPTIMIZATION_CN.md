@@ -2,22 +2,22 @@
 
 ## 当前结论
 
-这套项目目前已经具备了“管理层 + 控制平面 + 自动化层”的基础闭环，但距离“真实可持续验证平台”还差 3 个关键落地点：
+这套项目目前已经具备了“管理层 + 控制平面 + 自动化层”的基础闭环，但距离“公开道路可持续验证平台”还差 3 个关键落地点：
 
 - 真实运行时环境还没有在当前宿主机上完成闭环打通
-- 现场资产和场景模板还没有形成可重复回归的第一批正式场景
+- 公开道路地图资产、重建输入和场景模板还没有形成可重复回归的第一批正式场景
 - 自动提醒已经能出 digest，但邮件发送和远端 GPU 仍受外部条件约束
 
-因此，这个项目当前不是“缺方向”，而是“缺从骨架进入稳定执行态的最后一段工程落地”。
+因此，这个项目当前不是“缺方向”，而是“需要把已经明确的方向从骨架推到稳定执行态”。
 
 ## 已经做对的地方
 
-### 1. 项目方向已经收敛
+### 1. 项目方向已经重新收敛
 
 - 主线明确为 `Autoware Universe main + ROS 2 Humble + CARLA 0.9.15`
-- 场景路线明确为 `site proxy -> corner case`
-- 算法路线明确为 `BEV 基线 + VAD shadow`
-- `UE5 / E2E` 被明确放到下一周期预备线，而不是反向拖慢本季度主交付
+- 场景路线调整为 `公开道路结构化场景 + 高价值 corner case`
+- 算法路线调整为 `BEVFusion 生产基线 + UniAD-style shadow 主线 + VADv2 对照`
+- `UE5 / E2E` 仍然被明确放到下一周期预备线，而不是反向拖慢本季度主交付
 
 ### 2. 管理层已经成型
 
@@ -27,9 +27,9 @@
 
 ### 3. 控制平面和自动化骨架已经有了
 
-- `simctl` 已经覆盖 `bootstrap / up / down / run / batch / replay / report / digest`
+- `simctl` 已经覆盖 `bootstrap / up / down / run / batch / replay / report / digest / notion-check`
 - GitHub Actions 已经覆盖基础检查和项目 digest
-- digest 已经能读取 GitHub Projects、聚合提醒，并在无 SMTP 时退化到 issue 与 artifact
+- digest 已经能读取 GitHub / Notion 数据源、聚合提醒，并在无 SMTP 时退化到 issue 与 artifact
 
 ## 当前遗漏
 
@@ -41,17 +41,17 @@
 - Autoware Universe 工作区拉起与编译
 - CARLA 0.9.15 本机稳定启动
 - `autoware_carla_interface` 真桥接打通
-- 第一个真实闭环 run_result 和报告
+- 第一个真实闭环 `run_result` 和报告
 
-如果这部分迟迟不落地，项目会停留在“管理很清楚，但交付还没落地”的状态。
+如果这部分迟迟不落地，项目会停留在“管理很清楚，但验证还没落地”的状态。
 
-### 2. 场景资产仍停留在结构化阶段
+### 2. 公开道路资产仍停留在结构化阶段
 
 你们已经定义了资产束结构、Scenario Backlog 和 Top 5 corner case 方向，但还缺：
 
 - 第一批真实 `metadata.yaml`
 - 第一批标准化 pointcloud / lanelet 目录
-- 第一条 site proxy 场景模板
+- 第一条公开道路场景模板
 - 第一组能复现现场问题的参数化 corner case
 
 ### 3. 自动化仍有两个外部依赖
@@ -60,19 +60,6 @@
 - UE5 / 高保真实验还缺远端 GPU 节点
 
 这两件事不影响当前主线推进，但会影响“团队自动化”和“下一周期切换速度”。
-
-## 这次已经修掉的问题
-
-本次代码复查里已经直接修了 3 个高信号问题：
-
-- 修复了 digest 对中文完成状态的识别问题，避免 GitHub Project 用中文状态时被误算成活跃任务
-- 修复了 `batch` 在 `run_root` 下已有 `report/` 等目录时，可能错误记录批处理结果路径的问题
-- 修复了 SMTP 发信异常会直接打断自动化 workflow 的问题，现在会安全降级并返回失败原因
-
-同时修复了公开展示层的中文乱码问题：
-
-- `docs/index.html`
-- `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
 
 ## 我建议的优化顺序
 
@@ -87,10 +74,10 @@
 
 只有这一段落地，项目才真正从“准备阶段”进入“可验证阶段”。
 
-### P1：把资产和场景从目录变成验证输入
+### P1：把公开道路资产和场景从目录变成验证输入
 
-- 先做 `site_gy_qyhx_gsh20260302` 的完整资产束
-- 再做 1 个 site proxy 场景模板
+- 先做 `gy_qyhx_gsh20260302` 的完整公开道路资产束
+- 再做 1 个公开道路 replay 场景模板
 - 再做 1 个现场问题复现 corner case
 
 这里的重点不是场景数量，而是形成可反复运行的模板。
@@ -101,11 +88,11 @@
 - 每周 review 固定引用 digest issue 和最新报告
 - 所有阻塞项必须在 GitHub Project 中显式维护 `Blocked`
 
-### P3：让下一周期平滑进入 BEV + VAD shadow
+### P3：让下一周期平滑进入公开道路 E2E shadow
 
-- 明确当前 BEV topic 和输出结构
-- 补一份 VAD shadow 接入映射
-- 固化一致性指标和 fallback 规则
+- 明确 `BEVFusion` topic、输出结构和 planner 输入契约
+- 固化 `UniAD-style` 主 shadow 与 `VADv2` 对照的评测口径
+- 先 shadow、再固定路线受控闭环，不直接做端到端控制接管
 
 ## 当前最值得盯的 6 个动作
 
@@ -113,11 +100,11 @@
 2. 在 Windows 主机上稳定拉起 CARLA 0.9.15
 3. 编译 Autoware Universe 并准备 `autoware_carla_interface`
 4. 用第一条 L0 smoke 路线生成真实 `run_result.json`
-5. 把 `gy_qyhx_gsh20260302` 资产束整理成标准目录
+5. 把 `gy_qyhx_gsh20260302` 资产束整理成公开道路标准目录
 6. 明确远端 GPU 节点的规格、访问方式和负责人
 
 ## 建议的管理原则
 
-- 本季度所有新增工作，必须能回答“是否提升稳定闭环、自动化回归、site proxy 复用或下周期 E2E 准备”
+- 本季度所有新增工作，必须能回答“是否提升稳定闭环、自动化回归、公开道路场景复用或下周期 E2E 准备”
 - 如果不能提升这四项之一，就不进入本季度主线
 - 项目书和页面继续保持“对外清楚、对内可执行”，但工程资源优先投给真实闭环，而不是继续扩展展示层

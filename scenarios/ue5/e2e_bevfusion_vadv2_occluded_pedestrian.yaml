@@ -1,0 +1,41 @@
+scenario_id: ue5_public_road_bevfusion_vadv2_occluded_pedestrian
+stack: ue5
+map_id: ue5_public_road_occlusion
+asset_bundle: site_gy_qyhx_gsh20260302
+ego_init:
+  local_pose:
+    x: 1032.4
+    y: -2884.1
+    yaw_deg: 121.0
+goal:
+  local_pose:
+    x: 875.6
+    y: -2827.9
+    yaw_deg: 102.0
+traffic_profile:
+  mode: ue5_public_road_occluded_pedestrian
+  vehicles: 10
+  pedestrians: 8
+  scripted_agents:
+    - occluded_non_motor
+    - assertive_cut_in_hatchback
+weather_profile:
+  preset: SoftRainSunset
+sensor_profile: ue5_high_fidelity
+algorithm_profile: e2e_bevfusion_vadv2_shadow
+seed: 88
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/e2e_bevfusion_vadv2_occluded_pedestrian
+  carla_recorder:
+    enabled: false
+kpi_gate: e2e_bevfusion_vadv2_shadow_gate
+labels:
+  - ue5
+  - e2e
+  - public_road
+  - occlusion
+  - shadow
+execution:
+  mode: external

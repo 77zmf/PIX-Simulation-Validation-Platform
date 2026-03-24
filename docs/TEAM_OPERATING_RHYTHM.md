@@ -26,7 +26,7 @@ Agenda:
 - `Scenario Backlog` in Notion
 - latest `run_result.json`
 - latest generated reports
-- newly added scenario or asset manifests
+- newly added public-road scenario definitions, map assets, or reconstruction manifests
 
 ## Minimum Weekly Outputs
 
@@ -46,15 +46,15 @@ Agenda:
 
 ### Luo Shunxiong (`lsx`)
 
-- Site map and pointcloud preparation
-- Field-case asset organization
-- Site-proxy and corner-case inputs
+- Public-road map and pointcloud preparation
+- Reconstruction and localization-support assets
+- Public-road and corner-case scenario inputs
 
 ### Yang Zhipeng (`Zhipeng Yang`)
 
+- `BEVFusion` perception baseline
+- Public-road perception / E2E shadow preparation
 - UE5 remote host preparation
-- Remote execution path
-- Perception / E2E shadow preparation
 
 ## Escalation Rules
 

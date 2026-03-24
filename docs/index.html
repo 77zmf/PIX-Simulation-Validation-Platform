@@ -6,7 +6,7 @@
     <title>Autoware + CARLA 自动驾驶仿真验证平台</title>
     <meta
       name="description"
-      content="Autoware Universe + CARLA 自动驾驶仿真验证平台公开主页，展示三个月项目周期、团队分工、GitHub 双看板、BEV + VAD 路线和自动化提醒机制。"
+      content="Autoware Universe + CARLA 自动驾驶仿真验证平台公开主页，展示三个月项目周期、团队分工、GitHub 双看板、公开道路验证路线、BEVFusion 感知基线和 E2E shadow 规划。"
     >
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,7 +23,7 @@
           <p class="eyebrow">Autoware + CARLA Simulation Validation</p>
           <h1>自动驾驶仿真验证平台</h1>
           <p class="lede">
-            这个项目不是单独搭一套仿真环境，而是建设一套面向规划控制、感知、site proxy、
+            这个项目不是单独搭一套仿真环境，而是建设一套面向规划控制、感知、公开道路场景、
             corner case 和未来端到端算法验证的工程化底座。
           </p>
           <div class="hero-actions">
@@ -38,8 +38,8 @@
           <p class="hero-card-label">当前主判断</p>
           <ul>
             <li><strong>稳定主线：</strong>Autoware Universe main + ROS 2 Humble + CARLA 0.9.15</li>
-            <li><strong>场景主线：</strong>site proxy + 高价值 corner case 优先服务稳定闭环</li>
-            <li><strong>算法路线：</strong>BEV 基线 + VAD shadow，不直接替换主控制链路</li>
+            <li><strong>场景主线：</strong>公开道路结构化场景 + 高价值 corner case 优先服务稳定闭环</li>
+            <li><strong>算法路线：</strong>BEVFusion 基线 + UniAD-style shadow，VADv2 做对照</li>
             <li><strong>自动化：</strong>GitHub 双看板 + 工作日 digest + 条件邮件提醒</li>
           </ul>
         </div>
@@ -60,7 +60,7 @@
         </div>
         <div class="status-card">
           <span class="status-label">第三优先级</span>
-          <strong>site proxy / 场景</strong>
+          <strong>公开道路 / 场景</strong>
         </div>
         <div class="status-card">
           <span class="status-label">并行准备</span>
@@ -99,15 +99,15 @@
             <article class="timeline-item">
               <span class="timeline-badge">7-8</span>
               <div>
-                <h3>资产与场景输入</h3>
-                <p>标准化 gy_qyhx_gsh 资产束，梳理现场 rosbag、地图、点云和 Top 5 corner case。</p>
+                <h3>公开道路资产与场景输入</h3>
+                <p>标准化 gy_qyhx_gsh 公开道路资产束，梳理现场 rosbag、地图、点云、重建输入和 Top 5 corner case。</p>
               </div>
             </article>
             <article class="timeline-item">
               <span class="timeline-badge">9-10</span>
               <div>
-                <h3>site proxy 落地</h3>
-                <p>至少让 1 个 site proxy 场景和 1 个高价值 corner case 进入正常验证链路。</p>
+                <h3>公开道路场景落地</h3>
+                <p>至少让 1 个公开道路场景和 1 个高价值 corner case 进入正常验证链路。</p>
               </div>
             </article>
             <article class="timeline-item accent">
@@ -132,7 +132,7 @@
             </article>
             <article class="card">
               <h3>本季度可交付</h3>
-              <p>稳定主线最小闭环、L0/L1 回归、第一批 site proxy 资产与场景模板，以及 BEV + VAD shadow 的受控验证入口。</p>
+              <p>稳定主线最小闭环、L0/L1 回归、第一批公开道路资产与场景模板，以及 `BEVFusion + UniAD-style shadow` 的受控验证入口。</p>
             </article>
             <article class="card emphasis">
               <h3>外部依赖</h3>
@@ -154,9 +154,9 @@
             </article>
             <div class="arch-arrow">→</div>
             <article class="arch-card">
-              <p class="arch-tag">Site Proxy</p>
+              <p class="arch-tag">Public Road</p>
               <h3>场景与资产主线</h3>
-              <p>把 lanelet、pointcloud、rosbag 和现场问题标准化成可复用资产束、场景模板和 corner case。</p>
+              <p>把 lanelet、pointcloud、rosbag、重建输入和现场问题标准化成可复用资产束、场景模板和 corner case。</p>
             </article>
             <div class="arch-arrow">→</div>
             <article class="arch-card">
@@ -181,7 +181,7 @@
               </article>
               <article class="person-card">
                 <h3>场景看板</h3>
-                <p>同步 Scenario Backlog，公开展示 site proxy、回归场景、UE5 场景和 E2E 相关场景的节奏。</p>
+                <p>同步 Scenario Backlog，公开展示公开道路场景、回归场景、UE5 场景和 E2E 相关场景的节奏。</p>
                 <p><a class="inline-link" href="https://github.com/users/77zmf/projects/2">打开场景看板</a></p>
               </article>
             </div>
@@ -252,12 +252,12 @@
           </div>
           <div class="grid two-up">
             <article class="card emphasis">
-              <h3>推荐路线：BEV 基线 + VAD shadow</h3>
-              <p>现有 BEV 感知继续作为主基线，VAD 先并行运行，先做感知与规划一体化的 shadow 评测，再进入固定路线受控闭环。</p>
+              <h3>推荐路线：BEVFusion + UniAD-style shadow</h3>
+              <p>现有 `BEVFusion` 感知继续作为主基线，`UniAD-style` planner 先并行运行，`VADv2` 作为对照路线，先做公开道路 shadow 评测，再进入固定路线受控闭环。</p>
             </article>
             <article class="card">
               <h3>推进顺序</h3>
-              <p>BEV 输出映射 → shadow 指标 → 一致性样例 → fallback 策略 → 受控闭环，不直接上端到端控制接管。</p>
+              <p>`BEVFusion` 输出映射 → shadow 指标 → `UniAD-style` 与 `VADv2` 对照 → fallback 策略 → 受控闭环，不直接上端到端控制接管。</p>
             </article>
           </div>
         </section>
@@ -274,7 +274,7 @@
             </article>
             <article class="card">
               <h3>场景资产还在起步</h3>
-              <p>site proxy 资产束和 Top 5 corner case 的结构已经定了，但还需要把现场问题真正转成可回归场景。</p>
+              <p>公开道路资产束和 Top 5 corner case 的结构已经定了，但还需要把现场问题真正转成可回归场景。</p>
             </article>
             <article class="card emphasis">
               <h3>提醒系统未完全闭环</h3>
@@ -291,10 +291,10 @@
           <div class="checklist">
             <div class="check-item">至少 1 条稳定闭环链路可重复执行并产出统一工件</div>
             <div class="check-item">`bootstrap / up / run / batch / replay / report` 主链路可用</div>
-            <div class="check-item">`gy_qyhx_gsh20260302` 形成标准资产束并接入场景</div>
+            <div class="check-item">`gy_qyhx_gsh20260302` 形成标准公开道路资产束并接入场景</div>
             <div class="check-item">任务看板与场景看板都能支撑日常执行和提醒</div>
             <div class="check-item">自动 digest 能生成 owner 维度的提醒信息</div>
-            <div class="check-item">`BEV + VAD shadow` 路线形成下周期可执行入口</div>
+            <div class="check-item">`BEVFusion + UniAD-style shadow` 路线形成下周期可执行入口</div>
           </div>
         </section>
       </main>

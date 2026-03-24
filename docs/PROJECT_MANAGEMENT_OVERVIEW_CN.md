@@ -6,7 +6,7 @@
 
 - 打通 `Autoware Universe main + ROS 2 Humble + CARLA 0.9.15` 的稳定闭环
 - 固化自动化验证、回归、回放、KPI 门禁和报告
-- 复用现场地图、点云和问题案例，沉淀 `site proxy` 与 `corner case`
+- 复用公开道路地图、点云、重建和问题案例，沉淀可回放场景与 corner case
 - 为未来 `UE5 / E2E` 实验线准备入口，但不破坏当前稳定主线
 
 ## 2. 当前完整项目周期
@@ -33,13 +33,13 @@
 
 ### Weeks 7-8
 
-- 标准化 `gy_qyhx_gsh20260302` 资产束
+- 标准化 `gy_qyhx_gsh20260302` 公开道路资产束
 - 整理地图、点云、rosbag、案例索引
-- 完成 Top 5 corner case 首版梳理
+- 完成 Top 5 公开道路 corner case 首版梳理
 
 ### Weeks 9-10
 
-- 让至少 1 个 `site proxy` 场景进入正常验证流程
+- 让至少 1 个公开道路场景进入正常验证流程
 - 完成至少 1 个高价值 corner case 复现
 
 ### Weeks 11-12
@@ -61,14 +61,14 @@
 
 - 稳定主线最小闭环
 - 自动化回归和 KPI 门禁
-- 第一批 site proxy 资产和场景
-- `BEV 基线 + VAD shadow` 的受控验证入口
+- 第一批公开道路资产和场景
+- `BEVFusion + UniAD-style shadow` 的受控验证入口
 
 ### 依赖外部条件
 
 - 邮件提醒需要 SMTP Secrets
 - UE5 高负载实验需要远端 GPU 节点
-- 真正大规模数字孪生不在当前季度主线
+- 真正大规模公开道路数字孪生不在当前季度主线
 
 ## 4. 当前技术路线
 
@@ -80,20 +80,21 @@
 
 ### 场景路线
 
-- 先做 `site proxy`
-- 再沉淀 Top 5 corner case
+- 先做公开道路地图和重建资产整理
+- 再沉淀 Top 5 高价值 corner case
 - 场景要做成模板，不做一次性脚本
 
 ### 算法路线
 
 当前推荐路线是：
 
-`BEV 基线 + VAD shadow -> 一致性评测 -> fallback 策略 -> 固定路线受控闭环`
+`BEVFusion 生产基线 -> UniAD-style shadow 主线 -> VADv2 对照 -> 受控闭环评测`
 
 也就是说：
 
-- 现有 BEV 感知继续做主基线
-- VAD 先做 shadow，不直接接管控制
+- `BEVFusion` 继续做感知主基线
+- `UniAD-style` 先做规划导向 shadow，不直接接管控制
+- `VADv2` 作为对照路线，用于比较不确定性规划收益
 - 先验证可行性，再进入下一周期更深的 E2E 路线
 
 ## 5. 当前管理结构
@@ -126,14 +127,14 @@
 ## 7. 当前团队分工
 
 - `朱民峰`：稳定主线、控制平面、自动化、KPI、项目推进
-- `罗顺雄 / lsx`：地图点云资产、site proxy、corner case、现场问题前移
-- `杨志朋 / Zhipeng Yang`：UE5 远端实验线、感知 / E2E shadow、GPU 条件准备
+- `罗顺雄 / lsx`：公开道路地图点云资产、重建、corner case、现场问题前移
+- `杨志朋 / Zhipeng Yang`：`BEVFusion` 感知基线、UE5 远端实验线、公开道路 E2E shadow 准备
 
 ## 8. 本季度验收口径
 
 - 至少 1 条稳定闭环链路可重复执行
 - `bootstrap / up / run / batch / replay / report` 主链路可用
-- `gy_qyhx_gsh20260302` 形成标准资产束
-- 至少 1 个 `site proxy` 场景进入验证流程
+- `gy_qyhx_gsh20260302` 形成标准公开道路资产束
+- 至少 1 个公开道路场景进入验证流程
 - GitHub 双看板和 Notion 保持同步管理
 - 自动 digest 可以生成 owner 维度提醒

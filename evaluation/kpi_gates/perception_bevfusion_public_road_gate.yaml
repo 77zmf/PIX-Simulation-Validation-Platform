@@ -1,0 +1,28 @@
+gate_id: perception_bevfusion_public_road_gate
+description: Research gate for BEVFusion public-road perception quality and planner interface stability
+failure_labels:
+  - perception_quality_failure
+  - tracking_instability
+  - planner_interface_divergence
+metrics:
+  detection_recall:
+    op: ">="
+    value: 0.92
+  false_positive_per_frame:
+    op: "<="
+    value: 0.25
+  tracking_id_switches:
+    op: "<="
+    value: 2
+  occupancy_iou:
+    op: ">="
+    value: 0.72
+  lane_topology_recall:
+    op: ">="
+    value: 0.88
+  latency_ms:
+    op: "<="
+    value: 120
+  planner_interface_disagreement_rate:
+    op: "<="
+    value: 0.12

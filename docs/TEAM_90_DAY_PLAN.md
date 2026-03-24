@@ -8,15 +8,15 @@ Over the next 3 months, the team will move the project from a scaffolded validat
 
 - a stable `Autoware Universe main + ROS 2 Humble + CARLA 0.9.15` closed-loop path
 - automated validation and reporting workflows
-- a first usable `site proxy` asset bundle and scenario input path
-- a prepared `UE5 / E2E shadow` experiment line for the next cycle
+- a first usable public-road map and reconstruction asset path based on `gy_qyhx_gsh20260302`
+- a prepared public-road `UE5 / E2E shadow` experiment line based on `BEVFusion`
 
 ## Priority Order
 
 1. Stable stack closed loop is usable.
 2. Automation and regression are usable.
-3. Site assets and corner-case inputs are standardized.
-4. UE5 / E2E shadow is prepared as the next-cycle seed.
+3. Public-road map assets and corner-case inputs are standardized.
+4. Public-road `UE5 / E2E shadow` is prepared as the next-cycle seed.
 
 ## Team Ownership
 
@@ -27,12 +27,12 @@ Over the next 3 months, the team will move the project from a scaffolded validat
 
 ### Luo Shunxiong (`lsx`)
 
-- Owns site-proxy inputs, pointcloud/map asset handling, corner-case discovery, and field-problem reconstruction inputs.
+- Owns public-road map and pointcloud assets, reconstruction inputs, corner-case discovery, and field-problem replay preparation.
 - Converts field issues into reusable simulation assets and scenario templates.
 
 ### Yang Zhipeng (`Zhipeng Yang`)
 
-- Owns the UE5 remote line, remote GPU readiness, and perception / E2E shadow preparation.
+- Owns the `BEVFusion` perception baseline, public-road perception / E2E shadow preparation, and UE5 remote readiness.
 - Prepares the next-cycle high-fidelity validation path without destabilizing the current stable line.
 
 ## Phase Plan
@@ -66,7 +66,7 @@ Time window: Weeks 5-8
 
 Goals:
 
-- Connect `autoware_carla_interface`
+- connect `autoware_carla_interface`
 - establish a minimal closed-loop path
 - lock L0 smoke and L1 regression behavior
 - produce `run_result.json`, replay paths, and reports from the same workflow
@@ -84,48 +84,48 @@ Exit criteria:
 - reports and replay entries are generated consistently
 - the team can repeat smoke and regression scenarios without ad hoc manual steps
 
-## Phase 3: Site Proxy And Corner Cases
+## Phase 3: Public-Road Assets And Corner Cases
 
 Time window: Weeks 9-12
 
 Goals:
 
-- standardize the `gy_qyhx_gsh20260302` asset bundle
+- standardize the `gy_qyhx_gsh20260302` asset bundle as a public-road map and reconstruction bundle
 - organize lanelet, projector, pointcloud, and field-case inputs
-- define and prioritize the Top 5 corner cases
-- build the first site-proxy scenario path
+- define and prioritize the Top 5 public-road corner cases
+- build the first public-road replayable scenario path
 
 Required outputs:
 
 - standardized asset bundle layout
-- top-five corner-case list with success signals
-- first site-proxy scenario templates
+- top-five public-road corner-case list with success signals
+- first public-road scenario templates
 - scenario backlog aligned with real field problems
 
 Exit criteria:
 
-- at least one site-proxy scenario is executable through the team workflow
+- at least one public-road scenario is executable through the team workflow
 - corner cases are documented as reusable templates instead of one-off scripts
 
-## Parallel Seed: UE5 / E2E Shadow Preparation
+## Parallel Seed: Public-Road E2E Shadow Preparation
 
 Time window: Runs in parallel, but does not displace the stable line
 
 Goals:
 
 - identify the remote GPU host and access model
-- define shadow metrics for perception / E2E experiments
+- define shadow metrics for `BEVFusion + UniAD-style` and `VADv2` experiments
 - prepare a remote execution path for the next cycle
 
 Required outputs:
 
 - remote host readiness checklist
 - UE5 remote execution notes
-- E2E shadow metric draft
+- public-road E2E shadow metric draft
 
 Exit criteria:
 
-- the next quarter can start UE5 / E2E experiments without re-deciding the host, access, and evaluation model
+- the next quarter can start public-road `UE5 / E2E` experiments without re-deciding the host, access, and evaluation model
 
 ## Weekly Operating Rhythm
 
@@ -144,8 +144,8 @@ Exit criteria:
 - Automation:
   `bootstrap`, `up`, `run`, `batch`, `replay`, and `report` are all usable.
 - Assets:
-  the first site-proxy asset bundle is standardized and linked to scenario inputs.
+  the first public-road asset bundle is standardized and linked to scenario inputs.
 - Team process:
   weekly review, ownership, and progress tracking run through the established Notion workflow.
 - Future path:
-  UE5 remote readiness and E2E shadow metrics are documented for the next cycle.
+  public-road E2E shadow metrics and remote readiness are documented for the next cycle.

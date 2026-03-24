@@ -1,0 +1,34 @@
+scenario_id: stable_l2_perception_bevfusion_public_road_occlusion
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  spawn_point: Town01/17
+goal:
+  route_id: Town01/occluded_crosswalk
+traffic_profile:
+  mode: public_road_occlusion
+  vehicles: 24
+  pedestrians: 10
+  scripted_agents:
+    - occluded_crosswalk_pedestrian
+weather_profile:
+  preset: WetCloudySunset
+sensor_profile: production_perception
+algorithm_profile: perception_bevfusion_public_road
+seed: 20260324
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/perception_bevfusion_public_road_occlusion
+  carla_recorder:
+    enabled: true
+    path: carla/perception_bevfusion_public_road_occlusion.log
+kpi_gate: perception_bevfusion_public_road_gate
+labels:
+  - L2
+  - perception
+  - public_road
+  - occlusion
+execution:
+  mode: external

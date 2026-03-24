@@ -1,28 +1,28 @@
 {
   "items": [
     {
-      "title": "Blind curve encounter",
+      "title": "Unprotected left at signalized intersection",
       "status": "Todo",
       "severity": "P0",
       "stack": "Stable",
-      "source": "Site Proxy",
-      "target Track": "Site Proxy",
-      "scenario Type": "Blind Curve",
+      "source": "Public Road Replay",
+      "target Track": "Public Road",
+      "scenario Type": "Unprotected Left",
       "due Date": "2026-03-27",
-      "notion URL": "https://example.com/scenarios/blind-curve",
-      "success Signal": "Repeatable TTC-safe scenario."
+      "notion URL": "https://example.com/scenarios/unprotected-left",
+      "success Signal": "No collision, no red-light violation, and repeatable yield behavior."
     },
     {
-      "title": "Night narrow-road meeting",
+      "title": "Occluded pedestrian at urban crosswalk",
       "status": "Todo",
-      "severity": "P2",
+      "severity": "P1",
       "stack": "UE5",
       "source": "UE5 Manual",
       "target Track": "UE5 Lab",
-      "scenario Type": "Narrow Road",
+      "scenario Type": "Occluded Pedestrian",
       "due Date": "2026-04-15",
-      "notion URL": "https://example.com/scenarios/night-road",
-      "success Signal": "High-fidelity playback data captured."
+      "notion URL": "https://example.com/scenarios/occluded-pedestrian",
+      "success Signal": "High-fidelity shadow replay captures perception and planner divergence."
     }
   ]
 }

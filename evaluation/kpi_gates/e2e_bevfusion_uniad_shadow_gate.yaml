@@ -1,0 +1,31 @@
+gate_id: e2e_bevfusion_uniad_shadow_gate
+description: Shadow gate for BEVFusion plus UniAD-style public-road planning experiments
+failure_labels:
+  - shadow_divergence
+  - shadow_safety_violation
+  - shadow_rule_violation
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.96
+  collision_count:
+    op: "<="
+    value: 0
+  trajectory_divergence_m:
+    op: "<="
+    value: 0.60
+  min_ttc_sec:
+    op: ">="
+    value: 2.0
+  comfort_cost:
+    op: "<="
+    value: 0.30
+  red_light_violations:
+    op: "<="
+    value: 0
+  unprotected_left_yield_failures:
+    op: "<="
+    value: 0
+  planner_disengagement_triggers:
+    op: "<="
+    value: 1

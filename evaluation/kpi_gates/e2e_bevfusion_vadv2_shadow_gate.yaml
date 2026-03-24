@@ -1,0 +1,28 @@
+gate_id: e2e_bevfusion_vadv2_shadow_gate
+description: Shadow gate for BEVFusion plus VADv2 public-road comparison experiments
+failure_labels:
+  - shadow_divergence
+  - shadow_safety_violation
+  - uncertainty_coverage_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  trajectory_divergence_m:
+    op: "<="
+    value: 0.65
+  min_ttc_sec:
+    op: ">="
+    value: 1.9
+  cut_in_yield_failures:
+    op: "<="
+    value: 0
+  planner_disengagement_triggers:
+    op: "<="
+    value: 1
+  shadow_uncertainty_coverage:
+    op: ">="
+    value: 0.80

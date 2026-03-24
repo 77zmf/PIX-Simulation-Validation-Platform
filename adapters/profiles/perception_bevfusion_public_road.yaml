@@ -1,0 +1,22 @@
+profile_id: perception_bevfusion_public_road
+type: perception
+description: Public-road BEVFusion perception profile for closed-loop validation and E2E shadow inputs
+baseline: production_perception
+research_focus:
+  - multi_sensor_fusion_robustness
+  - lane_topology_and_occupancy_consistency
+  - planning_interface_stability
+inputs:
+  sensors: production_perception_or_ue5_high_fidelity
+  calibration: required
+  map: lanelet2_or_hd_map
+outputs:
+  detections: bevfusion_objects
+  occupancy: bevfusion_occupancy
+  tracks: bevfusion_tracks
+  planner_interface:
+    - object_queries
+    - lane_graph_features
+    - occupancy_queries
+    - ego_history
+acceptance_gate: perception_bevfusion_public_road_gate

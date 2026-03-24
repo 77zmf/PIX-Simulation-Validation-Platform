@@ -6,8 +6,8 @@ It is not just an environment setup repo. The current goal is to build a team-us
 
 - `Autoware Universe main + ROS 2 Humble + CARLA 0.9.15` stable closed-loop verification
 - automated regression, replay, KPI gating, and reporting
-- site proxy and corner-case accumulation from real map and pointcloud assets
-- a future `UE5 / E2E` experiment line that starts with `BEV baseline + VAD shadow`
+- public-road map, reconstruction, and corner-case accumulation from real assets
+- a future `UE5 / E2E` experiment line that starts with `BEVFusion + UniAD-style shadow`, with `VADv2` as the comparison baseline
 
 ## Current Focus
 
@@ -15,8 +15,8 @@ The current three-month delivery is organized around four priorities:
 
 1. Make the `stable` stack usable in closed loop.
 2. Make `bootstrap / up / run / batch / replay / report` usable for daily validation.
-3. Turn the `gy_qyhx_gsh20260302` site assets into reusable site proxy and corner-case inputs.
-4. Prepare `UE5 / E2E shadow` as the next-stage capability without destabilizing the main line.
+3. Turn the `gy_qyhx_gsh20260302` assets into reusable public-road map and corner-case inputs.
+4. Prepare public-road `UE5 / E2E shadow` as the next-stage capability without destabilizing the main line.
 
 ## Public Entry Points
 
@@ -33,8 +33,8 @@ The current three-month delivery is organized around four priorities:
 ## Team Ownership
 
 - `Zhu Minfeng`: stable stack, control plane, automation, project rhythm
-- `Luo Shunxiong / lsx`: site proxy, real-site map and pointcloud assets, corner-case replay
-- `Yang Zhipeng / Zhipeng Yang`: UE5 remote line, perception and E2E shadow preparation
+- `Luo Shunxiong / lsx`: public-road map and pointcloud assets, reconstruction inputs, corner-case replay
+- `Yang Zhipeng / Zhipeng Yang`: `BEVFusion` perception baseline, public-road perception / E2E shadow preparation
 
 ## Technical Tracks
 
@@ -46,9 +46,9 @@ The current three-month delivery is organized around four priorities:
 - Primary success signal is a repeatable closed loop:
   `startup -> localization -> planning -> control -> goal reached -> report`
 
-### Site Proxy and Corner Cases
+### Public-Road Assets and Corner Cases
 
-- First site bundle: `site_gy_qyhx_gsh20260302`
+- First public-road bundle: `site_gy_qyhx_gsh20260302`
 - Target asset bundle shape:
   - `lanelet2_map.osm`
   - `map_projector_info.yaml`
@@ -60,9 +60,10 @@ The current three-month delivery is organized around four priorities:
 
 The current recommended route is:
 
-- keep the existing `BEV` perception stack as the production baseline
-- run `VAD` in `shadow` mode first
-- compare trajectory, behavior, collision, TTC, and route-completion signals
+- keep `BEVFusion` as the production perception baseline
+- run a `UniAD-style` planner in `shadow` mode first
+- keep `VADv2` as the comparison baseline for uncertainty-aware planning
+- compare trajectory, behavior, collision, TTC, rule-compliance, and route-completion signals
 - preserve fallback to the classical planning and control chain
 
 This repository does not treat direct end-to-end control takeover as the first milestone.
@@ -160,7 +161,7 @@ The public portal entry is:
 The project-management and control-plane layers are in place, but three delivery gates still matter most:
 
 - the real `Autoware + CARLA` runtime path still needs to be brought up on the target machine
-- the first reusable `site proxy` scenario still needs to move from asset structure into repeatable validation input
+- the first reusable public-road scenario still needs to move from asset structure into repeatable validation input
 - digest automation works now, but real mail delivery still depends on SMTP secrets and remote UE5 work still depends on a GPU host
 
 ## Current Asset Note
