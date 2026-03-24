@@ -10,7 +10,7 @@ Participants:
 
 - Zhu Minfeng
 - Luo Shunxiong (`lsx`)
-- Yang Zhipeng (`Zhipeng Yang`)
+- Yang Zhipeng (`Zhipeng Yang`, 杨志朋)
 
 Agenda:
 
@@ -39,7 +39,7 @@ Agenda:
 
 ### Zhu Minfeng
 
-- Stable stack environment
+- Company Ubuntu host stable stack environment
 - Control-plane scripts
 - KPI gates and reporting
 - Weekly steering
@@ -50,10 +50,10 @@ Agenda:
 - Reconstruction and localization-support assets
 - Public-road and corner-case scenario inputs
 
-### Yang Zhipeng (`Zhipeng Yang`)
+### Yang Zhipeng (`Zhipeng Yang`, 杨志朋)
 
 - `BEVFusion` perception baseline
-- Public-road perception / E2E shadow preparation
+- Public-road perception and E2E shadow preparation
 - UE5 remote host preparation
 
 ## Escalation Rules

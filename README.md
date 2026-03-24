@@ -2,7 +2,7 @@
 
 This repository is the control plane for an autonomous-driving simulation validation platform.
 
-It is not just an environment setup repo. The current goal is to build a team-usable validation baseline for:
+It is not just an environment setup repo. The current team goal is to build a reusable validation baseline for:
 
 - `Autoware Universe main + ROS 2 Humble + CARLA 0.9.15` stable closed-loop verification
 - automated regression, replay, KPI gating, and reporting
@@ -13,10 +13,15 @@ It is not just an environment setup repo. The current goal is to build a team-us
 
 The current three-month delivery is organized around four priorities:
 
-1. Make the `stable` stack usable in closed loop.
+1. Make the `stable` stack usable in closed loop on the company Ubuntu host.
 2. Make `bootstrap / up / run / batch / replay / report` usable for daily validation.
 3. Turn the `gy_qyhx_gsh20260302` assets into reusable public-road map and corner-case inputs.
 4. Prepare public-road `UE5 / E2E shadow` as the next-stage capability without destabilizing the main line.
+
+Current near-term gate:
+
+- by `2026-04-05`, finish the company Ubuntu host bring-up and close the first automation data loop:
+  `simctl run -> run_result.json -> report -> replay`
 
 ## Public Entry Points
 
@@ -34,28 +39,28 @@ The current three-month delivery is organized around four priorities:
 
 - `Zhu Minfeng`: stable stack, control plane, automation, project rhythm
 - `Luo Shunxiong / lsx`: public-road map and pointcloud assets, reconstruction inputs, corner-case replay
-- `Yang Zhipeng / Zhipeng Yang`: `BEVFusion` perception baseline, public-road perception / E2E shadow preparation
+- `Yang Zhipeng / Zhipeng Yang / 杨志朋`: `BEVFusion` perception baseline, public-road perception and E2E shadow preparation
 
 ## Technical Tracks
 
 ### Stable Main Line
 
-- Windows host runs CARLA rendering and host-side orchestration
-- WSL2 Ubuntu 22.04 runs Autoware Universe, ROS 2 Humble, and bridge components
-- CARLA version is fixed to `0.9.15`
-- Primary success signal is a repeatable closed loop:
+- the company `Ubuntu 22.04` host is the primary runtime environment
+- the same host runs `ROS 2 Humble`, `Autoware Universe`, `autoware_carla_interface`, and `CARLA 0.9.15`
+- the local machine is only for code management, remote access, and artifact review
+- primary success signal is a repeatable closed loop:
   `startup -> localization -> planning -> control -> goal reached -> report`
 
-### Public-Road Assets and Corner Cases
+### Public-Road Assets And Corner Cases
 
-- First public-road bundle: `site_gy_qyhx_gsh20260302`
-- Target asset bundle shape:
+- first public-road bundle: `site_gy_qyhx_gsh20260302`
+- target asset bundle shape:
   - `lanelet2_map.osm`
   - `map_projector_info.yaml`
   - `pointcloud_map.pcd/`
   - `metadata.yaml`
-- Large raw assets stay out of Git history and are referenced by manifests
-- Reconstruction direction is staged:
+- large raw assets stay out of Git history and are referenced by manifests
+- reconstruction direction is staged:
   - `map refresh` for asset and localization support
   - `static Gaussian` reconstruction for future geometry-rich replay assets
   - `dynamic Gaussian` reconstruction for future actor-aware replay and high-fidelity simulation
@@ -75,15 +80,17 @@ This repository does not treat direct end-to-end control takeover as the first m
 ## Repository Layout
 
 ```text
-infra/       Host, WSL2, Ubuntu, and remote preparation scripts
+infra/       Ubuntu host and remote preparation scripts
 stack/       Stable and UE5 stack profiles plus launch helpers
 assets/      Asset manifests, site metadata, and sensor profiles
 scenarios/   L0-L3 and UE5 scenario definitions
 evaluation/  KPI gates, reports, and failure taxonomy
-adapters/    Planning, perception, and E2E profile examples
+adapters/    Planning, perception, E2E, and reconstruction profile examples
 src/simctl/  CLI and control-plane implementation
 tests/       Local verification for the control plane
 docs/        Public portal, team plan, and project-management snapshots
+ops/         Project automation configuration
+tools/       Maintenance and publishing helpers
 ```
 
 ## Control Plane Commands
@@ -102,46 +109,50 @@ The unified CLI entrypoints are:
 
 ## Quick Start
 
+Run the stable-line setup on the company Ubuntu host.
+
 1. Create a virtual environment and install the package.
 
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
    python -m pip install --upgrade pip
    python -m pip install -e .
    ```
 
 2. Inspect the stable bootstrap plan.
 
-   ```powershell
+   ```bash
    simctl bootstrap --stack stable
    ```
 
-3. Run a local smoke scenario and generate a report.
+3. Run a smoke scenario and generate a report.
 
-   ```powershell
+   ```bash
    simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root runs
    simctl report --run-root runs
    ```
 
 4. Batch a set of scenarios.
 
-   ```powershell
+   ```bash
    simctl batch --glob "scenarios/l1/*.yaml" --run-root runs --mock-result passed
    simctl report --run-root runs
    ```
 
 5. Generate the project digest used by the management automation.
 
-   ```powershell
+   ```bash
    simctl digest --config ops/project_automation.yaml --output-dir artifacts/project_digest
    ```
 
 6. Validate the Notion API connection used by the automation.
 
-   ```powershell
+   ```bash
    simctl notion-check --config ops/project_automation.yaml
    ```
+
+If you are reviewing the repo from Windows, keep Git and GitHub management local but execute the runtime workflow on the company Ubuntu host over SSH.
 
 ## Current Planning Documents
 
@@ -165,7 +176,7 @@ The public portal entry is:
 
 The project-management and control-plane layers are in place, but three delivery gates still matter most:
 
-- the real `Autoware + CARLA` runtime path still needs to be brought up on the target machine
+- the real `Autoware + CARLA` runtime path still needs to be brought up on the company Ubuntu host
 - the first reusable public-road scenario still needs to move from asset structure into repeatable validation input
 - digest automation works now, but real mail delivery still depends on SMTP secrets and remote UE5 work still depends on a GPU host
 

@@ -6,7 +6,7 @@
     <title>Autoware + CARLA 自动驾驶仿真验证平台</title>
     <meta
       name="description"
-      content="Autoware Universe + CARLA 自动驾驶仿真验证平台公开主页，展示三个月项目周期、团队分工、GitHub 双看板、公开道路验证路线、BEVFusion 感知基线和 E2E shadow 规划。"
+      content="Autoware Universe + CARLA 自动驾驶仿真验证平台公开主页，展示 12 周项目周期、公司 Ubuntu 主机部署方案、团队分工、GitHub 双看板和公开道路验证路线。"
     >
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,17 +30,18 @@
             <a class="button primary" href="https://github.com/77zmf/zmf_ws">GitHub 仓库</a>
             <a class="button secondary" href="https://github.com/users/77zmf/projects/1">任务看板</a>
             <a class="button secondary" href="https://github.com/users/77zmf/projects/2">场景看板</a>
-            <a class="button secondary" href="https://github.com/77zmf/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest">Digest Inbox</a>
             <a class="button secondary" href="https://www.notion.so/32cef7e6aaa98199b912f040068b57dd">Notion 总览</a>
+            <a class="button secondary" href="https://github.com/77zmf/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest">Digest Inbox</a>
           </div>
         </div>
         <div class="hero-card">
           <p class="hero-card-label">当前主判断</p>
           <ul>
             <li><strong>稳定主线：</strong>Autoware Universe main + ROS 2 Humble + CARLA 0.9.15</li>
-            <li><strong>场景主线：</strong>公开道路结构化场景 + 高价值 corner case 优先服务稳定闭环</li>
+            <li><strong>主运行环境：</strong>公司 Ubuntu 22.04 主机</li>
             <li><strong>算法路线：</strong>BEVFusion 基线 + UniAD-style shadow，VADv2 做对照</li>
-            <li><strong>自动化：</strong>GitHub 双看板 + 工作日 digest + 条件邮件提醒</li>
+            <li><strong>四月初目标：</strong>完成环境搭建，并打通自动化数据闭环</li>
+            <li><strong>自动管理：</strong>GitHub 双看板 + 工作日 digest + 条件邮件提醒</li>
           </ul>
         </div>
       </header>
@@ -51,19 +52,19 @@
           <strong>12 周</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">第一优先级</span>
-          <strong>稳定闭环</strong>
+          <span class="status-label">短期硬门槛</span>
+          <strong>2026-04-05</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">第二优先级</span>
-          <strong>自动化回归</strong>
+          <span class="status-label">主运行环境</span>
+          <strong>公司 Ubuntu 主机</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">第三优先级</span>
-          <strong>公开道路 / 场景</strong>
+          <span class="status-label">感知基线</span>
+          <strong>BEVFusion</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">并行准备</span>
+          <span class="status-label">并行预备</span>
           <strong>UE5 / E2E</strong>
         </div>
       </section>
@@ -79,14 +80,14 @@
               <span class="timeline-badge">1-2</span>
               <div>
                 <h3>环境与底座</h3>
-                <p>完成 Windows、WSL2、Ubuntu 22.04、ROS 2 Humble、Autoware 工作区和 CARLA 0.9.15 的可重复准备。</p>
+                <p>完成公司 Ubuntu 22.04 主机、ROS 2 Humble、Autoware 工作区和 CARLA 0.9.15 的可重复准备。</p>
               </div>
             </article>
             <article class="timeline-item">
               <span class="timeline-badge">3-4</span>
               <div>
                 <h3>最小闭环与桥接</h3>
-                <p>打通 autoware_carla_interface、时钟、TF、控制反馈与 L0 smoke 报告模板。</p>
+                <p>打通 autoware_carla_interface、时钟、TF、控制反馈和 L0 smoke 报告模板。</p>
               </div>
             </article>
             <article class="timeline-item">
@@ -100,21 +101,21 @@
               <span class="timeline-badge">7-8</span>
               <div>
                 <h3>公开道路资产与场景输入</h3>
-                <p>标准化 gy_qyhx_gsh 公开道路资产束，梳理现场 rosbag、地图、点云、重建输入和 Top 5 corner case。</p>
+                <p>标准化 gy_qyhx_gsh 资产束，整理地图、点云、rosbag、重建输入和 Top 5 corner case。</p>
               </div>
             </article>
             <article class="timeline-item">
               <span class="timeline-badge">9-10</span>
               <div>
                 <h3>公开道路场景落地</h3>
-                <p>至少让 1 个公开道路场景和 1 个高价值 corner case 进入正常验证链路。</p>
+                <p>至少让 1 个公开道路场景和 1 个高价值 corner case 进入正常验证流程。</p>
               </div>
             </article>
             <article class="timeline-item accent">
               <span class="timeline-badge">11-12</span>
               <div>
-                <h3>季度收口与下周期准备</h3>
-                <p>冻结季度验收集，复盘风险与阻塞项，并把 UE5 / E2E shadow 的下周期入口准备好。</p>
+                <h3>季度收口与下阶段准备</h3>
+                <p>冻结季度验收集，复盘风险与阻塞项，并把 UE5 / E2E shadow 的下阶段入口准备好。</p>
               </div>
             </article>
           </div>
@@ -128,15 +129,15 @@
           <div class="grid three-up">
             <article class="card">
               <h3>现在可行</h3>
-              <p>GitHub 双看板、Notion 详细管理、公开主页、控制平面 CLI、项目 digest 和自动提醒管线都已经能工作。</p>
+              <p>GitHub 双看板、Notion 详细管理、公开主页、控制平面 CLI、项目 digest 和自动提醒框架都已经可用。</p>
             </article>
             <article class="card">
               <h3>本季度可交付</h3>
-              <p>稳定主线最小闭环、L0/L1 回归、第一批公开道路资产与场景模板，以及 `BEVFusion + UniAD-style shadow` 的受控验证入口。</p>
+              <p>稳定主线闭环、L0/L1 回归、首批公开道路资产束与场景模板，以及 BEVFusion + UniAD-style shadow 的受控验证入口。</p>
             </article>
             <article class="card emphasis">
               <h3>外部依赖</h3>
-              <p>真实邮件发送需要 SMTP Secrets，UE5 重载实验需要远端 GPU 主机，真实闭环效果还依赖 Autoware/CARLA 运行时环境搭建完成。</p>
+              <p>真实邮件发送还需要 SMTP Secrets，UE5 重载实验还需要远端 GPU 主机，真实闭环效果还依赖 Ubuntu 主机环境搭建完成。</p>
             </article>
           </div>
         </section>
@@ -150,7 +151,7 @@
             <article class="arch-card">
               <p class="arch-tag">Stable</p>
               <h3>稳定闭环主线</h3>
-              <p>Windows 主机负责 CARLA 图形和宿主编排，WSL2 Ubuntu 22.04 负责 Autoware Universe、ROS 2 Humble 和桥接。</p>
+              <p>公司 Ubuntu 主机负责 CARLA 0.9.15、Autoware Universe、ROS 2 Humble 和桥接，目标是形成可重复的最小闭环。</p>
             </article>
             <div class="arch-arrow">→</div>
             <article class="arch-card">
@@ -161,8 +162,8 @@
             <div class="arch-arrow">→</div>
             <article class="arch-card">
               <p class="arch-tag">UE5 / E2E</p>
-              <h3>下一周期实验线</h3>
-              <p>远端 GPU 主机负责 UE5、高保真视觉、感知和 E2E shadow 预备能力，不反向拖慢主线交付。</p>
+              <h3>下阶段实验线</h3>
+              <p>远端 GPU 主机负责 UE5、高保真视觉、感知和 E2E shadow 预备能力，不反向拖慢当前主线交付。</p>
             </article>
           </div>
         </section>
@@ -170,51 +171,53 @@
         <section class="panel split-panel">
           <div>
             <div class="section-heading">
-              <p class="section-kicker">执行管理</p>
-              <h2>GitHub 双看板</h2>
+              <p class="section-kicker">团队分工</p>
+              <h2>谁负责什么</h2>
             </div>
             <div class="stack">
               <article class="person-card">
-                <h3>任务看板</h3>
-                <p>同步 Notion Program Board 的未来两周任务，跟踪负责人、优先级、阶段、赛道、到期日和阻塞项。</p>
-                <p><a class="inline-link" href="https://github.com/users/77zmf/projects/1">打开任务看板</a></p>
+                <h3>朱民峰</h3>
+                <p>负责稳定主线、公司 Ubuntu 主机环境、控制平面、自动化、KPI 和项目推进。</p>
               </article>
               <article class="person-card">
-                <h3>场景看板</h3>
-                <p>同步 Scenario Backlog，公开展示公开道路场景、回归场景、UE5 场景和 E2E 相关场景的节奏。</p>
-                <p><a class="inline-link" href="https://github.com/users/77zmf/projects/2">打开场景看板</a></p>
+                <h3>罗顺雄 / lsx</h3>
+                <p>负责公开道路地图点云资产、重建输入、corner case 和现场问题前移。</p>
+              </article>
+              <article class="person-card">
+                <h3>杨志朋 / Zhipeng Yang</h3>
+                <p>负责 BEVFusion 感知基线、公开道路感知与 E2E shadow 预备，以及 UE5 远端实验线准备。</p>
               </article>
             </div>
           </div>
           <div>
             <div class="section-heading">
-              <p class="section-kicker">详细入口</p>
-              <h2>项目书、计划与自动化</h2>
+              <p class="section-kicker">执行入口</p>
+              <h2>项目书、看板与周期文档</h2>
             </div>
             <div class="link-grid">
               <a class="link-card" href="https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f">
                 <span>项目书</span>
-                <small>方案、范围、KPI、风险和整体路线</small>
+                <small>方案、范围、KPI、风险和总体路线</small>
               </a>
               <a class="link-card" href="https://www.notion.so/32cef7e6aaa9815aa0cfdc6a155047ed">
                 <span>季度计划</span>
-                <small>12 周路线与验收口径</small>
+                <small>12 周路线、阶段目标和验收口径</small>
               </a>
-              <a class="link-card" href="https://www.notion.so/dc730999bb7140338b871dd33dfbfeec">
-                <span>Program Board</span>
-                <small>任务、里程碑、风险和两周排期</small>
+              <a class="link-card" href="https://github.com/users/77zmf/projects/1">
+                <span>Task Board</span>
+                <small>公开任务执行镜像，跟踪 owner、优先级、阶段和阻塞项</small>
               </a>
-              <a class="link-card" href="https://www.notion.so/2fb616fb48d5429cbb01a7b6299b84e9">
-                <span>Scenario Backlog</span>
-                <small>场景来源、优先级、成功信号和排期</small>
+              <a class="link-card" href="https://github.com/users/77zmf/projects/2">
+                <span>Scenario Board</span>
+                <small>公开道路、回归、UE5 和 E2E 相关场景排期</small>
               </a>
               <a class="link-card" href="./PROJECT_CYCLE_AND_FEASIBILITY.md">
                 <span>Project Cycle</span>
-                <small>仓库内 12 周周期与可行性说明</small>
+                <small>仓库内 12 周周期和可行性说明</small>
               </a>
               <a class="link-card" href="./PROJECT_REVIEW_AND_OPTIMIZATION_CN.md">
                 <span>Project Review</span>
-                <small>当前缺口、遗漏与优化建议</small>
+                <small>当前遗漏、优先级和优化建议</small>
               </a>
             </div>
           </div>
@@ -228,7 +231,7 @@
           <div class="grid two-up">
             <article class="card">
               <h3>工作日 digest</h3>
-              <p>GitHub Actions 会在工作日早上生成任务和场景 digest，抓取 overdue、due soon、blocked、场景关注项和最新验证快照。</p>
+              <p>GitHub Actions 会在工作日早上生成任务和场景 digest，抓取 overdue、due soon、blocked、场景关注项和验证快照。</p>
             </article>
             <article class="card">
               <h3>条件邮件提醒</h3>
@@ -240,61 +243,23 @@
             </article>
             <article class="card emphasis">
               <h3>管理规则</h3>
-              <p>P0 延期、阻塞项和新场景必须进入周会；Notion 保持详细计划，GitHub 保持公开执行镜像和自动提醒输入。</p>
+              <p>P0 延期、阻塞项和新场景必须进入周会。Notion 保持详细计划，GitHub 保持公开执行镜像和自动提醒。</p>
             </article>
           </div>
         </section>
 
         <section class="panel">
           <div class="section-heading">
-            <p class="section-kicker">算法路线</p>
-            <h2>未来端到端怎么做</h2>
-          </div>
-          <div class="grid two-up">
-            <article class="card emphasis">
-              <h3>推荐路线：BEVFusion + UniAD-style shadow</h3>
-              <p>现有 `BEVFusion` 感知继续作为主基线，`UniAD-style` planner 先并行运行，`VADv2` 作为对照路线，先做公开道路 shadow 评测，再进入固定路线受控闭环。</p>
-            </article>
-            <article class="card">
-              <h3>推进顺序</h3>
-              <p>`BEVFusion` 输出映射 → shadow 指标 → `UniAD-style` 与 `VADv2` 对照 → fallback 策略 → 受控闭环，不直接上端到端控制接管。</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="section-heading">
-            <p class="section-kicker">当前遗漏</p>
-            <h2>还没有完成但必须盯住的点</h2>
-          </div>
-          <div class="grid three-up">
-            <article class="card">
-              <h3>真实运行时未落地</h3>
-              <p>控制平面、文档和自动化已齐，但 WSL2、Autoware 工作区、CARLA 0.9.15 与桥接的真闭环还未在当前机器上完成。</p>
-            </article>
-            <article class="card">
-              <h3>场景资产还在起步</h3>
-              <p>公开道路资产束和 Top 5 corner case 的结构已经定了，但还需要把现场问题真正转成可回归场景。</p>
-            </article>
-            <article class="card emphasis">
-              <h3>提醒系统未完全闭环</h3>
-              <p>digest 已能自动生成并更新 issue，邮件发送还缺 SMTP Secrets；远端 GPU 节点也仍是明确阻塞项。</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="section-heading">
-            <p class="section-kicker">季度验收</p>
-            <h2>什么时候算做成</h2>
+            <p class="section-kicker">验收口径</p>
+            <h2>本季度什么算完成</h2>
           </div>
           <div class="checklist">
-            <div class="check-item">至少 1 条稳定闭环链路可重复执行并产出统一工件</div>
-            <div class="check-item">`bootstrap / up / run / batch / replay / report` 主链路可用</div>
-            <div class="check-item">`gy_qyhx_gsh20260302` 形成标准公开道路资产束并接入场景</div>
-            <div class="check-item">任务看板与场景看板都能支撑日常执行和提醒</div>
-            <div class="check-item">自动 digest 能生成 owner 维度的提醒信息</div>
-            <div class="check-item">`BEVFusion + UniAD-style shadow` 路线形成下周期可执行入口</div>
+            <div class="check-item">至少 1 条稳定闭环链路可重复执行。</div>
+            <div class="check-item">`bootstrap / up / run / batch / replay / report` 主链路可用。</div>
+            <div class="check-item">`gy_qyhx_gsh20260302` 形成标准公开道路资产束。</div>
+            <div class="check-item">至少 1 个公开道路场景进入验证流程。</div>
+            <div class="check-item">Notion 和 GitHub 双看板保持同步管理。</div>
+            <div class="check-item">自动 digest 能输出按负责人聚合的提醒。</div>
           </div>
         </section>
       </main>

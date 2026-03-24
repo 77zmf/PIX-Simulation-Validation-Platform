@@ -30,9 +30,9 @@ Over the next 3 months, the team will move the project from a scaffolded validat
 - Owns public-road map and pointcloud assets, reconstruction inputs, corner-case discovery, and field-problem replay preparation.
 - Converts field issues into reusable simulation assets and scenario templates.
 
-### Yang Zhipeng (`Zhipeng Yang`)
+### Yang Zhipeng (`Zhipeng Yang`, 杨志朋)
 
-- Owns the `BEVFusion` perception baseline, public-road perception / E2E shadow preparation, and UE5 remote readiness.
+- Owns the `BEVFusion` perception baseline, public-road perception and E2E shadow preparation, and UE5 remote readiness.
 - Prepares the next-cycle high-fidelity validation path without destabilizing the current stable line.
 
 ## Phase Plan
@@ -43,13 +43,13 @@ Time window: Weeks 1-4
 
 Goals:
 
-- Prepare Windows host, WSL2, Ubuntu 22.04, ROS 2 Humble, and Autoware workspace basics.
-- Start CARLA 0.9.15 and validate baseline Town01 behavior.
+- Prepare the company Ubuntu host, `ROS 2 Humble`, and Autoware workspace basics.
+- Start CARLA 0.9.15 and validate baseline Town01 behavior on the company host.
 - Keep the `simctl` control plane as the single entry point for bootstrap, startup, run, replay, and report.
 
 Required outputs:
 
-- host and WSL preparation notes
+- Ubuntu host preparation notes
 - baseline CARLA bring-up
 - Autoware workspace readiness
 - control-plane scripts committed and smoke-tested
@@ -57,7 +57,7 @@ Required outputs:
 Exit criteria:
 
 - the environment can be prepared repeatably
-- CARLA 0.9.15 runs on the Windows host
+- CARLA 0.9.15 runs on the company Ubuntu host
 - the team can execute the minimal validation workflow from the repo
 
 ## Phase 2: Closed Loop And Automation

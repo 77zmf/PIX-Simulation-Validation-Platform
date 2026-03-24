@@ -6,8 +6,8 @@ This document defines what "done enough for this quarter" means.
 
 ### 1. Stable Closed Loop
 
-- CARLA 0.9.15 starts on the Windows host
-- WSL2 Ubuntu 22.04 and ROS 2 Humble are ready
+- CARLA 0.9.15 starts on the company Ubuntu host
+- `ROS 2 Humble`, Autoware workspace, and the CARLA interface are ready on the same host
 - Autoware and the CARLA interface can be brought up through the established workflow
 - at least one basic route can run as a repeatable minimal closed loop
 

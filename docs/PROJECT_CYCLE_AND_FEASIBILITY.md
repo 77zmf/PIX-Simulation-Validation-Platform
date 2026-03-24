@@ -16,8 +16,8 @@ By the end of the current 3-month cycle, the team should have:
 
 ### Weeks 1-2
 
-- prepare Windows host, WSL2, Ubuntu 22.04, and ROS 2 Humble
-- validate the local CARLA 0.9.15 bring-up path
+- prepare the company Ubuntu host, access path, development permissions, and `ROS 2 Humble`
+- validate the company-host `CARLA 0.9.15` bring-up path
 - compile the Autoware workspace
 - keep `simctl` as the only repo-level control-plane entry
 
@@ -109,7 +109,7 @@ Exit gate:
 
 ### Feasible In This Quarter
 
-- WSL2 + Windows host split for stable validation
+- company Ubuntu host as the stable runtime environment
 - one repeatable CARLA 0.9.15 smoke loop
 - first L1 regression batch
 - first public-road asset bundle and first replayable public-road scenario
@@ -126,14 +126,14 @@ Exit gate:
 
 - real email delivery without SMTP credentials or mail API credentials
 - real remote execution without remote GPU host access and runner setup
-- true UE5 production validation on the current local machine
+- true UE5 production validation without a dedicated GPU host
 - direct end-to-end control takeover in the current quarter
 
 ## Validation Plan
 
 The quarter is considered valid only if the following checks hold:
 
-- environment setup is reproducible on a clean machine
+- environment setup is reproducible on a clean Ubuntu host
 - at least one closed-loop run is repeatable
 - `bootstrap / up / run / batch / replay / report` works as one workflow
 - the first public-road asset bundle is normalized and used by at least one scenario
