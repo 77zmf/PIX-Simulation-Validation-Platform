@@ -49,6 +49,51 @@ python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_
 - `public_road_e2e_shadow_explorer`: BEVFusion to UniAD/VADv2 shadow path, scenarios, metrics, and implementation gaps
 - `stable_stack_host_readiness_explorer`: Ubuntu host, CARLA/Autoware bring-up, readiness probes, and repeatability gaps
 
+## Project Fit
+
+This repository is centered on four active pressures:
+
+- stable closed-loop repeatability on the Ubuntu host
+- public-road `BEVFusion + shadow E2E` preparation
+- Gaussian reconstruction and map-refresh research
+- GitHub / Notion / digest automation for execution tracking
+
+Because of that, not all specs should be used with the same frequency.
+
+### Core Daily Drivers
+
+- `execution_runtime_explorer`
+  Use when the problem is in `simctl -> stack -> runtime -> run_result`.
+- `stable_stack_host_readiness_explorer`
+  Use when the problem is in Ubuntu host readiness, CARLA/Autoware bring-up, environment variables, or service health.
+- `public_road_e2e_shadow_explorer`
+  Use when the question is about `BEVFusion`, `UniAD-style`, `VADv2`, shadow planner interfaces, or public-road E2E scenarios.
+- `gaussian_reconstruction_explorer`
+  Use when the question is about `map_refresh`, `static_gaussians`, `dynamic_gaussians`, or 3D reconstruction execution gaps.
+
+### Secondary, Use As Needed
+
+- `algorithm_research_explorer`
+  Use when you want one cross-track view spanning planning, perception, E2E, and reconstruction together.
+- `project_automation_explorer`
+  Use when the question is about GitHub Project, Notion, digest workflow, secrets, or synchronization reliability.
+
+### Default Routing
+
+- Runtime or launch issue: start with `execution_runtime_explorer`.
+- Host or bring-up issue: start with `stable_stack_host_readiness_explorer`.
+- Public-road E2E issue: start with `public_road_e2e_shadow_explorer`.
+- Reconstruction issue: start with `gaussian_reconstruction_explorer`.
+- Multi-track roadmap question: use `algorithm_research_explorer`.
+- Planning board or digest issue: use `project_automation_explorer`.
+
+### What To Avoid
+
+- Do not use `algorithm_research_explorer` for a narrow runtime bug when `execution_runtime_explorer` is enough.
+- Do not use `project_automation_explorer` for algorithm debugging.
+- Do not use `public_road_e2e_shadow_explorer` for host bring-up.
+- Do not use `gaussian_reconstruction_explorer` for general planning/control discussions unless reconstruction is the actual focus.
+
 ## Recommended Use
 
 1. Pull the latest repo on the other machine.
