@@ -172,6 +172,7 @@ Run the stable-line setup on the company Ubuntu host.
    ```bash
    simctl subagent-spec --list
    simctl subagent-spec --name execution_runtime_explorer
+   simctl subagent-spec --name execution_runtime_explorer --format spawn_json
    ```
 
 Subagent catalog:

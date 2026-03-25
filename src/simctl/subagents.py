@@ -21,6 +21,16 @@ class SubagentSpec:
     def render_message(self, repo_root: Path) -> str:
         return self.prompt_template.format(repo_root=str(repo_root.resolve()))
 
+    def spawn_agent_payload(self, repo_root: Path) -> dict[str, Any]:
+        resolved_root = repo_root.resolve()
+        return {
+            "agent_type": self.agent_type,
+            "fork_context": True,
+            "model": self.model,
+            "reasoning_effort": self.reasoning_effort,
+            "message": self.render_message(resolved_root),
+        }
+
     def as_payload(self, repo_root: Path) -> dict[str, Any]:
         resolved_root = repo_root.resolve()
         return {
@@ -32,6 +42,7 @@ class SubagentSpec:
             "reasoning_effort": self.reasoning_effort,
             "message": self.render_message(resolved_root),
             "spec_path": str(self.spec_path),
+            "spawn_agent_parameters": self.spawn_agent_payload(resolved_root),
         }
 
 

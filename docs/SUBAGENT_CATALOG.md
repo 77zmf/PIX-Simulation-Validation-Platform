@@ -34,6 +34,12 @@ Render only the prompt text:
 python -m simctl subagent-spec --name algorithm_research_explorer --format prompt
 ```
 
+Render a ready-to-use `spawn_agent` payload:
+
+```powershell
+python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_json
+```
+
 ## Recommended Fixed Roles
 
 - `execution_runtime_explorer`: execution chain, host/runtime, stack readiness, launch/result bottlenecks
@@ -49,7 +55,8 @@ python -m simctl subagent-spec --name algorithm_research_explorer --format promp
 2. Activate the repo environment.
 3. Run `python -m simctl subagent-spec --list`.
 4. Render the spec you want.
-5. Use the emitted JSON fields as the `spawn_agent` input in Codex.
+5. Use `--format spawn_json` if you want a direct `spawn_agent` parameter object.
+6. Use the emitted JSON as the `spawn_agent` input in Codex.
 
 ## Notes
 

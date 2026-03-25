@@ -61,6 +61,7 @@ class SubagentSpecTests(unittest.TestCase):
         self.assertEqual(payload["agent_type"], "explorer")
         self.assertEqual(payload["model"], "gpt-5.4-mini")
         self.assertIn(str(REPO_ROOT), payload["message"])
+        self.assertTrue(payload["spawn_agent_parameters"]["fork_context"])
 
     def test_load_gaussian_reconstruction_spec_mentions_reconstruction(self) -> None:
         spec = load_subagent_spec("gaussian_reconstruction_explorer", REPO_ROOT)
@@ -76,6 +77,28 @@ class SubagentSpecTests(unittest.TestCase):
         spec = load_subagent_spec("stable_stack_host_readiness_explorer", REPO_ROOT)
         self.assertIn("readiness", spec.description.lower())
         self.assertIn("ubuntu host", spec.render_message(REPO_ROOT).lower())
+
+    def test_cli_renders_spawn_json(self) -> None:
+        stream = io.StringIO()
+        with redirect_stdout(stream):
+            rc = main(
+                [
+                    "--repo-root",
+                    str(REPO_ROOT),
+                    "subagent-spec",
+                    "--name",
+                    "project_automation_explorer",
+                    "--format",
+                    "spawn_json",
+                ]
+            )
+        self.assertEqual(rc, 0)
+        payload = json.loads(stream.getvalue())
+        self.assertEqual(payload["agent_type"], "explorer")
+        self.assertTrue(payload["fork_context"])
+        self.assertEqual(payload["model"], "gpt-5.4-mini")
+        self.assertEqual(payload["reasoning_effort"], "medium")
+        self.assertIn(str(REPO_ROOT), payload["message"])
 
 
 if __name__ == "__main__":

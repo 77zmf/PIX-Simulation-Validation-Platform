@@ -523,6 +523,8 @@ def handle_subagent_spec(args: argparse.Namespace) -> int:
     spec = load_subagent_spec(args.name, repo_root)
     if args.format == "prompt":
         print(spec.render_message(repo_root))
+    elif args.format == "spawn_json":
+        _print_json(spec.spawn_agent_payload(repo_root))
     else:
         _print_json(spec.as_payload(repo_root))
     return 0
@@ -592,7 +594,7 @@ def build_parser() -> argparse.ArgumentParser:
     subagent_spec = subparsers.add_parser("subagent-spec", help="Render reusable Codex subagent definitions")
     subagent_spec.add_argument("--name", help="Subagent spec id")
     subagent_spec.add_argument("--list", action="store_true", help="List available subagent specs")
-    subagent_spec.add_argument("--format", choices=["json", "prompt"], default="json")
+    subagent_spec.add_argument("--format", choices=["json", "prompt", "spawn_json"], default="json")
     subagent_spec.set_defaults(func=handle_subagent_spec)
 
     return parser
