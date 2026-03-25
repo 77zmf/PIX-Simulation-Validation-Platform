@@ -95,7 +95,7 @@
 ### GitHub
 
 - 仓库：代码、脚本、配置、场景、文档
-- GitHub Pages：公开项目主页
+- 仓库文档入口：`docs/index.html`
 - GitHub Project 1：任务执行看板
 - GitHub Project 2：场景执行看板
 - Digest Inbox：自动汇总的提醒入口

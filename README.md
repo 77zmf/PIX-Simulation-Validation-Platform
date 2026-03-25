@@ -29,7 +29,6 @@ Current near-term gate:
 - GitHub Project: [Task Board](https://github.com/orgs/pixmoving-moveit/projects/2)
 - GitHub Scenario Project: [Scenario Board](https://github.com/orgs/pixmoving-moveit/projects/3)
 - GitHub Digest Inbox: [project-digest issues](https://github.com/pixmoving-moveit/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
-- GitHub Pages: [pixmoving-moveit.github.io/zmf_ws](https://pixmoving-moveit.github.io/zmf_ws/)
 - Notion project book: [Project Book](https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f)
 - Notion execution board: [Program Board](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec)
 - Notion two-week view: [Next 2 Weeks](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec?v=32cef7e6aaa9819b9826000c4b519313)
