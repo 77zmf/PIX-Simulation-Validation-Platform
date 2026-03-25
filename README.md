@@ -26,19 +26,14 @@ Current near-term gate:
 ## Public Entry Points
 
 - Repository: [pixmoving-moveit/zmf_ws](https://github.com/pixmoving-moveit/zmf_ws)
-- GitHub Project: [Task Board](https://github.com/users/77zmf/projects/1)
-- GitHub Scenario Project: [Scenario Board](https://github.com/users/77zmf/projects/2)
+- GitHub Project: [Task Board](https://github.com/orgs/pixmoving-moveit/projects/2)
+- GitHub Scenario Project: [Scenario Board](https://github.com/orgs/pixmoving-moveit/projects/3)
 - GitHub Digest Inbox: [project-digest issues](https://github.com/pixmoving-moveit/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
 - GitHub Pages: [pixmoving-moveit.github.io/zmf_ws](https://pixmoving-moveit.github.io/zmf_ws/)
 - Notion project book: [Project Book](https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f)
 - Notion execution board: [Program Board](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec)
 - Notion two-week view: [Next 2 Weeks](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec?v=32cef7e6aaa9819b9826000c4b519313)
 - Notion scenario backlog: [Scenario Backlog](https://www.notion.so/2fb616fb48d5429cbb01a7b6299b84e9)
-
-Current note:
-
-- the repository, issues, and GitHub Pages entry have moved to `pixmoving-moveit`
-- the GitHub Project v2 task and scenario boards are still temporarily hosted under the original `77zmf` owner URLs until the board migration is completed
 
 ## Team Ownership
 
