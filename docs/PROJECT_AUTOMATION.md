@@ -12,8 +12,8 @@ The automation is designed to do three things:
 
 ## Data Sources
 
-- Task board: `https://github.com/users/77zmf/projects/1`
-- Scenario board: `https://github.com/users/77zmf/projects/2`
+- Task board: `https://github.com/orgs/pixmoving-moveit/projects/2`
+- Scenario board: `https://github.com/orgs/pixmoving-moveit/projects/3`
 - Notion Program Board: `https://www.notion.so/dc730999bb7140338b871dd33dfbfeec`
 - Notion Scenario Backlog: `https://www.notion.so/2fb616fb48d5429cbb01a7b6299b84e9`
 - Local validation outputs: `runs/**/run_result.json` or `runs/report/summary.json`
@@ -124,3 +124,4 @@ When SMTP secrets are not configured, the workflow still stays useful because it
 - Real email delivery still depends on mail credentials being configured in GitHub Secrets.
 - Live GitHub Project v2 sync still depends on a token with `read:project` or `project` scopes.
 - Live Notion sync still depends on either a valid `NOTION_TOKEN` or a completed local Notion MCP login.
+- The repository, digest issue target, and GitHub Project v2 boards now all live under `pixmoving-moveit`.

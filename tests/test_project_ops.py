@@ -60,8 +60,8 @@ class ProjectOpsTests(unittest.TestCase):
     def test_load_project_items_auto_falls_back_to_github_when_notion_token_missing(self) -> None:
         with patch("simctl.project_ops.fetch_project_items", return_value=["github"]) as github_fetch:
             items = load_project_items(
-                owner="77zmf",
-                number=1,
+                owner="pixmoving-moveit",
+                number=2,
                 provider="auto",
                 notion_cfg={
                     "token_env": "NOTION_TOKEN",
@@ -70,7 +70,7 @@ class ProjectOpsTests(unittest.TestCase):
                 source_name="tasks",
             )
         self.assertEqual(items, ["github"])
-        github_fetch.assert_called_once_with("77zmf", 1)
+        github_fetch.assert_called_once_with("pixmoving-moveit", 2)
 
     def test_notion_connection_status_reports_missing_token(self) -> None:
         status = notion_connection_status(

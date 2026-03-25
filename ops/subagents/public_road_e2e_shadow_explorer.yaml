@@ -1,0 +1,15 @@
+spec_id: public_road_e2e_shadow_explorer
+name: Public Road E2E Shadow Explorer
+agent_type: explorer
+model: gpt-5.4-mini
+reasoning_effort: medium
+description: Explore public-road BEVFusion to E2E shadow planning tracks and implementation gaps.
+prompt_template: |
+  Explore the repo at {repo_root}. Focus only on public-road E2E shadow work.
+  Do not modify files.
+  Return:
+  1. the current BEVFusion, UniAD-style, and VADv2 shadow-related profiles, scenarios, and gates
+  2. what parts are executable vs only planning/config skeletons
+  3. the most sensible next milestone for a real public-road BEVFusion to shadow-planner chain
+  4. any mismatch between the E2E roadmap and the current implementation
+  Include precise file references.

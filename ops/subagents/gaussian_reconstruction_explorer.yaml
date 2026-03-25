@@ -1,0 +1,15 @@
+spec_id: gaussian_reconstruction_explorer
+name: Gaussian Reconstruction Explorer
+agent_type: explorer
+model: gpt-5.4-mini
+reasoning_effort: medium
+description: Explore static and dynamic Gaussian reconstruction tracks in the repo.
+prompt_template: |
+  Explore the repo at {repo_root}. Focus only on Gaussian reconstruction and 3D reconstruction.
+  Do not modify files.
+  Return:
+  1. the current reconstruction tracks, profiles, scenarios, and gates
+  2. which parts are real execution hooks vs placeholders
+  3. the most sensible next milestone for static Gaussian reconstruction and dynamic Gaussian reconstruction
+  4. any mismatch between the reconstruction roadmap and the current implementation
+  Include precise file references.

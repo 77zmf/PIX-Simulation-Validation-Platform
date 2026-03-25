@@ -25,11 +25,11 @@ Current near-term gate:
 
 ## Public Entry Points
 
-- Repository: [77zmf/zmf_ws](https://github.com/77zmf/zmf_ws)
-- GitHub Project: [Task Board](https://github.com/users/77zmf/projects/1)
-- GitHub Scenario Project: [Scenario Board](https://github.com/users/77zmf/projects/2)
-- GitHub Digest Inbox: [project-digest issues](https://github.com/77zmf/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
-- GitHub Pages: [77zmf.github.io/zmf_ws](https://77zmf.github.io/zmf_ws/)
+- Repository: [pixmoving-moveit/zmf_ws](https://github.com/pixmoving-moveit/zmf_ws)
+- GitHub Project: [Task Board](https://github.com/orgs/pixmoving-moveit/projects/2)
+- GitHub Scenario Project: [Scenario Board](https://github.com/orgs/pixmoving-moveit/projects/3)
+- GitHub Digest Inbox: [project-digest issues](https://github.com/pixmoving-moveit/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
+- GitHub Pages: [pixmoving-moveit.github.io/zmf_ws](https://pixmoving-moveit.github.io/zmf_ws/)
 - Notion project book: [Project Book](https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f)
 - Notion execution board: [Program Board](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec)
 - Notion two-week view: [Next 2 Weeks](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec?v=32cef7e6aaa9819b9826000c4b519313)
@@ -107,6 +107,7 @@ The unified CLI entrypoints are:
 - `report`
 - `digest`
 - `notion-check`
+- `subagent-spec`
 
 ## Quick Start
 
@@ -163,8 +164,35 @@ Run the stable-line setup on the company Ubuntu host.
 6. Validate the Notion API connection used by the automation.
 
    ```bash
-   simctl notion-check --config ops/project_automation.yaml
+    simctl notion-check --config ops/project_automation.yaml
+    ```
+
+7. Render a reusable Codex subagent definition stored in the repo.
+
+   ```bash
+   simctl subagent-spec --list
+   simctl subagent-spec --name execution_runtime_explorer
+   simctl subagent-spec --name execution_runtime_explorer --format spawn_json
    ```
+
+Subagent catalog:
+
+- [Subagent Catalog](C:/Users/77926/Documents/New%20project/docs/SUBAGENT_CATALOG.md)
+- recommended fixed roles:
+  - `execution_runtime_explorer`
+  - `algorithm_research_explorer`
+  - `project_automation_explorer`
+  - `gaussian_reconstruction_explorer`
+  - `public_road_e2e_shadow_explorer`
+  - `stable_stack_host_readiness_explorer`
+- core daily roles for this repo:
+  - `execution_runtime_explorer`
+  - `stable_stack_host_readiness_explorer`
+  - `public_road_e2e_shadow_explorer`
+  - `gaussian_reconstruction_explorer`
+- secondary roles used on demand:
+  - `algorithm_research_explorer`
+  - `project_automation_explorer`
 
 If you are reviewing the repo from Windows, keep Git and GitHub management local but execute the runtime workflow on the company Ubuntu host over SSH.
 
@@ -184,6 +212,16 @@ The repo-side planning documents live in:
 - `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
 - `docs/PROJECT_AUTOMATION.md`
 - `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
+- `docs/GIT_COLLABORATION_STANDARD_CN.md`
+
+## Git Collaboration
+
+This repository now includes a repo-side Git collaboration guide and commit template so the same rules can be reused across different machines.
+
+- collaboration guide: `docs/GIT_COLLABORATION_STANDARD_CN.md`
+- commit template: `ops/git/commit-message-template.txt`
+- for Codex-created branches, use `codex/<tag>/<short-kebab-case>`
+- current repo default branch is `main`, so branch from `main` unless the repo policy changes later
 
 The public portal entry is:
 

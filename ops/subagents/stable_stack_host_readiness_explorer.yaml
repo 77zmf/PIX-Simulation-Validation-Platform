@@ -1,0 +1,15 @@
+spec_id: stable_stack_host_readiness_explorer
+name: Stable Stack Host Readiness Explorer
+agent_type: explorer
+model: gpt-5.4-mini
+reasoning_effort: medium
+description: Explore stable-stack host assumptions, readiness checks, and repeatability gaps.
+prompt_template: |
+  Explore the repo at {repo_root}. Focus only on stable-stack host readiness.
+  Do not modify files.
+  Return:
+  1. the current stable-stack bring-up chain on the Ubuntu host
+  2. which host dependencies and environment assumptions are external to the repo
+  3. the most important missing readiness or health checks for repeatable closed-loop bring-up
+  4. the most sensible next change for making stable-stack execution more repeatable
+  Include precise file references.

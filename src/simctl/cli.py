@@ -31,6 +31,7 @@ from .project_ops import (
 from .reporting import aggregate_run_results, discover_run_results, load_run_result, write_report
 from .runtime import build_context, execute_plan, load_stack_profile, persist_plan, render_action
 from .scenarios import load_scenario
+from .subagents import list_subagent_specs, load_subagent_spec
 
 
 def _repo_root(explicit: str | None) -> Path:
@@ -145,6 +146,29 @@ def _algorithm_execution_snapshot(
         "stage": output.stage,
         "artifacts": output.artifacts,
         "notes": output.notes,
+    }
+
+
+def _launch_gate_eval(logs: list[dict[str, Any]]) -> tuple[str, dict[str, Any]]:
+    failed_step = next((entry for entry in logs if entry.get("status") == "failed"), None)
+    if failed_step:
+        return "launch_failed", {
+            "passed": False,
+            "violations": [
+                {
+                    "metric": "execution",
+                    "reason": "launch_step_failed",
+                    "step": failed_step.get("step"),
+                    "returncode": failed_step.get("returncode"),
+                    "log_path": failed_step.get("log_path"),
+                }
+            ],
+            "failure_labels": ["launch_failed"],
+        }
+    return "launch_submitted", {
+        "passed": False,
+        "violations": [{"metric": "execution", "reason": "awaiting_runtime_results"}],
+        "failure_labels": [],
     }
 
 
@@ -263,13 +287,8 @@ def handle_run(args: argparse.Namespace) -> int:
     mode = str(scenario.execution.get("mode", "external"))
     if args.execute and mode != "stub":
         logs = execute_plan(plan, run_dir)
-        status = "launch_submitted"
         metrics: dict[str, float] = {}
-        gate_eval = {
-            "passed": False,
-            "violations": [{"metric": "execution", "reason": "external_execution_requires_runtime"}],
-            "failure_labels": [],
-        }
+        status, gate_eval = _launch_gate_eval(logs)
     else:
         outcome = args.mock_result or scenario.execution.get("stub_outcome")
         if mode == "stub" and outcome is None:
@@ -477,6 +496,40 @@ def handle_notion_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_subagent_spec(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    if args.list:
+        _print_json(
+            {
+                "specs": [
+                    {
+                        "spec_id": spec.spec_id,
+                        "name": spec.name,
+                        "description": spec.description,
+                        "agent_type": spec.agent_type,
+                        "model": spec.model,
+                        "reasoning_effort": spec.reasoning_effort,
+                        "spec_path": str(spec.spec_path),
+                    }
+                    for spec in list_subagent_specs(repo_root)
+                ]
+            }
+        )
+        return 0
+
+    if not args.name:
+        raise SystemExit("subagent-spec requires --name or --list")
+
+    spec = load_subagent_spec(args.name, repo_root)
+    if args.format == "prompt":
+        print(spec.render_message(repo_root))
+    elif args.format == "spawn_json":
+        _print_json(spec.spawn_agent_payload(repo_root))
+    else:
+        _print_json(spec.as_payload(repo_root))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="simctl", description="Simulation control-plane CLI")
     parser.add_argument("--repo-root", help="Override repository root")
@@ -537,6 +590,12 @@ def build_parser() -> argparse.ArgumentParser:
     notion_check = subparsers.add_parser("notion-check", help="Validate Notion API configuration and access")
     notion_check.add_argument("--config", help="Path to project automation config YAML")
     notion_check.set_defaults(func=handle_notion_check)
+
+    subagent_spec = subparsers.add_parser("subagent-spec", help="Render reusable Codex subagent definitions")
+    subagent_spec.add_argument("--name", help="Subagent spec id")
+    subagent_spec.add_argument("--list", action="store_true", help="List available subagent specs")
+    subagent_spec.add_argument("--format", choices=["json", "prompt", "spawn_json"], default="json")
+    subagent_spec.set_defaults(func=handle_subagent_spec)
 
     return parser
 

@@ -1,0 +1,16 @@
+# Format:
+# type(scope): subject
+#
+# Allowed types:
+# feat fix refactor docs style test chore pref build ci revert
+#
+# Examples:
+# feat(subagents): add reusable explorer specs
+# fix(runtime): distinguish launch_failed from launch_submitted
+# docs(git-workflow): add collaboration standard
+
+type(scope): subject
+
+# body
+
+# footer
