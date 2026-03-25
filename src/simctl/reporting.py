@@ -21,7 +21,7 @@ def aggregate_run_results(run_results: list[dict[str, Any]]) -> dict[str, Any]:
     for result in run_results:
         bucket = stack_summary.setdefault(
             result["stack"],
-            {"total": 0, "passed": 0, "failed": 0, "planned": 0, "launch_submitted": 0},
+            {"total": 0, "passed": 0, "failed": 0, "planned": 0, "launch_submitted": 0, "launch_failed": 0},
         )
         bucket["total"] += 1
         bucket[result["status"]] = bucket.get(result["status"], 0) + 1
@@ -47,10 +47,18 @@ def render_markdown(summary: dict[str, Any]) -> str:
     ]
     for status, count in sorted(summary["statuses"].items()):
         lines.append(f"- `{status}`: {count}")
-    lines.extend(["", "## Stacks", "", "| Stack | Total | Passed | Failed | Planned | Launch Submitted |", "| --- | ---: | ---: | ---: | ---: | ---: |"])
+    lines.extend(
+        [
+            "",
+            "## Stacks",
+            "",
+            "| Stack | Total | Passed | Failed | Planned | Launch Submitted | Launch Failed |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
     for stack, bucket in sorted(summary["stacks"].items()):
         lines.append(
-            f"| `{stack}` | {bucket.get('total', 0)} | {bucket.get('passed', 0)} | {bucket.get('failed', 0)} | {bucket.get('planned', 0)} | {bucket.get('launch_submitted', 0)} |"
+            f"| `{stack}` | {bucket.get('total', 0)} | {bucket.get('passed', 0)} | {bucket.get('failed', 0)} | {bucket.get('planned', 0)} | {bucket.get('launch_submitted', 0)} | {bucket.get('launch_failed', 0)} |"
         )
     lines.extend(["", "## Failure Clusters", ""])
     if not summary["failure_clusters"]:

@@ -8,6 +8,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 from textwrap import dedent
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -149,6 +150,71 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result["algorithm_execution"]["family"], "dynamic_gaussians")
             self.assertEqual(result["algorithm_execution"]["stage"], "actor_aware_replay")
             self.assertIn("dynamic_tracks", result["algorithm_execution"]["artifacts"])
+
+    def test_run_execute_marks_launch_failed_when_execution_step_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with patch(
+                "simctl.cli.execute_plan",
+                return_value=[
+                    {
+                        "step": "submit-ue5-job",
+                        "status": "failed",
+                        "returncode": 2,
+                        "log_path": str(Path(tempdir) / "submit-ue5-job.log"),
+                    }
+                ],
+            ):
+                with redirect_stdout(stream):
+                    rc = main(
+                        [
+                            "--repo-root",
+                            str(REPO_ROOT),
+                            "run",
+                            "--scenario",
+                            "scenarios/ue5/e2e_bevfusion_uniad_unprotected_left.yaml",
+                            "--run-root",
+                            tempdir,
+                            "--execute",
+                        ]
+                    )
+            self.assertEqual(rc, 0)
+            result = json.loads(stream.getvalue())
+            self.assertEqual(result["status"], "launch_failed")
+            self.assertEqual(result["gate"]["violations"][0]["reason"], "launch_step_failed")
+            self.assertEqual(result["gate"]["violations"][0]["returncode"], 2)
+
+    def test_run_execute_marks_launch_submitted_when_execution_starts(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with patch(
+                "simctl.cli.execute_plan",
+                return_value=[
+                    {
+                        "step": "submit-ue5-job",
+                        "status": "completed",
+                        "returncode": 0,
+                        "log_path": str(Path(tempdir) / "submit-ue5-job.log"),
+                    }
+                ],
+            ):
+                with redirect_stdout(stream):
+                    rc = main(
+                        [
+                            "--repo-root",
+                            str(REPO_ROOT),
+                            "run",
+                            "--scenario",
+                            "scenarios/ue5/e2e_bevfusion_uniad_unprotected_left.yaml",
+                            "--run-root",
+                            tempdir,
+                            "--execute",
+                        ]
+                    )
+            self.assertEqual(rc, 0)
+            result = json.loads(stream.getvalue())
+            self.assertEqual(result["status"], "launch_submitted")
+            self.assertEqual(result["gate"]["violations"][0]["reason"], "awaiting_runtime_results")
 
     def test_batch_and_report(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

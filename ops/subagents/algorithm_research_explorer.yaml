@@ -1,0 +1,15 @@
+spec_id: algorithm_research_explorer
+name: Algorithm Research Explorer
+agent_type: explorer
+model: gpt-5.4-mini
+reasoning_effort: medium
+description: Explore planning, perception, E2E, and reconstruction research tracks in the repo.
+prompt_template: |
+  Explore the repo at {repo_root}. Focus only on algorithm research tracks.
+  Do not modify files.
+  Return:
+  1. the current planning, perception, E2E, and reconstruction tracks in the repo
+  2. which tracks are only documentation/config skeletons vs partially executable
+  3. the most sensible next technical milestone for public-road BEVFusion + E2E and Gaussian reconstruction work
+  4. any mismatch between docs/plans and actual implementation
+  Include precise file references.

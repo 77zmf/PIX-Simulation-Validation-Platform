@@ -107,6 +107,7 @@ The unified CLI entrypoints are:
 - `report`
 - `digest`
 - `notion-check`
+- `subagent-spec`
 
 ## Quick Start
 
@@ -163,8 +164,19 @@ Run the stable-line setup on the company Ubuntu host.
 6. Validate the Notion API connection used by the automation.
 
    ```bash
-   simctl notion-check --config ops/project_automation.yaml
+    simctl notion-check --config ops/project_automation.yaml
+    ```
+
+7. Render a reusable Codex subagent definition stored in the repo.
+
+   ```bash
+   simctl subagent-spec --list
+   simctl subagent-spec --name execution_runtime_explorer
    ```
+
+Subagent catalog:
+
+- [Subagent Catalog](C:/Users/77926/Documents/New%20project/docs/SUBAGENT_CATALOG.md)
 
 If you are reviewing the repo from Windows, keep Git and GitHub management local but execute the runtime workflow on the company Ubuntu host over SSH.
 

@@ -1,0 +1,15 @@
+spec_id: execution_runtime_explorer
+name: Execution Runtime Explorer
+agent_type: explorer
+model: gpt-5.4-mini
+reasoning_effort: medium
+description: Explore execution, runtime, and automation bottlenecks for the validation platform.
+prompt_template: |
+  Explore the repo at {repo_root}. Focus only on execution/runtime/automation.
+  Do not modify files.
+  Return:
+  1. the current execution chain from simctl -> stack scripts -> outputs
+  2. what is still placeholder vs real
+  3. the top 3 bottlenecks to getting a real repeatable execute path
+  4. any risks in GitHub/Notion/project automation and secrets handling
+  Include precise file references.

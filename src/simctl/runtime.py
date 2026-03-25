@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,10 @@ from .models import AlgorithmProfile, CommandStep, ScenarioConfig, SensorProfile
 class SafeDict(dict[str, str]):
     def __missing__(self, key: str) -> str:
         return "{" + key + "}"
+
+
+BACKGROUND_STARTUP_TIMEOUT_SEC = 0.2
+_BACKGROUND_PROCESSES: list[subprocess.Popen[str]] = []
 
 
 def load_stack_profile(stack_id: str, repo_root: Path | None = None) -> StackProfile:
@@ -75,23 +80,65 @@ def render_action(profile: StackProfile, action: str, context: dict[str, str]) -
     }
 
 
+def _step_env(step: dict[str, Any]) -> dict[str, str]:
+    env = os.environ.copy()
+    env.update({str(key): str(value) for key, value in step.get("env", {}).items()})
+    return env
+
+
+def _log_header(step: dict[str, Any]) -> str:
+    lines = [f"[runner] {step['runner']}", f"[command] {step['command']}"]
+    if step.get("cwd"):
+        lines.append(f"[cwd] {step['cwd']}")
+    return "\n".join(lines) + "\n\n"
+
+
+def _prune_background_processes() -> None:
+    alive: list[subprocess.Popen[str]] = []
+    for process in _BACKGROUND_PROCESSES:
+        if process.poll() is None:
+            alive.append(process)
+    _BACKGROUND_PROCESSES[:] = alive
+
+
 def execute_plan(plan: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
+    _prune_background_processes()
     logs: list[dict[str, Any]] = []
     command_dir = ensure_dir(run_dir / "command_logs")
     for index, step in enumerate(plan["steps"], start=1):
         log_path = command_dir / f"{index:02d}_{step['name'].replace(' ', '_')}.log"
         command = step["command"]
+        step_env = _step_env(step)
         if step["background"]:
-            process = subprocess.Popen(
-                command,
-                shell=True,
-                cwd=step["cwd"] or None,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            log_path.write_text(f"[background pid={process.pid}]\n{command}\n", encoding="utf-8")
-            logs.append({"step": step["name"], "status": "started", "pid": process.pid, "log_path": str(log_path)})
+            with log_path.open("w", encoding="utf-8") as log_stream:
+                log_stream.write(_log_header(step))
+                log_stream.flush()
+                process = subprocess.Popen(
+                    command,
+                    shell=True,
+                    cwd=step["cwd"] or None,
+                    stdout=log_stream,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    env=step_env,
+                )
+                try:
+                    returncode = process.wait(timeout=BACKGROUND_STARTUP_TIMEOUT_SEC)
+                except subprocess.TimeoutExpired:
+                    _BACKGROUND_PROCESSES.append(process)
+                    logs.append({"step": step["name"], "status": "started", "pid": process.pid, "log_path": str(log_path)})
+                else:
+                    logs.append(
+                        {
+                            "step": step["name"],
+                            "status": "completed" if returncode == 0 else "failed",
+                            "pid": process.pid,
+                            "returncode": returncode,
+                            "log_path": str(log_path),
+                        }
+                    )
+                    if returncode != 0:
+                        break
             continue
 
         completed = subprocess.run(
@@ -100,8 +147,9 @@ def execute_plan(plan: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
             cwd=step["cwd"] or None,
             capture_output=True,
             text=True,
+            env=step_env,
         )
-        output = (completed.stdout or "") + (completed.stderr or "")
+        output = _log_header(step) + (completed.stdout or "") + (completed.stderr or "")
         log_path.write_text(output, encoding="utf-8")
         logs.append(
             {
