@@ -1,6 +1,8 @@
 timezone: Asia/Shanghai
 
 projects:
+  # GitHub Project v2 boards are still hosted under the original user owner.
+  # Keep these values until the project boards themselves are migrated.
   tasks:
     provider: auto
     owner: 77zmf

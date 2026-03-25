@@ -19,6 +19,11 @@ The automation is designed to do three things:
 - Local validation outputs: `runs/**/run_result.json` or `runs/report/summary.json`
 - Config: `ops/project_automation.yaml`
 
+Repository note:
+
+- the code repository and digest issue target now live at `pixmoving-moveit/zmf_ws`
+- the GitHub Project v2 boards are still user-owned under `77zmf` until they are migrated on the GitHub side
+
 ## CLI
 
 Generate a digest locally:
@@ -124,3 +129,4 @@ When SMTP secrets are not configured, the workflow still stays useful because it
 - Real email delivery still depends on mail credentials being configured in GitHub Secrets.
 - Live GitHub Project v2 sync still depends on a token with `read:project` or `project` scopes.
 - Live Notion sync still depends on either a valid `NOTION_TOKEN` or a completed local Notion MCP login.
+- The repository has moved to `pixmoving-moveit/zmf_ws`, but the task and scenario boards still use the existing `77zmf` project URLs until a separate board migration is completed.

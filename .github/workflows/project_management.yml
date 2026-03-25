@@ -56,7 +56,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python tools/publish_digest_issue.py \
-            --repo 77zmf/zmf_ws \
+            --repo pixmoving-moveit/zmf_ws \
             --digest automation_outputs/project_digest/digest.md \
             --summary automation_outputs/project_digest/digest_summary.json
 
