@@ -177,6 +177,11 @@ Run the stable-line setup on the company Ubuntu host.
 Subagent catalog:
 
 - [Subagent Catalog](C:/Users/77926/Documents/New%20project/docs/SUBAGENT_CATALOG.md)
+- recommended fixed roles:
+  - `execution_runtime_explorer`
+  - `algorithm_research_explorer`
+  - `project_automation_explorer`
+  - `gaussian_reconstruction_explorer`
 
 If you are reviewing the repo from Windows, keep Git and GitHub management local but execute the runtime workflow on the company Ubuntu host over SSH.
 

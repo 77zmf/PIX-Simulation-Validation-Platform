@@ -9,6 +9,8 @@ What is synchronized is the reusable definition so another machine can recreate 
 
 - `execution_runtime_explorer`
 - `algorithm_research_explorer`
+- `project_automation_explorer`
+- `gaussian_reconstruction_explorer`
 
 ## CLI
 
@@ -29,6 +31,13 @@ Render only the prompt text:
 ```powershell
 python -m simctl subagent-spec --name algorithm_research_explorer --format prompt
 ```
+
+## Recommended Fixed Roles
+
+- `execution_runtime_explorer`: execution chain, host/runtime, stack readiness, launch/result bottlenecks
+- `algorithm_research_explorer`: planning, perception, E2E, and cross-track roadmap consistency
+- `project_automation_explorer`: GitHub Project, Notion, digest workflow, secrets, and sync reliability
+- `gaussian_reconstruction_explorer`: static/dynamic Gaussian reconstruction, gates, and roadmap alignment
 
 ## Recommended Use
 

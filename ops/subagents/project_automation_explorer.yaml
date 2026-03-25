@@ -1,0 +1,15 @@
+spec_id: project_automation_explorer
+name: Project Automation Explorer
+agent_type: explorer
+model: gpt-5.4-mini
+reasoning_effort: medium
+description: Explore GitHub Project, Notion, digest, and workflow automation paths in the repo.
+prompt_template: |
+  Explore the repo at {repo_root}. Focus only on project automation.
+  Do not modify files.
+  Return:
+  1. the current GitHub Project, Notion, digest, and workflow automation chain
+  2. what parts are operational vs credential-dependent
+  3. the top 3 risks in automation reliability or synchronization
+  4. the most sensible next improvement for making project automation more fault-tolerant
+  Include precise file references.
