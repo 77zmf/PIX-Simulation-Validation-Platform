@@ -11,6 +11,8 @@ What is synchronized is the reusable definition so another machine can recreate 
 - `algorithm_research_explorer`
 - `project_automation_explorer`
 - `gaussian_reconstruction_explorer`
+- `public_road_e2e_shadow_explorer`
+- `stable_stack_host_readiness_explorer`
 
 ## CLI
 
@@ -38,6 +40,8 @@ python -m simctl subagent-spec --name algorithm_research_explorer --format promp
 - `algorithm_research_explorer`: planning, perception, E2E, and cross-track roadmap consistency
 - `project_automation_explorer`: GitHub Project, Notion, digest workflow, secrets, and sync reliability
 - `gaussian_reconstruction_explorer`: static/dynamic Gaussian reconstruction, gates, and roadmap alignment
+- `public_road_e2e_shadow_explorer`: BEVFusion to UniAD/VADv2 shadow path, scenarios, metrics, and implementation gaps
+- `stable_stack_host_readiness_explorer`: Ubuntu host, CARLA/Autoware bring-up, readiness probes, and repeatability gaps
 
 ## Recommended Use
 

@@ -182,6 +182,8 @@ Subagent catalog:
   - `algorithm_research_explorer`
   - `project_automation_explorer`
   - `gaussian_reconstruction_explorer`
+  - `public_road_e2e_shadow_explorer`
+  - `stable_stack_host_readiness_explorer`
 
 If you are reviewing the repo from Windows, keep Git and GitHub management local but execute the runtime workflow on the company Ubuntu host over SSH.
 
