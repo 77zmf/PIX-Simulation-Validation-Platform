@@ -212,6 +212,16 @@ The repo-side planning documents live in:
 - `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
 - `docs/PROJECT_AUTOMATION.md`
 - `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
+- `docs/GIT_COLLABORATION_STANDARD_CN.md`
+
+## Git Collaboration
+
+This repository now includes a repo-side Git collaboration guide and commit template so the same rules can be reused across different machines.
+
+- collaboration guide: `docs/GIT_COLLABORATION_STANDARD_CN.md`
+- commit template: `ops/git/commit-message-template.txt`
+- for Codex-created branches, use `codex/<tag>/<short-kebab-case>`
+- current repo default branch is `main`, so branch from `main` unless the repo policy changes later
 
 The public portal entry is:
 
