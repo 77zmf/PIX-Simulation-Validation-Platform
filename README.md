@@ -216,11 +216,13 @@ The repo-side planning documents live in:
 - `docs/FUTURE_EXECUTION_ROADMAP_CN.md`
 - `docs/TEAM_AGENT_USAGE_CN.md`
 - `docs/PAPER_READING_MAP_CN.md`
+- `docs/PAPER_LANDSCAPE_CN.md`
 - `docs/LOCAL_PDF_INDEX_CN.md`
 
 Paper reading and local PDF entry points:
 
 - `docs/PAPER_READING_MAP_CN.md`
+- `docs/PAPER_LANDSCAPE_CN.md`
 - `docs/LOCAL_PDF_INDEX_CN.md`
 - `references/papers/`
 
