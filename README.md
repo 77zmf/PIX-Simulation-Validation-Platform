@@ -212,6 +212,7 @@ The repo-side planning documents live in:
 - `docs/PROJECT_AUTOMATION.md`
 - `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
 - `docs/GIT_COLLABORATION_STANDARD_CN.md`
+- `docs/FUTURE_EXECUTION_ROADMAP_CN.md`
 
 ## Git Collaboration
 
