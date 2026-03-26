@@ -38,7 +38,7 @@ Current near-term gate:
 
 - `Zhu Minfeng`: stable stack, control plane, automation, project rhythm
 - `Luo Shunxiong / lsx`: public-road map and pointcloud assets, reconstruction inputs, corner-case replay
-- `Yang Zhipeng / Zhipeng Yang / 杨志朋`: `BEVFusion` perception baseline, public-road perception and E2E shadow preparation
+- `Yang Zhipeng / 杨志朋`: `BEVFusion` perception baseline, public-road perception and E2E shadow preparation
 - `Codex PMO support`: digest generation, weekly review preparation, blocker aggregation, and repo-side management support
 
 ## Technical Tracks
@@ -89,6 +89,7 @@ adapters/    Planning, perception, E2E, and reconstruction profile examples
 src/simctl/  CLI and control-plane implementation
 tests/       Local verification for the control plane
 docs/        Public portal, team plan, and project-management snapshots
+references/  Curated local paper PDFs and reading materials
 ops/         Project automation configuration
 tools/       Maintenance and publishing helpers
 ```
@@ -214,6 +215,14 @@ The repo-side planning documents live in:
 - `docs/GIT_COLLABORATION_STANDARD_CN.md`
 - `docs/FUTURE_EXECUTION_ROADMAP_CN.md`
 - `docs/TEAM_AGENT_USAGE_CN.md`
+- `docs/PAPER_READING_MAP_CN.md`
+- `docs/LOCAL_PDF_INDEX_CN.md`
+
+Paper reading and local PDF entry points:
+
+- `docs/PAPER_READING_MAP_CN.md`
+- `docs/LOCAL_PDF_INDEX_CN.md`
+- `references/papers/`
 
 ## Git Collaboration
 
