@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Autoware + CARLA 自动驾驶仿真验证平台</title>
+    <title>Autoware + CARLA 仿真验证平台</title>
     <meta
       name="description"
-      content="Autoware Universe + CARLA 自动驾驶仿真验证平台公开主页，展示 12 周项目周期、公司 Ubuntu 主机部署方案、团队分工、GitHub 双看板和公开道路验证路线。"
+      content="Autoware Universe + CARLA 0.9.15 + UE4.26 仿真验证平台公开主页，展示季度目标、Ubuntu 主机部署、团队分工、GitHub 看板和公开道路研究路线。"
     >
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -23,8 +23,8 @@
           <p class="eyebrow">Autoware + CARLA Simulation Validation</p>
           <h1>自动驾驶仿真验证平台</h1>
           <p class="lede">
-            这个项目不是单独搭一套仿真环境，而是建设一套面向规划控制、感知、公开道路场景、
-            corner case 和未来端到端算法验证的工程化底座。
+            这个项目不是单独搭一套仿真环境，而是在建设一套面向规划控制、感知、公开道路资产、
+            corner case 和 E2E shadow 的工程化验证底座。
           </p>
           <div class="hero-actions">
             <a class="button primary" href="https://github.com/pixmoving-moveit/zmf_ws">GitHub 仓库</a>
@@ -35,13 +35,14 @@
           </div>
         </div>
         <div class="hero-card">
-          <p class="hero-card-label">当前主判断</p>
+          <p class="hero-card-label">当前主线</p>
           <ul>
-            <li><strong>稳定主线：</strong>Autoware Universe main + ROS 2 Humble + CARLA 0.9.15</li>
-            <li><strong>主运行环境：</strong>公司 Ubuntu 22.04 主机</li>
+            <li><strong>稳定栈：</strong>Autoware Universe main + ROS 2 Humble + CARLA 0.9.15</li>
+            <li><strong>运行环境：</strong>公司 Ubuntu 22.04 主机</li>
+            <li><strong>引擎口径：</strong>UE4.26</li>
             <li><strong>算法路线：</strong>BEVFusion 基线 + UniAD-style shadow，VADv2 做对照</li>
-            <li><strong>四月初目标：</strong>完成环境搭建，并打通自动化数据闭环</li>
-            <li><strong>自动管理：</strong>GitHub 双看板 + 工作日 digest + 条件邮件提醒</li>
+            <li><strong>并行能力：</strong>stable 栈单机 4 槽位设计，默认 `--parallel 2`</li>
+            <li><strong>近期门槛：</strong>四月初打通环境与自动化数据闭环</li>
           </ul>
         </div>
       </header>
@@ -52,7 +53,7 @@
           <strong>12 周</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">短期硬门槛</span>
+          <span class="status-label">短期门槛</span>
           <strong>2026-04-05</strong>
         </div>
         <div class="status-card">
@@ -64,8 +65,8 @@
           <strong>BEVFusion</strong>
         </div>
         <div class="status-card">
-          <span class="status-label">并行预备</span>
-          <strong>UE5 / E2E</strong>
+          <span class="status-label">研究路线</span>
+          <strong>E2E Shadow</strong>
         </div>
       </section>
 
@@ -80,7 +81,7 @@
               <span class="timeline-badge">1-2</span>
               <div>
                 <h3>环境与底座</h3>
-                <p>完成公司 Ubuntu 22.04 主机、ROS 2 Humble、Autoware 工作区和 CARLA 0.9.15 的可重复准备。</p>
+                <p>完成 Ubuntu 22.04 主机、ROS 2 Humble、Autoware 工作区和 CARLA 0.9.15 的可重复准备。</p>
               </div>
             </article>
             <article class="timeline-item">
@@ -91,53 +92,18 @@
               </div>
             </article>
             <article class="timeline-item">
-              <span class="timeline-badge">5-6</span>
+              <span class="timeline-badge">5-8</span>
               <div>
                 <h3>自动化验证</h3>
-                <p>固化 run_result、回放、报告、KPI 门禁和第一批 L1 回归，形成日常可复用验证链路。</p>
-              </div>
-            </article>
-            <article class="timeline-item">
-              <span class="timeline-badge">7-8</span>
-              <div>
-                <h3>公开道路资产与场景输入</h3>
-                <p>标准化 gy_qyhx_gsh 资产束，整理地图、点云、rosbag、重建输入和 Top 5 corner case。</p>
-              </div>
-            </article>
-            <article class="timeline-item">
-              <span class="timeline-badge">9-10</span>
-              <div>
-                <h3>公开道路场景落地</h3>
-                <p>至少让 1 个公开道路场景和 1 个高价值 corner case 进入正常验证流程。</p>
+                <p>固化 run_result、回放、报告、KPI 门禁和 L1 回归，形成日常可复用验证链路。</p>
               </div>
             </article>
             <article class="timeline-item accent">
-              <span class="timeline-badge">11-12</span>
+              <span class="timeline-badge">9-12</span>
               <div>
-                <h3>季度收口与下阶段准备</h3>
-                <p>冻结季度验收集，复盘风险与阻塞项，并把 UE5 / E2E shadow 的下阶段入口准备好。</p>
+                <h3>公开道路与研究线</h3>
+                <p>标准化公开道路资产、落地场景与 corner case，并推进 CARLA 0.9.15 上的 E2E shadow 对照。</p>
               </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="section-heading">
-            <p class="section-kicker">可行性</p>
-            <h2>什么现在就能做，什么仍依赖外部条件</h2>
-          </div>
-          <div class="grid three-up">
-            <article class="card">
-              <h3>现在可行</h3>
-              <p>GitHub 双看板、Notion 详细管理、公开主页、控制平面 CLI、项目 digest 和自动提醒框架都已经可用。</p>
-            </article>
-            <article class="card">
-              <h3>本季度可交付</h3>
-              <p>稳定主线闭环、L0/L1 回归、首批公开道路资产束与场景模板，以及 BEVFusion + UniAD-style shadow 的受控验证入口。</p>
-            </article>
-            <article class="card emphasis">
-              <h3>外部依赖</h3>
-              <p>真实邮件发送还需要 SMTP Secrets，UE5 重载实验还需要远端 GPU 主机，真实闭环效果还依赖 Ubuntu 主机环境搭建完成。</p>
             </article>
           </div>
         </section>
@@ -145,7 +111,7 @@
         <section class="panel">
           <div class="section-heading">
             <p class="section-kicker">技术架构</p>
-            <h2>三条线如何分工</h2>
+            <h2>三条主线如何分工</h2>
           </div>
           <div class="architecture">
             <article class="arch-card">
@@ -161,9 +127,35 @@
             </article>
             <div class="arch-arrow">→</div>
             <article class="arch-card">
-              <p class="arch-tag">UE5 / E2E</p>
-              <h3>下阶段实验线</h3>
-              <p>远端 GPU 主机负责 UE5、高保真视觉、感知和 E2E shadow 预备能力，不反向拖慢当前主线交付。</p>
+              <p class="arch-tag">E2E Shadow</p>
+              <h3>研究与对照主线</h3>
+              <p>在同一条 CARLA 0.9.15 运行基线上推进 BEVFusion、UniAD-style 和 VADv2 的 shadow 对照，不引入第二套仿真栈。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <p class="section-kicker">并行执行</p>
+            <h2>stable 栈如何并行回归</h2>
+          </div>
+          <div class="architecture">
+            <article class="arch-card">
+              <p class="arch-tag">Slots</p>
+              <h3>4 槽位设计</h3>
+              <p>每个槽位都有独立的 `carla_rpc_port`、`traffic_manager_port`、`ROS_DOMAIN_ID`、namespace 和资源画像。</p>
+            </article>
+            <div class="arch-arrow">→</div>
+            <article class="arch-card">
+              <p class="arch-tag">Default</p>
+              <h3>默认跑 2</h3>
+              <p>当前建议用 `simctl batch --parallel 2` 作为默认模式，先把主机稳定性和工件隔离跑通。</p>
+            </article>
+            <div class="arch-arrow">→</div>
+            <article class="arch-card">
+              <p class="arch-tag">Pressure Test</p>
+              <h3>再压测到 4</h3>
+              <p>4 槽位配置已就绪，但必须完成 CPU、GPU、内存和磁盘写入压测后再常态启用。</p>
             </article>
           </div>
         </section>
@@ -177,7 +169,7 @@
             <div class="stack">
               <article class="person-card">
                 <h3>朱民峰</h3>
-                <p>负责稳定主线、公司 Ubuntu 主机环境、控制平面、自动化、KPI 和项目推进。</p>
+                <p>负责稳定主线、公司 Ubuntu 主机、控制平面、自动化、KPI 和项目推进。</p>
               </article>
               <article class="person-card">
                 <h3>罗顺雄 / lsx</h3>
@@ -185,97 +177,45 @@
               </article>
               <article class="person-card">
                 <h3>杨志朋 / Zhipeng Yang</h3>
-                <p>负责 BEVFusion 感知基线、公开道路感知与 E2E shadow 预备，以及 UE5 远端实验线准备。</p>
+                <p>负责 BEVFusion 感知基线、公开道路感知和 E2E shadow 研究。</p>
               </article>
               <article class="person-card">
                 <h3>Codex PMO 支持位</h3>
-                <p>负责每日 digest、周会材料、阻塞项聚合和仓库侧管理同步，帮助团队持续推进，但不替代 owner 拍板。</p>
+                <p>负责每日 digest、周会材料、阻塞项聚合和仓库侧管理同步，不替代技术 owner 拍板。</p>
               </article>
             </div>
           </div>
           <div>
             <div class="section-heading">
               <p class="section-kicker">执行入口</p>
-              <h2>项目书、看板与周期文档</h2>
+              <h2>项目书、看板与运行手册</h2>
             </div>
             <div class="link-grid">
               <a class="link-card" href="https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f">
                 <span>项目书</span>
                 <small>方案、范围、KPI、风险和总体路线</small>
               </a>
-              <a class="link-card" href="https://www.notion.so/32cef7e6aaa9815aa0cfdc6a155047ed">
-                <span>季度计划</span>
-                <small>12 周路线、阶段目标和验收口径</small>
-              </a>
               <a class="link-card" href="https://github.com/orgs/pixmoving-moveit/projects/2">
                 <span>Task Board</span>
-                <small>公开任务执行镜像，跟踪 owner、优先级、阶段和阻塞项</small>
+                <small>任务 owner、优先级、阶段和阻塞项</small>
               </a>
               <a class="link-card" href="https://github.com/orgs/pixmoving-moveit/projects/3">
                 <span>Scenario Board</span>
-                <small>公开道路、回归、UE5 和 E2E 相关场景排期</small>
-              </a>
-              <a class="link-card" href="./PROJECT_CYCLE_AND_FEASIBILITY.md">
-                <span>Project Cycle</span>
-                <small>仓库内 12 周周期和可行性说明</small>
+                <small>公开道路、回归和 E2E shadow 场景排期</small>
               </a>
               <a class="link-card" href="./UBUNTU_HOST_BRINGUP_CN.md">
                 <span>Ubuntu Host Runbook</span>
-                <small>公司 Ubuntu 主机环境搭建、验收口径和四月初执行顺序</small>
+                <small>公司 Ubuntu 主机 bring-up、并行槽位和四月初执行顺序</small>
               </a>
               <a class="link-card" href="./SERVER_COMPILE_BASELINE_CN.md">
                 <span>Compile Baseline</span>
-                <small>沿用之前服务器上的 CARLA 源码和 Autoware 工作区编译基线</small>
+                <small>当前正式运行与编译基线说明</small>
               </a>
-              <a class="link-card" href="./PROJECT_OPERATING_TEAM_CN.md">
-                <span>Operating Team</span>
-                <small>项目推进团队、角色分工和持续推进机制</small>
-              </a>
-              <a class="link-card" href="./PROJECT_REVIEW_AND_OPTIMIZATION_CN.md">
-                <span>Project Review</span>
-                <small>当前遗漏、优先级和优化建议</small>
+              <a class="link-card" href="./ALGORITHM_RESEARCH_ROADMAP_CN.md">
+                <span>Algorithm Roadmap</span>
+                <small>规划控制、感知、E2E shadow 和重建研究入口</small>
               </a>
             </div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="section-heading">
-            <p class="section-kicker">自动管理</p>
-            <h2>项目自动化如何运行</h2>
-          </div>
-          <div class="grid two-up">
-            <article class="card">
-              <h3>工作日 digest</h3>
-              <p>GitHub Actions 会在工作日早上生成任务和场景 digest，抓取 overdue、due soon、blocked、场景关注项和验证快照。</p>
-            </article>
-            <article class="card">
-              <h3>条件邮件提醒</h3>
-              <p>如果配置了 SMTP Secrets，就自动发给团队；如果没有，则保留 digest artifact、workflow summary 和 digest issue。</p>
-            </article>
-            <article class="card">
-              <h3>GitHub Digest Inbox</h3>
-              <p>即使暂时没有 SMTP，也会自动创建或更新仓库里的 digest issue，作为团队公开提醒入口。</p>
-            </article>
-            <article class="card emphasis">
-              <h3>管理规则</h3>
-              <p>P0 延期、阻塞项和新场景必须进入周会。Notion 保持详细计划，GitHub 保持公开执行镜像和自动提醒。</p>
-            </article>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="section-heading">
-            <p class="section-kicker">验收口径</p>
-            <h2>本季度什么算完成</h2>
-          </div>
-          <div class="checklist">
-            <div class="check-item">至少 1 条稳定闭环链路可重复执行。</div>
-            <div class="check-item">`bootstrap / up / run / batch / replay / report` 主链路可用。</div>
-            <div class="check-item">`gy_qyhx_gsh20260302` 形成标准公开道路资产束。</div>
-            <div class="check-item">至少 1 个公开道路场景进入验证流程。</div>
-            <div class="check-item">Notion 和 GitHub 双看板保持同步管理。</div>
-            <div class="check-item">自动 digest 能输出按负责人聚合的提醒。</div>
           </div>
         </section>
       </main>

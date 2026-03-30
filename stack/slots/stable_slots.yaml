@@ -1,0 +1,31 @@
+stack_id: stable
+description: Stable slot catalog for single-host parallel CARLA 0.9.15 / Autoware runs
+slots:
+  - slot_id: stable-slot-01
+    carla_rpc_port: 2000
+    traffic_manager_port: 8000
+    ros_domain_id: 21
+    runtime_namespace: /simctl/stable/slot01
+    gpu_id: "0"
+    cpu_affinity: 0-7
+  - slot_id: stable-slot-02
+    carla_rpc_port: 2010
+    traffic_manager_port: 8010
+    ros_domain_id: 22
+    runtime_namespace: /simctl/stable/slot02
+    gpu_id: "0"
+    cpu_affinity: 8-15
+  - slot_id: stable-slot-03
+    carla_rpc_port: 2020
+    traffic_manager_port: 8020
+    ros_domain_id: 23
+    runtime_namespace: /simctl/stable/slot03
+    gpu_id: "0"
+    cpu_affinity: 16-23
+  - slot_id: stable-slot-04
+    carla_rpc_port: 2030
+    traffic_manager_port: 8030
+    ros_domain_id: 24
+    runtime_namespace: /simctl/stable/slot04
+    gpu_id: "0"
+    cpu_affinity: 24-31

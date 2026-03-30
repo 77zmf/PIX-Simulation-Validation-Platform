@@ -31,13 +31,16 @@ class ProjectOpsTests(unittest.TestCase):
             {
                 "url": "https://www.notion.so/example-page",
                 "properties": {
-                    "Name": {"type": "title", "title": [{"plain_text": "Confirm remote GPU host access"}]},
+                    "Name": {"type": "title", "title": [{"plain_text": "Confirm E2E shadow evaluation plan"}]},
                     "Status": {"type": "status", "status": {"name": "Todo"}},
                     "Priority": {"type": "select", "select": {"name": "P1"}},
                     "Due Date": {"type": "date", "date": {"start": "2026-03-25"}},
                     "Owner": {"type": "people", "people": [{"name": "Yang Zhipeng"}]},
                     "Blocked": {"type": "checkbox", "checkbox": True},
-                    "Summary": {"type": "rich_text", "rich_text": [{"plain_text": "Waiting for remote machine credentials."}]},
+                    "Summary": {
+                        "type": "rich_text",
+                        "rich_text": [{"plain_text": "Waiting for the UE4.26 shadow validation plan and scenario shortlist."}],
+                    },
                 },
             },
             {
@@ -51,10 +54,10 @@ class ProjectOpsTests(unittest.TestCase):
             },
         )
         item = item_from_payload(payload)
-        self.assertEqual(item.title, "Confirm remote GPU host access")
+        self.assertEqual(item.title, "Confirm E2E shadow evaluation plan")
         self.assertEqual(item.owner, "Yang Zhipeng")
         self.assertEqual(item.blocked, "Yes")
-        self.assertEqual(item.body, "Waiting for remote machine credentials.")
+        self.assertEqual(item.body, "Waiting for the UE4.26 shadow validation plan and scenario shortlist.")
         self.assertEqual(item.notion_url, "https://www.notion.so/example-page")
 
     def test_load_project_items_auto_falls_back_to_github_when_notion_token_missing(self) -> None:
@@ -102,10 +105,10 @@ class ProjectOpsTests(unittest.TestCase):
             ),
             item_from_payload(
                 {
-                    "title": "远端 GPU 准备",
+                    "title": "E2E shadow 方案确认",
                     "status": "In Progress",
                     "priority": "P1",
-                    "track": "UE5 Lab",
+                    "track": "E2E Shadow",
                     "due Date": "2026-03-21",
                     "owner": "杨志朋",
                     "blocked": "No",
@@ -115,7 +118,7 @@ class ProjectOpsTests(unittest.TestCase):
 
         summary = summarize_items(items, today=date(2026, 3, 22), due_soon_days=3)
         self.assertEqual(summary["active"], 1)
-        self.assertEqual([item.title for item in summary["overdue"]], ["远端 GPU 准备"])
+        self.assertEqual([item.title for item in summary["overdue"]], ["E2E shadow 方案确认"])
 
     def test_send_digest_email_fails_soft_on_smtp_error(self) -> None:
         config = {"email": {}}

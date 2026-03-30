@@ -1,70 +1,25 @@
 # Team Operating Rhythm
 
-This document defines how the team should run the current 90-day cycle.
+## Daily
 
-## Weekly Review
+- Check GitHub Task Board
+- Check Scenario Board
+- Review digest summary
+- Update blocker status if anything slipped
 
-Cadence: once per week
+## Weekly
 
-Participants:
+- One weekly review meeting
+- Confirm completed work, current blockers, next-week actions
+- Validate whether the quarter gate is still on track
 
-- Zhu Minfeng
-- Luo Shunxiong (`lsx`)
-- Yang Zhipeng (`Zhipeng Yang`, 杨志朋)
-- Codex PMO support
+## Required Signals
 
-Agenda:
+- Every owner must have a visible next action
+- Every blocker must have an owner and a date
+- Every research result must point to a scenario and KPI
 
-1. Last week delivered artifacts
-2. Current-week P0 progress
-3. Risks and blockers
-4. Cross-team support needed
-5. Next-week actions
+## Current Rule
 
-## Review Inputs
-
-- `Program Board` in Notion
-- `Scenario Backlog` in Notion
-- latest `run_result.json`
-- latest generated reports
-- newly added public-road scenario definitions, map assets, or reconstruction manifests
-
-## Minimum Weekly Outputs
-
-- one updated weekly-review note
-- updated owner and status for P0/P1 items
-- explicit blocker actions for any active risk
-- explicit next-week actions for each team member
-
-## Owner Matrix
-
-### Zhu Minfeng
-
-- Company Ubuntu host stable stack environment
-- Control-plane scripts
-- KPI gates and reporting
-- Weekly steering
-
-### Luo Shunxiong (`lsx`)
-
-- Public-road map and pointcloud preparation
-- Reconstruction and localization-support assets
-- Public-road and corner-case scenario inputs
-
-### Yang Zhipeng (`Zhipeng Yang`, 杨志朋)
-
-- `BEVFusion` perception baseline
-- Public-road perception and E2E shadow preparation
-- UE5 remote host preparation
-
-### Codex PMO support
-
-- Daily digest and blocker aggregation
-- Weekly review preparation
-- Repo-side management synchronization
-
-## Escalation Rules
-
-- If a P0 task slips by more than one weekly review, escalate in the same review.
-- If a risk is marked blocked without a next action, the review is incomplete.
-- If a new field issue appears, it must land in the scenario backlog before the next review.
+- Stable delivery remains the quarter gate
+- E2E shadow remains a research track on top of `CARLA 0.9.15 / UE4.26`

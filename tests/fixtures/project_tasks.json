@@ -15,17 +15,17 @@
       }
     },
     {
-      "title": "Confirm remote GPU host access",
+      "title": "Confirm E2E shadow evaluation plan",
       "status": "Todo",
       "priority": "P1",
-      "phase": "Phase 3 UE5/E2E",
-      "track": "UE5 Lab",
+      "phase": "Phase 3 E2E Shadow",
+      "track": "E2E Shadow",
       "due Date": "2026-03-25",
       "owner": "Yang Zhipeng",
       "blocked": "Yes",
-      "notion URL": "https://example.com/tasks/gpu",
+      "notion URL": "https://example.com/tasks/e2e-shadow",
       "content": {
-        "body": "Waiting for remote machine credentials."
+        "body": "Waiting for the UE4.26 shadow validation plan and scenario shortlist."
       }
     }
   ]

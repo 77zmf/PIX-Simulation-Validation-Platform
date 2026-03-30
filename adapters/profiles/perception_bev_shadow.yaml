@@ -7,7 +7,7 @@ research_focus:
   - tracking_stability
   - vad_shadow_interface_consistency
 inputs:
-  sensors: production_perception_or_ue5_high_fidelity
+  sensors: production_perception_or_carla0915_high_fidelity
   calibration: required
 outputs:
   detections: bev_objects

@@ -36,12 +36,11 @@ for cmd in "${COMMANDS[@]}"; do
   fi
 done
 
-echo "Recommended workspace defaults based on the previous server bring-up:"
-echo "- CARLA source root: ~/zmf_ws/projects/carla_source/CarlaUE5"
-echo "- CARLA UE path: ~/zmf_ws/projects/carla_source/UnrealEngine5_carla"
+echo "Recommended workspace defaults for the current stable path:"
+echo "- CARLA runtime root: ~/CARLA_0.9.15"
 echo "- Autoware workspace: ~/zmf_ws/projects/autoware_universe/autoware"
 echo
 echo "Next operator-controlled steps:"
-echo "- verify CARLA source tree and CARLA_UNREAL_ENGINE_PATH if reusing the UE5 source build"
+echo "- verify or install CARLA 0.9.15 runtime under CARLA_0915_ROOT"
 echo "- verify or create AUTOWARE_WS and import autoware.repos"
-echo "- keep the stable validation line separate from the CARLA UE5 source-development line"
+echo "- keep planning/control and E2E shadow validation on the same UE4.26 runtime baseline"

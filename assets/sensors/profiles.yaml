@@ -17,8 +17,8 @@ profiles:
       - lidar
       - radar
     truth_mode: disabled
-  ue5_high_fidelity:
-    description: Remote UE5 visual stack for perception and E2E experiments
+  carla0915_high_fidelity:
+    description: CARLA 0.9.15 / UE4.26 high-fidelity camera stack for perception and shadow validation
     sensors:
       - cinematic_front_camera
       - wide_front_camera

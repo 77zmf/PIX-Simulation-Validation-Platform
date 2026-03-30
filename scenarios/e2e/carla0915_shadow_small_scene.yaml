@@ -1,6 +1,6 @@
-scenario_id: ue5_small_scene_e2e_shadow
-stack: ue5
-map_id: ue5_small_corner_case
+scenario_id: carla0915_small_scene_e2e_shadow
+stack: stable
+map_id: small_corner_case
 asset_bundle: site_gy_qyhx_gsh20260302
 ego_init:
   local_pose:
@@ -13,25 +13,25 @@ goal:
     y: -2823.4
     yaw_deg: 100.0
 traffic_profile:
-  mode: ue5_corner_case
+  mode: small_corner_case_shadow
   vehicles: 4
   pedestrians: 6
   scripted_agents:
     - occluded_non_motor
 weather_profile:
   preset: ClearNoon
-sensor_profile: ue5_high_fidelity
+sensor_profile: carla0915_high_fidelity
 algorithm_profile: e2e_shadow
 seed: 55
 recording:
   rosbag2:
     enabled: true
-    path: rosbags/e2e_shadow
+    path: rosbags/carla0915_e2e_shadow
   carla_recorder:
     enabled: false
 kpi_gate: e2e_shadow_gate
 labels:
-  - ue5
+  - carla0915
   - e2e
   - shadow
 execution:

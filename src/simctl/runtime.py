@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import dump_json, ensure_dir, find_repo_root, interpolate, load_yaml, to_wsl_path
-from .models import AlgorithmProfile, CommandStep, ScenarioConfig, SensorProfile, StackProfile
+from .models import AlgorithmProfile, CommandStep, RuntimeSlot, ScenarioConfig, SensorProfile, StackProfile
 
 
 class SafeDict(dict[str, str]):
@@ -35,6 +35,7 @@ def build_context(
     asset_bundle_id: str = "",
     sensor_profile: SensorProfile | None = None,
     algorithm_profile: AlgorithmProfile | None = None,
+    slot: RuntimeSlot | None = None,
     execute: bool = False,
 ) -> dict[str, str]:
     scenario_path = scenario.scenario_path if scenario else None
@@ -53,6 +54,13 @@ def build_context(
         "sensor_truth_mode": (sensor_profile.truth_mode or "") if sensor_profile else "",
         "algorithm_profile_id": algorithm_profile.profile_id if algorithm_profile else (scenario.algorithm_profile if scenario else ""),
         "algorithm_profile_type": algorithm_profile.profile_type if algorithm_profile else "",
+        "slot_id": slot.slot_id if slot else "",
+        "carla_rpc_port": str(slot.carla_rpc_port) if slot else "",
+        "traffic_manager_port": str(slot.traffic_manager_port) if slot else "",
+        "ros_domain_id": str(slot.ros_domain_id) if slot else "",
+        "runtime_namespace": slot.runtime_namespace if slot else "",
+        "gpu_id": slot.gpu_id if slot else "",
+        "cpu_affinity": slot.cpu_affinity or "" if slot else "",
         "execute_flag": "-Execute" if execute else "",
     }
     return context
@@ -105,6 +113,7 @@ def execute_plan(plan: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
     _prune_background_processes()
     logs: list[dict[str, Any]] = []
     command_dir = ensure_dir(run_dir / "command_logs")
+    pid_dir = ensure_dir(run_dir / "pids")
     for index, step in enumerate(plan["steps"], start=1):
         log_path = command_dir / f"{index:02d}_{step['name'].replace(' ', '_')}.log"
         command = step["command"]
@@ -126,7 +135,17 @@ def execute_plan(plan: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
                     returncode = process.wait(timeout=BACKGROUND_STARTUP_TIMEOUT_SEC)
                 except subprocess.TimeoutExpired:
                     _BACKGROUND_PROCESSES.append(process)
-                    logs.append({"step": step["name"], "status": "started", "pid": process.pid, "log_path": str(log_path)})
+                    pid_file = pid_dir / f"{index:02d}_{step['name'].replace(' ', '_')}.pid"
+                    pid_file.write_text(f"{process.pid}\n", encoding="utf-8")
+                    logs.append(
+                        {
+                            "step": step["name"],
+                            "status": "started",
+                            "pid": process.pid,
+                            "pid_file": str(pid_file),
+                            "log_path": str(log_path),
+                        }
+                    )
                 else:
                     logs.append(
                         {

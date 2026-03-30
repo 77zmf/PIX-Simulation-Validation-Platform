@@ -58,6 +58,36 @@ class StackProfile:
 
 
 @dataclass(slots=True)
+class RuntimeSlot:
+    slot_id: str
+    carla_rpc_port: int
+    traffic_manager_port: int
+    ros_domain_id: int
+    runtime_namespace: str
+    gpu_id: str
+    cpu_affinity: str | None = None
+    payload: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any], *, where: str) -> "RuntimeSlot":
+        require_keys(
+            payload,
+            ["slot_id", "carla_rpc_port", "traffic_manager_port", "ros_domain_id", "runtime_namespace", "gpu_id"],
+            where=where,
+        )
+        return cls(
+            slot_id=str(payload["slot_id"]),
+            carla_rpc_port=int(payload["carla_rpc_port"]),
+            traffic_manager_port=int(payload["traffic_manager_port"]),
+            ros_domain_id=int(payload["ros_domain_id"]),
+            runtime_namespace=str(payload["runtime_namespace"]),
+            gpu_id=str(payload["gpu_id"]),
+            cpu_affinity=str(payload["cpu_affinity"]) if payload.get("cpu_affinity") else None,
+            payload=payload,
+        )
+
+
+@dataclass(slots=True)
 class AssetBundle:
     bundle_id: str
     site_id: str
@@ -164,7 +194,7 @@ class ScenarioConfig:
             where=str(scenario_path),
         )
         stack = str(payload["stack"])
-        if stack not in {"stable", "ue5"}:
+        if stack not in {"stable"}:
             raise ValueError(f"{scenario_path} has unsupported stack '{stack}'")
         return cls(
             scenario_id=str(payload["scenario_id"]),

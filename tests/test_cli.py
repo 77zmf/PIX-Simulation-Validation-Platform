@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from simctl.cli import main
+from simctl.slots import load_slot_catalog, read_slot_lock
 
 
 class CliTests(unittest.TestCase):
@@ -43,6 +44,8 @@ class CliTests(unittest.TestCase):
                         "scenarios/l0/smoke_stub.yaml",
                         "--run-root",
                         tempdir,
+                        "--slot",
+                        "stable-slot-02",
                     ]
                 )
             self.assertEqual(rc, 0)
@@ -51,6 +54,9 @@ class CliTests(unittest.TestCase):
             result = json.loads((run_dirs[0] / "run_result.json").read_text(encoding="utf-8"))
             self.assertEqual(result["status"], "passed")
             self.assertTrue(result["gate"]["passed"])
+            self.assertEqual(result["slot_id"], "stable-slot-02")
+            self.assertEqual(result["carla_rpc_port"], 2010)
+            self.assertEqual(result["ros_domain_id"], 22)
             self.assertEqual(result["resolved_profiles"]["sensor"]["profile_id"], "ground_truth_control_baseline")
             self.assertEqual(result["resolved_profiles"]["algorithm"]["profile_id"], "planning_control_baseline")
             self.assertTrue(Path(result["artifacts"]["sensor_profile_snapshot"]).exists())
@@ -154,30 +160,42 @@ class CliTests(unittest.TestCase):
     def test_run_execute_marks_launch_failed_when_execution_step_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             stream = io.StringIO()
-            with patch(
-                "simctl.cli.execute_plan",
-                return_value=[
-                    {
-                        "step": "submit-ue5-job",
-                        "status": "failed",
-                        "returncode": 2,
-                        "log_path": str(Path(tempdir) / "submit-ue5-job.log"),
-                    }
-                ],
-            ):
-                with redirect_stdout(stream):
-                    rc = main(
-                        [
-                            "--repo-root",
-                            str(REPO_ROOT),
-                            "run",
-                            "--scenario",
-                            "scenarios/ue5/e2e_bevfusion_uniad_unprotected_left.yaml",
-                            "--run-root",
-                            tempdir,
-                            "--execute",
-                        ]
-                    )
+            slot_id = "stable-slot-03"
+            lock_path = REPO_ROOT / "artifacts" / "slot_locks" / "stable" / f"{slot_id}.json"
+            previous_lock = lock_path.read_text(encoding="utf-8") if lock_path.exists() else None
+            try:
+                lock_path.unlink(missing_ok=True)
+                with patch(
+                    "simctl.cli.execute_plan",
+                    return_value=[
+                        {
+                            "step": "start-carla-server",
+                            "status": "failed",
+                            "returncode": 2,
+                            "log_path": str(Path(tempdir) / "start-carla-server.log"),
+                        }
+                    ],
+                ):
+                    with redirect_stdout(stream):
+                        rc = main(
+                            [
+                                "--repo-root",
+                                str(REPO_ROOT),
+                                "run",
+                                "--scenario",
+                                "scenarios/e2e/carla0915_bevfusion_uniad_unprotected_left.yaml",
+                                "--run-root",
+                                tempdir,
+                                "--slot",
+                                slot_id,
+                                "--execute",
+                            ]
+                        )
+            finally:
+                if previous_lock is None:
+                    lock_path.unlink(missing_ok=True)
+                else:
+                    lock_path.write_text(previous_lock, encoding="utf-8")
             self.assertEqual(rc, 0)
             result = json.loads(stream.getvalue())
             self.assertEqual(result["status"], "launch_failed")
@@ -187,30 +205,42 @@ class CliTests(unittest.TestCase):
     def test_run_execute_marks_launch_submitted_when_execution_starts(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             stream = io.StringIO()
-            with patch(
-                "simctl.cli.execute_plan",
-                return_value=[
-                    {
-                        "step": "submit-ue5-job",
-                        "status": "completed",
-                        "returncode": 0,
-                        "log_path": str(Path(tempdir) / "submit-ue5-job.log"),
-                    }
-                ],
-            ):
-                with redirect_stdout(stream):
-                    rc = main(
-                        [
-                            "--repo-root",
-                            str(REPO_ROOT),
-                            "run",
-                            "--scenario",
-                            "scenarios/ue5/e2e_bevfusion_uniad_unprotected_left.yaml",
-                            "--run-root",
-                            tempdir,
-                            "--execute",
-                        ]
-                    )
+            slot_id = "stable-slot-04"
+            lock_path = REPO_ROOT / "artifacts" / "slot_locks" / "stable" / f"{slot_id}.json"
+            previous_lock = lock_path.read_text(encoding="utf-8") if lock_path.exists() else None
+            try:
+                lock_path.unlink(missing_ok=True)
+                with patch(
+                    "simctl.cli.execute_plan",
+                    return_value=[
+                        {
+                            "step": "start-carla-server",
+                            "status": "completed",
+                            "returncode": 0,
+                            "log_path": str(Path(tempdir) / "start-carla-server.log"),
+                        }
+                    ],
+                ):
+                    with redirect_stdout(stream):
+                        rc = main(
+                            [
+                                "--repo-root",
+                                str(REPO_ROOT),
+                                "run",
+                                "--scenario",
+                                "scenarios/e2e/carla0915_bevfusion_uniad_unprotected_left.yaml",
+                                "--run-root",
+                                tempdir,
+                                "--slot",
+                                slot_id,
+                                "--execute",
+                            ]
+                        )
+            finally:
+                if previous_lock is None:
+                    lock_path.unlink(missing_ok=True)
+                else:
+                    lock_path.write_text(previous_lock, encoding="utf-8")
             self.assertEqual(rc, 0)
             result = json.loads(stream.getvalue())
             self.assertEqual(result["status"], "launch_submitted")
@@ -247,6 +277,38 @@ class CliTests(unittest.TestCase):
             self.assertTrue((report_dir / "report.md").exists())
             self.assertTrue((report_dir / "report.html").exists())
 
+    def test_batch_parallel_uses_two_slots_and_reuses_one_for_third_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "batch",
+                        "scenarios/l0/smoke_stub.yaml",
+                        "scenarios/l1/regression_follow_lane.yaml",
+                        "scenarios/l2/planning_control_merge_regression.yaml",
+                        "--run-root",
+                        tempdir,
+                        "--parallel",
+                        "2",
+                        "--mock-result",
+                        "passed",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            batch_index_path = Path(stream.getvalue().strip())
+            batch_index = json.loads(batch_index_path.read_text(encoding="utf-8"))
+            self.assertEqual(batch_index["parallel"], 2)
+            self.assertEqual(len(batch_index["records"]), 3)
+            slot_ids = [record["slot_id"] for record in batch_index["records"]]
+            self.assertEqual(len(set(slot_ids)), 2)
+            for record in batch_index["records"]:
+                result = json.loads(Path(record["run_result"]).read_text(encoding="utf-8"))
+                self.assertEqual(result["slot_id"], record["slot_id"])
+                self.assertEqual(result["status"], "passed")
+
     def test_batch_ignores_existing_report_directory_when_indexing_results(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             (Path(tempdir) / "report").mkdir()
@@ -273,6 +335,56 @@ class CliTests(unittest.TestCase):
                 self.assertTrue(Path(record["run_result"]).exists())
                 self.assertEqual(Path(record["run_result"]).name, "run_result.json")
 
+    def test_down_releases_slot_lock_for_run_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "20260330T000000000000Z__stable_l1_follow_lane"
+            run_dir.mkdir(parents=True)
+            slot = load_slot_catalog("stable", REPO_ROOT)[0]
+            lock_path = REPO_ROOT / "artifacts" / "slot_locks" / "stable" / f"{slot.slot_id}.json"
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            previous_lock = lock_path.read_text(encoding="utf-8") if lock_path.exists() else None
+            (run_dir / "run_result.json").write_text(
+                json.dumps(
+                    {
+                        "stack": "stable",
+                        "slot_id": slot.slot_id,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            try:
+                lock_path.write_text(
+                    json.dumps(
+                        {
+                            "stack_id": "stable",
+                            "slot_id": slot.slot_id,
+                            "scenario_id": "stable_l1_follow_lane",
+                            "run_dir": str(run_dir),
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                with patch("simctl.cli.execute_plan", return_value=[]):
+                    rc = main(
+                        [
+                            "--repo-root",
+                            str(REPO_ROOT),
+                            "down",
+                            "--stack",
+                            "stable",
+                            "--run-dir",
+                            str(run_dir),
+                            "--execute",
+                        ]
+                    )
+                self.assertEqual(rc, 0)
+                self.assertIsNone(read_slot_lock(REPO_ROOT, "stable", slot.slot_id))
+            finally:
+                if previous_lock is None:
+                    lock_path.unlink(missing_ok=True)
+                else:
+                    lock_path.write_text(previous_lock, encoding="utf-8")
+
     def test_digest_from_fixture_json(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             stream = io.StringIO()
@@ -295,7 +407,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             outputs = json.loads(stream.getvalue())
             summary = json.loads(Path(outputs["summary"]).read_text(encoding="utf-8"))
-            self.assertIn("Confirm remote GPU host access", summary["task_summary"]["blocked_titles"])
+            self.assertIn("Confirm E2E shadow evaluation plan", summary["task_summary"]["blocked_titles"])
             self.assertIn("Unprotected left at signalized intersection", summary["scenario_summary"]["due_soon_titles"])
             self.assertTrue(Path(outputs["markdown"]).exists())
             self.assertTrue(Path(outputs["html"]).exists())

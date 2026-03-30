@@ -51,7 +51,7 @@ def utc_now() -> str:
 
 
 def make_run_id(scenario_id: str) -> str:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     safe = re.sub(r"[^a-zA-Z0-9_-]+", "-", scenario_id).strip("-")
     return f"{stamp}__{safe}"
 

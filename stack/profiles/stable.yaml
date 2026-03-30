@@ -13,22 +13,19 @@ start:
   - name: start-carla-server
     runner: bash
     background: true
-    command: "bash '{repo_root}/stack/stable/start_carla_host.sh' --run-dir '{run_dir}' --asset-root '{asset_root}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/start_carla_host.sh' --run-dir '{run_dir}' --asset-root '{asset_root}' --slot-id '{slot_id}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --gpu-id '{gpu_id}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
   - name: start-autoware-bridge
     runner: bash
     background: true
-    command: "bash '{repo_root}/stack/stable/start_bridge_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/start_bridge_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --ros-domain-id '{ros_domain_id}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
   - name: start-autoware-stack
     runner: bash
     background: true
-    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
 stop:
   - name: stop-autoware-stack
     runner: bash
-    command: "bash '{repo_root}/stack/stable/stop_stable_stack.sh' {execute_flag}"
-  - name: stop-carla-server
-    runner: bash
-    command: "pkill -f CarlaUE4 || true"
+    command: "bash '{repo_root}/stack/stable/stop_stable_stack.sh' --run-dir '{run_dir}' {execute_flag}"
 replay:
   - name: replay-rosbag
     runner: bash

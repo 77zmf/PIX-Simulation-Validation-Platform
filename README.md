@@ -1,44 +1,48 @@
 # Autoware + CARLA Simulation Validation Platform
 
-This repository is the control plane for an autonomous-driving simulation validation platform.
+This repository is the control plane for a simulation validation platform built around:
 
-It is not just an environment setup repo. The current team goal is to build a reusable validation baseline for:
+- `Autoware Universe main`
+- `ROS 2 Humble`
+- `CARLA 0.9.15`
+- `UE4.26`
 
-- `Autoware Universe main + ROS 2 Humble + CARLA 0.9.15` stable closed-loop verification
-- automated regression, replay, KPI gating, and reporting
-- public-road map, reconstruction, and corner-case accumulation from real assets
-- a future `UE5 / E2E` experiment line that starts with `BEVFusion + UniAD-style shadow`, with `VADv2` as the comparison baseline
+The current delivery is not a generic environment-setup effort. It is a reusable validation baseline for:
+
+- stable closed-loop verification on the company Ubuntu host
+- automated `bootstrap / up / run / batch / replay / report` workflows
+- public-road asset reuse, `site proxy`, and corner-case accumulation
+- BEV / VAD / UniAD-style / E2E shadow research on the same CARLA 0.9.15 runtime baseline
 
 ## Current Focus
 
-The current three-month delivery is organized around four priorities:
+The active quarter is organized around four priorities:
 
 1. Make the `stable` stack usable in closed loop on the company Ubuntu host.
-2. Make `bootstrap / up / run / batch / replay / report` usable for daily validation.
-3. Turn the `gy_qyhx_gsh20260302` assets into reusable public-road map and corner-case inputs.
-4. Prepare public-road `UE5 / E2E shadow` as the next-stage capability without destabilizing the main line.
+2. Make `simctl` usable for daily validation and reporting.
+3. Turn `gy_qyhx_gsh20260302` into reusable public-road map and scenario inputs.
+4. Keep E2E shadow research on `CARLA 0.9.15 / UE4.26` without destabilizing the main line.
 
-Current near-term gate:
+Near-term gate:
 
-- by `2026-04-05`, finish the company Ubuntu host bring-up and close the first automation data loop:
+- by `2026-04-05`, finish Ubuntu host bring-up and close the first automation data loop:
   `simctl run -> run_result.json -> report -> replay`
 
 ## Public Entry Points
 
 - Repository: [pixmoving-moveit/zmf_ws](https://github.com/pixmoving-moveit/zmf_ws)
-- GitHub Project: [Task Board](https://github.com/orgs/pixmoving-moveit/projects/2)
-- GitHub Scenario Project: [Scenario Board](https://github.com/orgs/pixmoving-moveit/projects/3)
+- GitHub Task Board: [Project 2](https://github.com/orgs/pixmoving-moveit/projects/2)
+- GitHub Scenario Board: [Project 3](https://github.com/orgs/pixmoving-moveit/projects/3)
 - GitHub Digest Inbox: [project-digest issues](https://github.com/pixmoving-moveit/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
 - Notion project book: [Project Book](https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f)
 - Notion execution board: [Program Board](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec)
-- Notion two-week view: [Next 2 Weeks](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec?v=32cef7e6aaa9819b9826000c4b519313)
 - Notion scenario backlog: [Scenario Backlog](https://www.notion.so/2fb616fb48d5429cbb01a7b6299b84e9)
 
 ## Team Ownership
 
-- `Zhu Minfeng`: stable stack, control plane, automation, project rhythm
+- `Zhu Minfeng`: stable stack, Ubuntu host, control plane, automation, KPI gates
 - `Luo Shunxiong / lsx`: public-road map and pointcloud assets, reconstruction inputs, corner-case replay
-- `Yang Zhipeng / 杨志朋`: `BEVFusion` perception baseline, public-road perception and E2E shadow preparation
+- `Yang Zhipeng / 杨志朋`: `BEVFusion` perception baseline, public-road perception, and E2E shadow research
 - `Codex PMO support`: digest generation, weekly review preparation, blocker aggregation, and repo-side management support
 
 ## Technical Tracks
@@ -80,104 +84,98 @@ This repository does not treat direct end-to-end control takeover as the first m
 ## Repository Layout
 
 ```text
-infra/       Ubuntu host and remote preparation scripts
-stack/       Stable and UE5 stack profiles plus launch helpers
-assets/      Asset manifests, site metadata, and sensor profiles
-scenarios/   L0-L3 and UE5 scenario definitions
-evaluation/  KPI gates, reports, and failure taxonomy
-adapters/    Planning, perception, E2E, and reconstruction profile examples
-src/simctl/  CLI and control-plane implementation
-tests/       Local verification for the control plane
-docs/        Public portal, team plan, and project-management snapshots
+infra/       Ubuntu host preparation and operator runbooks
+stack/       Stable stack profile, slot catalog, and launch helpers
+assets/      Sensor catalogs, manifests, and lightweight metadata
+scenarios/   L0-L3 plus E2E research scenarios on the stable stack
+evaluation/  KPI gates, reports, and validation summaries
+adapters/    Planning-control, perception, reconstruction, and E2E shadow profiles
+docs/        Public overview, runbooks, delivery plan, and review notes
 references/  Curated local paper PDFs and reading materials
+src/         simctl CLI and supporting library code
+tests/       Control-plane, digest, and scenario regression tests
 ops/         Project automation configuration
 tools/       Maintenance and publishing helpers
 ```
 
-## Control Plane Commands
+## Runtime Assumptions
 
-The unified CLI entrypoints are:
+- The main runtime host is the company `Ubuntu 22.04` machine.
+- `CARLA 0.9.15` is the only official simulator runtime in this repository.
+- no secondary simulator runtime is part of the current repository strategy or execution path.
+- E2E shadow research stays on the `stable` stack and reuses the same CARLA 0.9.15 baseline.
 
-- `bootstrap`
-- `up`
-- `down`
-- `run`
-- `batch`
-- `replay`
-- `report`
-- `digest`
-- `notion-check`
-- `subagent-spec`
+## Main Commands
 
-## Quick Start
+Render or execute the stable bring-up plan:
 
-Run the stable-line setup on the company Ubuntu host.
+```bash
+simctl bootstrap --stack stable
+simctl up --stack stable --scenario scenarios/l0/smoke_stub.yaml
+```
 
-1. Create a virtual environment and install the package.
+Run one scenario and generate a result:
 
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   python -m pip install --upgrade pip
-   python -m pip install -e .
-   ```
+```bash
+simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root runs
+simctl run --scenario scenarios/l1/regression_follow_lane.yaml --run-root runs --slot stable-slot-01
+```
 
-2. Inspect the stable bootstrap plan.
+Batch runs and reporting:
 
-   ```bash
-   simctl bootstrap --stack stable
-   ```
+```bash
+simctl batch --glob "scenarios/l1/*.yaml" --run-root runs
+simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-result passed
+simctl report --run-root runs
+```
 
-   Optional readiness check on the company Ubuntu host:
+Stable slot catalog:
 
-   ```bash
-   bash infra/ubuntu/check_host_readiness.sh
-   ```
+```text
+stack/slots/stable_slots.yaml
+```
 
-   If you are continuing from the previously compiled server baseline:
+Use `--parallel 2` as the default operating mode. The repository now defines 4 slots, but 4-way execution should only be enabled after host-level pressure testing.
 
-   ```bash
-   bash infra/ubuntu/prepare_carla_source.sh
-   bash infra/ubuntu/prepare_autoware_workspace.sh
-   ```
+Digest and replay:
 
-3. Run a smoke scenario and generate a report.
+```bash
+simctl digest
+simctl replay --run-result runs/<run_id>/run_result.json
+simctl notion-check --config ops/project_automation.yaml
+```
 
-   ```bash
-   simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root runs
-   simctl report --run-root runs
-   ```
+## Ubuntu Host Workflow
 
-4. Batch a set of scenarios.
+Operator-facing helpers:
 
-   ```bash
-   simctl batch --glob "scenarios/l1/*.yaml" --run-root runs --mock-result passed
-   simctl report --run-root runs
-   ```
+```bash
+bash infra/ubuntu/bootstrap_host.sh
+bash infra/ubuntu/check_host_readiness.sh
+bash infra/ubuntu/prepare_carla_runtime.sh
+bash infra/ubuntu/prepare_autoware_workspace.sh
+```
 
-5. Generate the project digest used by the management automation.
+Reference documents:
 
-   ```bash
-   simctl digest --config ops/project_automation.yaml --output-dir artifacts/project_digest
-   ```
+- [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
+- [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
+- [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
+- [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
 
-6. Validate the Notion API connection used by the automation.
+## Subagent Catalog
 
-   ```bash
-    simctl notion-check --config ops/project_automation.yaml
-    ```
+Render reusable Codex subagent definitions stored in the repo:
 
-7. Render a reusable Codex subagent definition stored in the repo.
-
-   ```bash
-   simctl subagent-spec --list
-   simctl subagent-spec --name execution_runtime_explorer
-   simctl subagent-spec --name execution_runtime_explorer --format spawn_json
-   ```
+```bash
+simctl subagent-spec --list
+simctl subagent-spec --name execution_runtime_explorer
+simctl subagent-spec --name execution_runtime_explorer --format spawn_json
+```
 
 Subagent catalog:
 
-- [Subagent Catalog](C:/Users/77926/Documents/New%20project/docs/SUBAGENT_CATALOG.md)
+- [Subagent Catalog](./docs/SUBAGENT_CATALOG.md)
 - recommended fixed roles:
   - `execution_runtime_explorer`
   - `algorithm_research_explorer`
@@ -185,16 +183,6 @@ Subagent catalog:
   - `gaussian_reconstruction_explorer`
   - `public_road_e2e_shadow_explorer`
   - `stable_stack_host_readiness_explorer`
-- core daily roles for this repo:
-  - `execution_runtime_explorer`
-  - `stable_stack_host_readiness_explorer`
-  - `public_road_e2e_shadow_explorer`
-  - `gaussian_reconstruction_explorer`
-- secondary roles used on demand:
-  - `algorithm_research_explorer`
-  - `project_automation_explorer`
-
-If you are reviewing the repo from Windows, keep Git and GitHub management local but execute the runtime workflow on the company Ubuntu host over SSH.
 
 ## Current Planning Documents
 
@@ -219,25 +207,21 @@ The repo-side planning documents live in:
 - `docs/PAPER_LANDSCAPE_CN.md`
 - `docs/LOCAL_PDF_INDEX_CN.md`
 
-Paper reading and local PDF entry points:
-
-- `docs/PAPER_READING_MAP_CN.md`
-- `docs/PAPER_LANDSCAPE_CN.md`
-- `docs/LOCAL_PDF_INDEX_CN.md`
-- `references/papers/`
-
 ## Git Collaboration
 
-This repository now includes a repo-side Git collaboration guide and commit template so the same rules can be reused across different machines.
+This repository includes a repo-side Git collaboration guide and commit template so the same rules can be reused across different machines.
 
 - collaboration guide: `docs/GIT_COLLABORATION_STANDARD_CN.md`
 - commit template: `ops/git/commit-message-template.txt`
 - for Codex-created branches, use `codex/<tag>/<short-kebab-case>`
 - current repo default branch is `main`, so branch from `main` unless the repo policy changes later
 
-The public portal entry is:
+## Validation Rules
 
-- `docs/index.html`
+- Stable closed-loop delivery remains the quarter gate.
+- `site proxy` and corner cases must accumulate as reusable assets, not one-off scripts.
+- E2E shadow remains a research path under `CARLA 0.9.15 / UE4.26`.
+- Digest automation works now; email delivery still depends on SMTP secrets.
 
 ## Current Gaps
 
@@ -245,7 +229,7 @@ The project-management and control-plane layers are in place, but three delivery
 
 - the real `Autoware + CARLA` runtime path still needs to be brought up on the company Ubuntu host
 - the first reusable public-road scenario still needs to move from asset structure into repeatable validation input
-- digest automation works now, but real mail delivery still depends on SMTP secrets and remote UE5 work still depends on a GPU host
+- digest automation works now, but real mail delivery still depends on SMTP secrets
 
 ## Current Asset Note
 

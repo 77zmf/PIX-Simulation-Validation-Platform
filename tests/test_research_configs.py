@@ -24,7 +24,9 @@ class ResearchConfigTests(unittest.TestCase):
         self.assertIn("planner_interface_disagreement_rate", gate.metrics)
 
     def test_uniad_shadow_scenario_loads(self) -> None:
-        scenario = load_scenario("scenarios/ue5/e2e_bevfusion_uniad_unprotected_left.yaml", REPO_ROOT)
+        scenario = load_scenario("scenarios/e2e/carla0915_bevfusion_uniad_unprotected_left.yaml", REPO_ROOT)
+        self.assertEqual(scenario.stack, "stable")
+        self.assertEqual(scenario.sensor_profile, "carla0915_high_fidelity")
         self.assertEqual(scenario.algorithm_profile, "e2e_bevfusion_uniad_shadow")
         self.assertEqual(scenario.kpi_gate, "e2e_bevfusion_uniad_shadow_gate")
 

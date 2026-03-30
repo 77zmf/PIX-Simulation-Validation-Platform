@@ -658,7 +658,7 @@ def render_digest_markdown(
             "",
             "- Stable closed-loop delivery remains the quarter gate.",
             "- Site proxy and corner cases must accumulate as reusable assets, not one-off scripts.",
-            "- UE5 / E2E reminders are preparation items until the stable path is repeatable.",
+            "- E2E shadow reminders stay secondary until the UE4.26 stable path is repeatable.",
             "",
         ]
     )

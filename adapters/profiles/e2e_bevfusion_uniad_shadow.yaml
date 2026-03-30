@@ -7,7 +7,7 @@ research_focus:
   - rule_compliance_under_occlusion
   - closed_loop_shadow_stability
 inputs:
-  sensors: production_perception_or_ue5_high_fidelity
+  sensors: production_perception_or_carla0915_high_fidelity
   map: lanelet2_or_hd_map
   perception: perception_bevfusion_public_road
 outputs:

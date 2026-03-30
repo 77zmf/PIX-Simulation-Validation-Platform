@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
+import sys
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -31,6 +35,7 @@ from .project_ops import (
 from .reporting import aggregate_run_results, discover_run_results, load_run_result, write_report
 from .runtime import build_context, execute_plan, load_stack_profile, persist_plan, render_action
 from .scenarios import load_scenario
+from .slots import acquire_slot_lock, get_slot_by_id, list_available_slots, load_slot_catalog, release_slot_lock
 from .subagents import list_subagent_specs, load_subagent_spec
 
 
@@ -44,6 +49,44 @@ def _asset_root(repo_root: Path, explicit: str | None) -> Path:
 
 def _print_json(payload: dict[str, Any] | list[Any]) -> None:
     print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+def _resolve_slot(repo_root: Path, stack_id: str, requested_slot: str | None) -> Any:
+    slots = load_slot_catalog(stack_id, repo_root)
+    if requested_slot:
+        return get_slot_by_id(slots, requested_slot)
+    return slots[0]
+
+
+def _load_run_slot(repo_root: Path, run_dir: Path, stack_id: str) -> Any | None:
+    result_path = run_dir / "run_result.json"
+    if not result_path.exists():
+        return None
+    result = load_run_result(result_path)
+    slot_id = result.get("slot_id")
+    if not slot_id:
+        return None
+    return _resolve_slot(repo_root, stack_id, str(slot_id))
+
+
+def _slot_payload(slot: Any | None) -> dict[str, Any]:
+    if slot is None:
+        return {
+            "slot_id": None,
+            "carla_rpc_port": None,
+            "traffic_manager_port": None,
+            "ros_domain_id": None,
+            "runtime_namespace": None,
+            "gpu_id": None,
+        }
+    return {
+        "slot_id": slot.slot_id,
+        "carla_rpc_port": slot.carla_rpc_port,
+        "traffic_manager_port": slot.traffic_manager_port,
+        "ros_domain_id": slot.ros_domain_id,
+        "runtime_namespace": slot.runtime_namespace,
+        "gpu_id": slot.gpu_id,
+    }
 
 
 def handle_bootstrap(args: argparse.Namespace) -> int:
@@ -60,7 +103,7 @@ def handle_bootstrap(args: argparse.Namespace) -> int:
     return 0
 
 
-def _create_run_context(args: argparse.Namespace) -> tuple[Path, Path, Any, Any, Any, Any, Any, Path]:
+def _create_run_context(args: argparse.Namespace) -> tuple[Path, Path, Any, Any, Any, Any, Any, Path, Any]:
     repo_root = _repo_root(args.repo_root)
     asset_root = _asset_root(repo_root, args.asset_root)
     scenario = load_scenario(args.scenario, repo_root)
@@ -70,7 +113,8 @@ def _create_run_context(args: argparse.Namespace) -> tuple[Path, Path, Any, Any,
     algorithm_profile = load_algorithm_profile(scenario.algorithm_profile, repo_root)
     run_root = Path(args.run_root).resolve() if args.run_root else (repo_root / "runs")
     run_dir = ensure_dir(run_root / make_run_id(scenario.scenario_id))
-    return repo_root, asset_root, scenario, bundle, gate, sensor_profile, algorithm_profile, run_dir
+    slot = _resolve_slot(repo_root, scenario.stack, getattr(args, "slot", None))
+    return repo_root, asset_root, scenario, bundle, gate, sensor_profile, algorithm_profile, run_dir, slot
 
 
 def _artifact_paths(run_dir: Path, recording: dict[str, Any]) -> dict[str, str]:
@@ -186,7 +230,9 @@ def _build_run_result(
     sensor_profile: Any,
     algorithm_profile: Any,
     algorithm_execution: dict[str, Any] | None,
+    slot: Any | None,
 ) -> dict[str, Any]:
+    slot_fields = _slot_payload(slot)
     return {
         "run_id": run_dir.name,
         "scenario_id": scenario.scenario_id,
@@ -227,18 +273,132 @@ def _build_run_result(
             f"execution_mode={scenario.execution.get('mode', 'external')}",
             f"recording_enabled={bool(artifacts.get('rosbag2') or artifacts.get('carla_recorder'))}",
         ],
+        **slot_fields,
+    }
+
+
+def _worker_env(repo_root: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    src_root = str(repo_root / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = src_root if not existing else os.pathsep.join([src_root, existing])
+    return env
+
+
+def _build_worker_command(
+    *,
+    repo_root: Path,
+    asset_root: str | None,
+    scenario_path: Path,
+    run_root: Path,
+    slot_id: str,
+    execute: bool,
+    mock_result: str | None,
+) -> list[str]:
+    command = [
+        sys.executable,
+        "-m",
+        "simctl.cli",
+        "--repo-root",
+        str(repo_root),
+    ]
+    if asset_root:
+        command.extend(["--asset-root", str(Path(asset_root).resolve())])
+    command.extend(
+        [
+            "run",
+            "--scenario",
+            str(scenario_path),
+            "--run-root",
+            str(run_root),
+            "--slot",
+            slot_id,
+        ]
+    )
+    if execute:
+        command.append("--execute")
+    if mock_result:
+        command.extend(["--mock-result", mock_result])
+    return command
+
+
+def _parse_worker_result(stdout: str, stderr: str, scenario_path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"Unable to parse worker output for {scenario_path}: {exc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+        ) from exc
+    artifacts = payload.get("artifacts", {})
+    run_result_path = artifacts.get("run_result")
+    if not run_result_path:
+        raise RuntimeError(f"Worker for {scenario_path} did not return artifacts.run_result")
+    return payload
+
+
+def _run_worker(
+    *,
+    repo_root: Path,
+    asset_root: str | None,
+    scenario_path: Path,
+    run_root: Path,
+    slot_id: str,
+    execute: bool,
+    mock_result: str | None,
+) -> dict[str, Any]:
+    command = _build_worker_command(
+        repo_root=repo_root,
+        asset_root=asset_root,
+        scenario_path=scenario_path,
+        run_root=run_root,
+        slot_id=slot_id,
+        execute=execute,
+        mock_result=mock_result,
+    )
+    completed = subprocess.run(
+        command,
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        env=_worker_env(repo_root),
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"Batch worker failed for {scenario_path} on {slot_id} with return code {completed.returncode}\n"
+            f"STDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
+        )
+    payload = _parse_worker_result(completed.stdout.strip(), completed.stderr.strip(), scenario_path)
+    return {
+        "scenario": str(scenario_path),
+        "slot_id": payload.get("slot_id"),
+        "status": payload.get("status"),
+        "run_result": str(payload["artifacts"]["run_result"]),
     }
 
 
 def handle_up_or_down(args: argparse.Namespace, action: str) -> int:
     repo_root = _repo_root(args.repo_root)
     asset_root = _asset_root(repo_root, args.asset_root)
+    if action == "up" and args.execute:
+        if not args.scenario:
+            raise SystemExit("up --execute requires --scenario")
+        if not args.run_dir:
+            raise SystemExit("up --execute requires --run-dir")
+    if action == "down" and args.execute and not args.run_dir:
+        raise SystemExit("down --execute requires --run-dir")
+
     scenario = load_scenario(args.scenario, repo_root) if args.scenario else None
+    run_dir = Path(args.run_dir).resolve() if args.run_dir else None
     asset_bundle_id = scenario.asset_bundle if scenario else ""
     sensor_profile = load_sensor_profile(scenario.sensor_profile, repo_root) if scenario else None
     algorithm_profile = load_algorithm_profile(scenario.algorithm_profile, repo_root) if scenario else None
+    slot = None
+    if scenario:
+        slot = _resolve_slot(repo_root, scenario.stack, getattr(args, "slot", None))
+    elif run_dir:
+        slot = _load_run_slot(repo_root, run_dir, args.stack)
     profile = load_stack_profile(args.stack, repo_root)
-    output_dir = ensure_dir(repo_root / "artifacts" / "plans" / args.stack)
+    output_dir = ensure_dir(run_dir) if run_dir else ensure_dir(repo_root / "artifacts" / "plans" / args.stack)
     context = build_context(
         repo_root,
         output_dir,
@@ -247,6 +407,7 @@ def handle_up_or_down(args: argparse.Namespace, action: str) -> int:
         asset_bundle_id=asset_bundle_id,
         sensor_profile=sensor_profile,
         algorithm_profile=algorithm_profile,
+        slot=slot,
         execute=args.execute,
     )
     plan = render_action(profile, "start" if action == "up" else "stop", context)
@@ -254,12 +415,14 @@ def handle_up_or_down(args: argparse.Namespace, action: str) -> int:
     if args.execute:
         logs = execute_plan(plan, output_dir)
         dump_json(output_dir / f"{action}_logs.json", logs)
+        if action == "down" and slot is not None:
+            release_slot_lock(repo_root, args.stack, slot.slot_id)
     print(str(plan_path))
     return 0
 
 
 def handle_run(args: argparse.Namespace) -> int:
-    repo_root, asset_root, scenario, bundle, gate, sensor_profile, algorithm_profile, run_dir = _create_run_context(args)
+    repo_root, asset_root, scenario, bundle, gate, sensor_profile, algorithm_profile, run_dir, slot = _create_run_context(args)
     profile = load_stack_profile(scenario.stack, repo_root)
     context = build_context(
         repo_root,
@@ -269,6 +432,7 @@ def handle_run(args: argparse.Namespace) -> int:
         asset_bundle_id=bundle.bundle_id,
         sensor_profile=sensor_profile,
         algorithm_profile=algorithm_profile,
+        slot=slot,
         execute=args.execute,
     )
     plan = render_action(profile, "start", context)
@@ -285,26 +449,37 @@ def handle_run(args: argparse.Namespace) -> int:
 
     logs: list[dict[str, Any]] = []
     mode = str(scenario.execution.get("mode", "external"))
-    if args.execute and mode != "stub":
-        logs = execute_plan(plan, run_dir)
-        metrics: dict[str, float] = {}
-        status, gate_eval = _launch_gate_eval(logs)
-    else:
-        outcome = args.mock_result or scenario.execution.get("stub_outcome")
-        if mode == "stub" and outcome is None:
-            outcome = "passed"
-        if outcome:
-            metrics = synthetic_metrics(gate, outcome)
-            gate_eval = evaluate_metrics(metrics, gate)
-            status = "passed" if gate_eval["passed"] else "failed"
+    slot_lock_held = False
+    try:
+        if args.execute and mode != "stub":
+            acquire_slot_lock(repo_root, scenario.stack, slot, run_dir=run_dir, scenario_id=scenario.scenario_id)
+            slot_lock_held = True
+            logs = execute_plan(plan, run_dir)
+            metrics: dict[str, float] = {}
+            status, gate_eval = _launch_gate_eval(logs)
+            if status == "launch_failed":
+                release_slot_lock(repo_root, scenario.stack, slot.slot_id)
+                slot_lock_held = False
         else:
-            metrics = {}
-            gate_eval = {
-                "passed": False,
-                "violations": [{"metric": "execution", "reason": "planned_only"}],
-                "failure_labels": [],
-            }
-            status = "planned"
+            outcome = args.mock_result or scenario.execution.get("stub_outcome")
+            if mode == "stub" and outcome is None:
+                outcome = "passed"
+            if outcome:
+                metrics = synthetic_metrics(gate, outcome)
+                gate_eval = evaluate_metrics(metrics, gate)
+                status = "passed" if gate_eval["passed"] else "failed"
+            else:
+                metrics = {}
+                gate_eval = {
+                    "passed": False,
+                    "violations": [{"metric": "execution", "reason": "planned_only"}],
+                    "failure_labels": [],
+                }
+                status = "planned"
+    except Exception:
+        if slot_lock_held:
+            release_slot_lock(repo_root, scenario.stack, slot.slot_id)
+        raise
 
     artifacts = _artifact_paths(run_dir, scenario.recording)
     result = _build_run_result(
@@ -320,6 +495,7 @@ def handle_run(args: argparse.Namespace) -> int:
         sensor_profile=sensor_profile,
         algorithm_profile=algorithm_profile,
         algorithm_execution=algorithm_execution,
+        slot=slot,
     )
     dump_json(run_dir / "run_result.json", result)
     _print_json(result)
@@ -332,28 +508,81 @@ def handle_batch(args: argparse.Namespace) -> int:
     scenario_paths = [Path(path) for path in args.scenarios]
     if args.glob:
         scenario_paths.extend(sorted(repo_root.glob(args.glob)))
+    if args.scenario_dir:
+        scenario_paths.extend(sorted(Path(args.scenario_dir).resolve().glob("*.yaml")))
     if not scenario_paths:
-        raise SystemExit("batch requires at least one scenario or --glob")
+        raise SystemExit("batch requires at least one scenario, --glob, or --scenario-dir")
+
+    scenarios = [load_scenario(str(path), repo_root) for path in scenario_paths]
+    for scenario in scenarios:
+        if scenario.stack != "stable":
+            raise SystemExit(f"batch parallel execution only supports stable scenarios, got '{scenario.stack}'")
+
+    parallel = max(1, int(args.parallel or 1))
+    slot_catalog = load_slot_catalog("stable", repo_root)
+    if parallel > len(slot_catalog):
+        raise SystemExit(f"batch --parallel {parallel} exceeds configured slot count {len(slot_catalog)}")
+    requires_persistent_slots = args.execute and any(str(scenario.execution.get("mode", "external")) != "stub" for scenario in scenarios)
+    candidate_slots = list_available_slots(repo_root, "stable", slot_catalog) if requires_persistent_slots else slot_catalog
+    if parallel > len(candidate_slots):
+        raise SystemExit(
+            f"batch --parallel {parallel} exceeds available stable slots {len(candidate_slots)}"
+        )
+    active_slots = candidate_slots[:parallel]
+
+    if requires_persistent_slots:
+        if len(scenarios) > parallel:
+            raise SystemExit(
+                "batch --execute with long-running external scenarios currently supports at most --parallel scenarios; "
+                "running slots are released by explicit down, not automatic completion"
+            )
 
     batch_records = []
-    for scenario_path in scenario_paths:
-        before = set(discover_run_results(run_root)) if run_root.exists() else set()
-        run_args = argparse.Namespace(
-            repo_root=str(repo_root),
-            asset_root=args.asset_root,
-            scenario=str(scenario_path),
-            run_root=str(run_root),
-            execute=args.execute,
-            mock_result=args.mock_result,
-        )
-        handle_run(run_args)
-        after = set(discover_run_results(run_root))
-        new_results = sorted(after - before)
-        if not new_results:
-            raise RuntimeError(f"Unable to identify the run_result.json produced for {scenario_path}")
-        batch_records.append({"scenario": str(scenario_path), "run_result": str(new_results[-1])})
+    pending = list(scenarios)
 
-    batch_index = {"generated_at": utc_now(), "records": batch_records}
+    with ThreadPoolExecutor(max_workers=len(active_slots)) as executor:
+        active: dict[Future[dict[str, Any]], Any] = {}
+
+        while pending and len(active) < len(active_slots):
+            slot = active_slots[len(active)]
+            scenario = pending.pop(0)
+            future = executor.submit(
+                _run_worker,
+                repo_root=repo_root,
+                asset_root=args.asset_root,
+                scenario_path=scenario.scenario_path,
+                run_root=run_root,
+                slot_id=slot.slot_id,
+                execute=args.execute,
+                mock_result=args.mock_result,
+            )
+            active[future] = slot
+
+        while active:
+            done, _ = wait(active.keys(), return_when=FIRST_COMPLETED)
+            for future in done:
+                slot = active.pop(future)
+                batch_records.append(future.result())
+                if pending:
+                    scenario = pending.pop(0)
+                    next_future = executor.submit(
+                        _run_worker,
+                        repo_root=repo_root,
+                        asset_root=args.asset_root,
+                        scenario_path=scenario.scenario_path,
+                        run_root=run_root,
+                        slot_id=slot.slot_id,
+                        execute=args.execute,
+                        mock_result=args.mock_result,
+                    )
+                    active[next_future] = slot
+
+    batch_index = {
+        "generated_at": utc_now(),
+        "parallel": parallel,
+        "slot_ids": [slot.slot_id for slot in active_slots],
+        "records": batch_records,
+    }
     batch_dir = ensure_dir(run_root / make_run_id("batch"))
     dump_json(batch_dir / "batch_index.json", batch_index)
     print(str(batch_dir / "batch_index.json"))
@@ -537,25 +766,30 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     bootstrap = subparsers.add_parser("bootstrap", help="Prepare host, WSL, or remote nodes")
-    bootstrap.add_argument("--stack", choices=["stable", "ue5"], required=True)
+    bootstrap.add_argument("--stack", choices=["stable"], required=True)
     bootstrap.add_argument("--execute", action="store_true")
     bootstrap.set_defaults(func=handle_bootstrap)
 
     up = subparsers.add_parser("up", help="Render or execute stack startup plan")
-    up.add_argument("--stack", choices=["stable", "ue5"], required=True)
+    up.add_argument("--stack", choices=["stable"], required=True)
     up.add_argument("--scenario")
+    up.add_argument("--run-dir")
+    up.add_argument("--slot")
     up.add_argument("--execute", action="store_true")
     up.set_defaults(func=lambda args: handle_up_or_down(args, "up"))
 
     down = subparsers.add_parser("down", help="Render or execute stack shutdown plan")
-    down.add_argument("--stack", choices=["stable", "ue5"], required=True)
+    down.add_argument("--stack", choices=["stable"], required=True)
     down.add_argument("--scenario")
+    down.add_argument("--run-dir")
+    down.add_argument("--slot")
     down.add_argument("--execute", action="store_true")
     down.set_defaults(func=lambda args: handle_up_or_down(args, "down"))
 
     run = subparsers.add_parser("run", help="Create one run directory and run_result.json")
     run.add_argument("--scenario", required=True)
     run.add_argument("--run-root")
+    run.add_argument("--slot")
     run.add_argument("--execute", action="store_true")
     run.add_argument("--mock-result", choices=["passed", "failed"])
     run.set_defaults(func=handle_run)
@@ -563,7 +797,9 @@ def build_parser() -> argparse.ArgumentParser:
     batch = subparsers.add_parser("batch", help="Run a scenario list or glob")
     batch.add_argument("scenarios", nargs="*")
     batch.add_argument("--glob")
+    batch.add_argument("--scenario-dir")
     batch.add_argument("--run-root")
+    batch.add_argument("--parallel", type=int, default=1)
     batch.add_argument("--execute", action="store_true")
     batch.add_argument("--mock-result", choices=["passed", "failed"])
     batch.set_defaults(func=handle_batch)
@@ -604,3 +840,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
