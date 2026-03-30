@@ -12,6 +12,11 @@
 
 当前仓库不再保留第二套仿真 runtime。所有稳定闭环、自动化验证和并行回归都基于这一套环境。
 
+如果你需要一份“明天到公司后直接照着执行”的版本，先看：
+
+- `docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md`
+- `infra/ubuntu/preflight_and_next_steps.sh`
+
 ## 1. 当前硬目标
 
 四月初前必须完成两件事：
@@ -44,6 +49,7 @@ cat /etc/os-release
 nvidia-smi
 df -h
 free -h
+bash infra/ubuntu/preflight_and_next_steps.sh
 bash infra/ubuntu/check_host_readiness.sh
 ```
 

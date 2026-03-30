@@ -155,6 +155,7 @@ Operator-facing helpers:
 ```bash
 bash infra/ubuntu/bootstrap_host.sh
 bash infra/ubuntu/check_host_readiness.sh
+bash infra/ubuntu/preflight_and_next_steps.sh
 bash infra/ubuntu/prepare_carla_runtime.sh
 bash infra/ubuntu/prepare_autoware_workspace.sh
 ```
@@ -162,6 +163,7 @@ bash infra/ubuntu/prepare_autoware_workspace.sh
 Reference documents:
 
 - [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
+- [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
