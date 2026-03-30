@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Autoware + CARLA 仿真验证平台</title>
+    <title>PIX Simulation Validation Platform</title>
     <meta
       name="description"
-      content="Autoware Universe + CARLA 0.9.15 + UE4.26 仿真验证平台公开主页，展示季度目标、Ubuntu 主机部署、团队分工、GitHub 看板和公开道路研究路线。"
+      content="Autoware Universe + CARLA 0.9.15 + UE4.26 仿真验证平台主页，展示季度目标、Ubuntu 主机主线、并行回归、团队分工与执行入口。"
     >
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,19 +20,23 @@
     <div class="page-shell">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Autoware + CARLA Simulation Validation</p>
+          <p class="eyebrow">PIX Simulation Validation Platform</p>
           <h1>自动驾驶仿真验证平台</h1>
           <p class="lede">
-            这个项目不是单独搭一套仿真环境，而是在建设一套面向规划控制、感知、公开道路资产、
-            corner case 和 E2E shadow 的工程化验证底座。
+            这不是单独搭一套仿真环境，而是在建设一套面向规划控制、感知、公开道路资产复用、
+            corner case 沉淀和 E2E shadow 研究的工程化验证底座。
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="https://github.com/pixmoving-moveit/zmf_ws">GitHub 仓库</a>
+            <a class="button primary" href="https://github.com/pixmoving-moveit/zmf_ws">GitHub URL</a>
             <a class="button secondary" href="https://github.com/orgs/pixmoving-moveit/projects/2">任务看板</a>
             <a class="button secondary" href="https://github.com/orgs/pixmoving-moveit/projects/3">场景看板</a>
             <a class="button secondary" href="https://www.notion.so/32cef7e6aaa98199b912f040068b57dd">Notion 总览</a>
             <a class="button secondary" href="https://github.com/pixmoving-moveit/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest">Digest Inbox</a>
           </div>
+          <p class="lede" style="margin-top: 16px;">
+            展示名已统一为 <strong>PIX Simulation Validation Platform</strong>，当前 GitHub 仓库路径仍保持
+            <code>pixmoving-moveit/zmf_ws</code>。
+          </p>
         </div>
         <div class="hero-card">
           <p class="hero-card-label">当前主线</p>
@@ -129,7 +133,7 @@
             <article class="arch-card">
               <p class="arch-tag">E2E Shadow</p>
               <h3>研究与对照主线</h3>
-              <p>在同一条 CARLA 0.9.15 运行基线上推进 BEVFusion、UniAD-style 和 VADv2 的 shadow 对照，不引入第二套仿真栈。</p>
+              <p>在同一条 CARLA 0.9.15 运行基线上推进 BEVFusion、UniAD-style 和 VADv2 的 shadow 对照。</p>
             </article>
           </div>
         </section>

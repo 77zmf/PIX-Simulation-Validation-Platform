@@ -1,4 +1,7 @@
-# Autoware + CARLA Simulation Validation Platform
+# PIX Simulation Validation Platform
+
+Display name: `PIX Simulation Validation Platform`  
+Current GitHub URL: `pixmoving-moveit/zmf_ws`
 
 This repository is the control plane for a simulation validation platform built around:
 
@@ -30,7 +33,7 @@ Near-term gate:
 
 ## Public Entry Points
 
-- Repository: [pixmoving-moveit/zmf_ws](https://github.com/pixmoving-moveit/zmf_ws)
+- GitHub URL: [pixmoving-moveit/zmf_ws](https://github.com/pixmoving-moveit/zmf_ws)
 - GitHub Task Board: [Project 2](https://github.com/orgs/pixmoving-moveit/projects/2)
 - GitHub Scenario Board: [Project 3](https://github.com/orgs/pixmoving-moveit/projects/3)
 - GitHub Digest Inbox: [project-digest issues](https://github.com/pixmoving-moveit/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)

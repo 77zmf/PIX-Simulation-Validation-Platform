@@ -1,6 +1,6 @@
 # Git 协作规范
 
-这份文档用于统一 `pixmoving-moveit/zmf_ws` 的分支命名、commit 命名和提交流程，保证不同电脑、不同成员在同一套规则下协作。
+这份文档用于统一 `PIX Simulation Validation Platform` 的分支命名、commit 命名和提交流程。当前 GitHub 仓库路径仍是 `pixmoving-moveit/zmf_ws`，所以涉及仓库链接和远端地址时继续以这个 URL 为准。
 
 ## 当前仓库口径
 

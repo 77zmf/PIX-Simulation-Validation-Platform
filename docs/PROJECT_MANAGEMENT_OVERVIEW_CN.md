@@ -1,5 +1,8 @@
 # 项目管理总览
 
+当前对外展示名统一为 `PIX Simulation Validation Platform`。  
+当前可用 GitHub 仓库路径仍然是 `pixmoving-moveit/zmf_ws`，因为组织侧没有仓库改名权限。
+
 ## 1. 这个项目在做什么
 
 这个仓库不是单独搭一套 `Autoware` 或 `CARLA` 环境，而是在建设一套面向自动驾驶研发的仿真验证平台。当前主线聚焦四件事：

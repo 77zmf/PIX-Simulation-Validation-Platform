@@ -1,5 +1,8 @@
 # 公司 Ubuntu 主机环境落地 Runbook
 
+当前对外展示名统一为 `PIX Simulation Validation Platform`。  
+当前可用 GitHub 仓库路径仍然是 `pixmoving-moveit/zmf_ws`，不影响当前运行和交付。
+
 这份文档描述当前正式执行路径：在公司 `Ubuntu 22.04` 主机上完成：
 
 - `ROS 2 Humble`
