@@ -1,0 +1,3 @@
+risk_id,description,level,trigger,impact,mitigation,owner,next_review,status
+R-001,外部数据源不稳定,高,接口超时>5%,进度延迟,增加缓存+备用源,李四,2026-04-10,处理中
+R-002,仿真环境资源不足,中,队列等待>30分钟,验证效率下降,扩容并错峰执行,王五,2026-04-10,处理中

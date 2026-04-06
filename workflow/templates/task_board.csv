@@ -1,0 +1,4 @@
+id,title,stream,priority,dri,collaborators,status,due_date,acceptance_criteria,dependencies,version
+T-001,完成M1需求基线确认,产品,P0,张三,李四;王五,待开始,2026-04-12,需求冻结率>=90%,无,v0.1
+T-002,完成关键仿真场景构建,仿真,P1,王五,赵六,进行中,2026-04-14,场景可重复执行并输出日志,T-001,v0.1
+T-003,输出首版验证报告,验证,P1,赵六,王五,待开始,2026-04-16,核心用例通过率>=85%,T-002,v0.1

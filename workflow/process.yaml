@@ -1,0 +1,146 @@
+name: 超体计划云端执行工作流
+version: 1.0.0
+owner_roles:
+  - 项目负责人
+  - PM
+  - 技术负责人
+  - 模块TL
+  - 验证负责人
+
+stages:
+  - id: S0
+    name: 云端初始化
+    duration: D+0
+    objective: 完成协作空间、目录、权限和规范初始化
+    inputs:
+      - 项目成员名单
+      - 当前资料清单
+    outputs:
+      - 云端目录结构
+      - 权限矩阵
+      - 命名规范公告
+    tasks:
+      - id: S0-T1
+        name: 创建目录结构
+        owner: PM
+        deliverable: 初始化目录（00-06）
+      - id: S0-T2
+        name: 配置权限
+        owner: 项目负责人
+        deliverable: 管理员/编辑/只读权限生效
+      - id: S0-T3
+        name: 发布协作规范
+        owner: PMO
+        deliverable: 命名、版本、文档状态规范
+    gate:
+      check:
+        - 所有成员可访问对应目录
+        - 至少一份示例文档按命名规范创建
+      pass_criteria: gate_checks 全部通过
+
+  - id: S1
+    name: 范围与里程碑对齐
+    duration: D+1~D+2
+    objective: 明确做什么、不做什么，以及分阶段验收标准
+    inputs:
+      - 目标需求池
+      - 资源约束说明
+    outputs:
+      - 范围说明
+      - 里程碑表（M1/M2/M3）
+    tasks:
+      - id: S1-T1
+        name: 明确 In/Out Scope
+        owner: PM
+        deliverable: 范围说明 v1.0
+      - id: S1-T2
+        name: 建立里程碑与验收标准
+        owner: 技术负责人
+        deliverable: 验收口径表
+    gate:
+      check:
+        - 里程碑均具备交付物和量化指标
+        - Out Scope 项包含回收时间
+      pass_criteria: gate_checks 全部通过
+
+  - id: S2
+    name: 任务拆解与排期
+    duration: D+2~D+3
+    objective: 把目标拆成可执行卡片并绑定责任
+    inputs:
+      - 范围说明
+      - 里程碑口径
+    outputs:
+      - 任务看板
+      - 责任矩阵
+    tasks:
+      - id: S2-T1
+        name: 按工作流拆任务
+        owner: 模块TL
+        deliverable: 产品/算法/仿真/验证/运维任务池
+      - id: S2-T2
+        name: 绑定 DRI 与截止时间
+        owner: PM
+        deliverable: 可执行任务卡片
+    gate:
+      check:
+        - 在途任务 100% 有 DRI
+        - 在途任务 100% 有截止时间和验收标准
+      pass_criteria: gate_checks 全部通过
+
+  - id: S3
+    name: 研发执行与验证闭环
+    duration: 每周循环
+    objective: 以固定节奏推进交付并闭环缺陷
+    inputs:
+      - 任务看板
+      - 仿真用例
+    outputs:
+      - 周报
+      - 验证结论
+      - 缺陷修复记录
+    cadence:
+      monday: 排期与目标确认
+      wednesday: 中检与纠偏
+      friday: 复盘与下周计划
+    sla:
+      P0: {first_response: "2h", resolve: "24h"}
+      P1: {first_response: "8h", resolve: "3d"}
+      P2: {first_response: "1d", resolve: "7d"}
+    gate:
+      check:
+        - 每条验证结论可追溯到任务卡和版本
+        - P0 缺陷处理满足 SLA
+      pass_criteria: gate_checks 全部通过
+
+  - id: S4
+    name: 风险治理与验收归档
+    duration: 每周循环 + 阶段末
+    objective: 持续识别风险并在阶段结束形成归档
+    inputs:
+      - 风险台账
+      - 阶段产出
+    outputs:
+      - 风险周报
+      - 阶段复盘
+      - 归档包
+    tasks:
+      - id: S4-T1
+        name: 更新风险台账
+        owner: 项目经理
+        deliverable: 风险状态更新
+      - id: S4-T2
+        name: 阶段验收与归档
+        owner: 项目负责人
+        deliverable: 验收结论与归档清单
+    gate:
+      check:
+        - 风险台账当周更新
+        - 阶段文档齐全并标注版本
+      pass_criteria: gate_checks 全部通过
+
+kpi:
+  - 在途任务 DRI 完整率 >= 100%
+  - 需求冻结率 >= 90%
+  - 验证闭环率 >= 95%
+  - 风险周更新率 = 100%
