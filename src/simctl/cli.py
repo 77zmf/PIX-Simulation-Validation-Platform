@@ -701,6 +701,7 @@ def handle_digest(args: argparse.Namespace) -> int:
             "statuses": scenario_summary["statuses"],
             "tracks": scenario_summary["tracks"],
             "priorities": scenario_summary["priorities"],
+            "overdue_titles": [item.title for item in scenario_summary["overdue"]],
             "due_soon_titles": [item.title for item in scenario_summary["due_soon"]],
         },
         "run_summary_available": run_summary is not None,

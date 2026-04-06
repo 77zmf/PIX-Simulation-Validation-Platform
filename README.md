@@ -164,6 +164,7 @@ Reference documents:
 
 - [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
+- [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
@@ -208,6 +209,7 @@ The repo-side planning documents live in:
 - `docs/GIT_COLLABORATION_STANDARD_CN.md`
 - `docs/FUTURE_EXECUTION_ROADMAP_CN.md`
 - `docs/TEAM_AGENT_USAGE_CN.md`
+- `docs/MAC_CODEX_WORKFLOW_CN.md`
 - `docs/PAPER_READING_MAP_CN.md`
 - `docs/PAPER_LANDSCAPE_CN.md`
 - `docs/LOCAL_PDF_INDEX_CN.md`

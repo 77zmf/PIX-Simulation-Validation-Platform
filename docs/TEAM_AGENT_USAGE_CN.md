@@ -118,6 +118,19 @@ python -m simctl subagent-spec --name execution_runtime_explorer
 python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_json
 ```
 
+### Mac 的推荐口径
+
+如果你自己的 Mac 也要加入这套工作流，建议把它定位为：
+
+- 代码同步终端
+- Codex 工作终端
+- 文档、digest、研究配置维护终端
+
+不要把 Mac 当作正式 stable runtime 主机。  
+Mac 侧具体步骤见：
+
+- `docs/MAC_CODEX_WORKFLOW_CN.md`
+
 ## 5. 实际调用方式
 
 ### 查看全部规格
