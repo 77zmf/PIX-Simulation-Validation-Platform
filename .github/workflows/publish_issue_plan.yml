@@ -49,6 +49,8 @@ jobs:
           LSX_USERNAME="${LSX_INPUT:-${{ vars.LSX_GITHUB_USERNAME }}}"
           YANG_USERNAME="${YANG_INPUT:-${{ vars.YANG_GITHUB_USERNAME }}}"
           COORD_USERNAME="${COORD_INPUT:-${{ vars.COORDINATOR_GITHUB_USERNAME }}}"
+          LSX_USERNAME="${LSX_USERNAME:-lsxala}"
+          YANG_USERNAME="${YANG_USERNAME:-yzp333666}"
           COORD_USERNAME="${COORD_USERNAME:-77zmf}"
 
           echo "lsx_username=${LSX_USERNAME}" >> "$GITHUB_OUTPUT"

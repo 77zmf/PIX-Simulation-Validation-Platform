@@ -50,11 +50,16 @@ The repository includes a workflow:
 
 - `.github/workflows/publish_issue_plan.yml`
 
+Current default mentions:
+
+- `罗顺雄 / lsx -> @lsxala`
+- `杨志朋 / Zhipeng Yang -> @yzp333666`
+- `Coordinator -> @77zmf`
+
 You can run it from the Actions page and provide:
 
 - `lsx_username`
 - `yang_username`
 - optional `coordinator_username`
 
-If the usernames are not provided, the workflow falls back to dry-run mode and uploads the rendered issue bodies as an artifact.
-
+If the usernames are not provided, the workflow now falls back to the current defaults above. Dry-run mode is still used when publishing is explicitly disabled or credentials are unavailable.
