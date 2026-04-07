@@ -213,6 +213,7 @@ The repo-side planning documents live in:
 - `docs/PAPER_READING_MAP_CN.md`
 - `docs/PAPER_LANDSCAPE_CN.md`
 - `docs/LOCAL_PDF_INDEX_CN.md`
+- `ops/issues/README.md`
 
 ## Git Collaboration
 

@@ -1,0 +1,29 @@
+{
+  "issues": [
+    {
+      "slug": "01_repo_and_execution_rhythm",
+      "title": "[Q2] 主线仓库整理与执行口径收口",
+      "labels": ["quarter-plan", "team-sync", "repo-cleanup"],
+      "body_path": "ops/issues/2026_q2/01_repo_and_execution_rhythm.md"
+    },
+    {
+      "slug": "02_public_road_assets_and_corner_cases",
+      "title": "[Q2] 公开道路资产、corner case 与重建输入收口",
+      "labels": ["quarter-plan", "assets", "owner-lsx"],
+      "body_path": "ops/issues/2026_q2/02_public_road_assets_and_corner_cases.md"
+    },
+    {
+      "slug": "03_bevfusion_and_shadow_e2e",
+      "title": "[Q2] BEVFusion 基线与 Shadow E2E 研究计划",
+      "labels": ["quarter-plan", "research", "owner-yang"],
+      "body_path": "ops/issues/2026_q2/03_bevfusion_and_shadow_e2e.md"
+    },
+    {
+      "slug": "04_subagent_onboarding_and_collaboration",
+      "title": "[Q2] 子agent上手、阅读顺序与协同约定",
+      "labels": ["quarter-plan", "subagents", "team-sync"],
+      "body_path": "ops/issues/2026_q2/04_subagent_onboarding_and_collaboration.md"
+    }
+  ]
+}
+

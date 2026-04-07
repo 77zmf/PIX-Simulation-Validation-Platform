@@ -1,0 +1,93 @@
+name: publish-issue-plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      lsx_username:
+        description: "GitHub username for 罗顺雄 / lsx"
+        required: false
+        type: string
+      yang_username:
+        description: "GitHub username for 杨志朋 / Zhipeng Yang"
+        required: false
+        type: string
+      coordinator_username:
+        description: "GitHub username for coordinator"
+        required: false
+        default: "77zmf"
+        type: string
+  push:
+    branches: ["main"]
+    paths:
+      - "ops/issues/**"
+      - "tools/publish_issue_plan.py"
+      - ".github/workflows/publish_issue_plan.yml"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Resolve usernames
+        id: vars
+        shell: bash
+        run: |
+          LSX_INPUT="${{ github.event.inputs.lsx_username }}"
+          YANG_INPUT="${{ github.event.inputs.yang_username }}"
+          COORD_INPUT="${{ github.event.inputs.coordinator_username }}"
+
+          LSX_USERNAME="${LSX_INPUT:-${{ vars.LSX_GITHUB_USERNAME }}}"
+          YANG_USERNAME="${YANG_INPUT:-${{ vars.YANG_GITHUB_USERNAME }}}"
+          COORD_USERNAME="${COORD_INPUT:-${{ vars.COORDINATOR_GITHUB_USERNAME }}}"
+          COORD_USERNAME="${COORD_USERNAME:-77zmf}"
+
+          echo "lsx_username=${LSX_USERNAME}" >> "$GITHUB_OUTPUT"
+          echo "yang_username=${YANG_USERNAME}" >> "$GITHUB_OUTPUT"
+          echo "coordinator_username=${COORD_USERNAME}" >> "$GITHUB_OUTPUT"
+
+          if [[ -n "$LSX_USERNAME" && -n "$YANG_USERNAME" ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Render issue bodies
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python tools/publish_issue_plan.py \
+            --repo pixmoving-moveit/zmf_ws \
+            --manifest ops/issues/2026_q2/manifest.json \
+            --lsx-username "${{ steps.vars.outputs.lsx_username }}" \
+            --yang-username "${{ steps.vars.outputs.yang_username }}" \
+            --coordinator-username "${{ steps.vars.outputs.coordinator_username }}" \
+            --render-dir automation_outputs/issue_plan \
+            $([[ "${{ steps.vars.outputs.publish }}" == "true" ]] || echo "--dry-run")
+
+      - name: Upload rendered issue bodies
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-plan
+          path: automation_outputs/issue_plan
+
+      - name: Publish step summary
+        shell: bash
+        run: |
+          {
+            echo "## Issue Plan"
+            echo
+            echo "- publish mode: \`${{ steps.vars.outputs.publish }}\`"
+            echo "- lsx username: \`${{ steps.vars.outputs.lsx_username }}\`"
+            echo "- yang username: \`${{ steps.vars.outputs.yang_username }}\`"
+            echo "- coordinator username: \`${{ steps.vars.outputs.coordinator_username }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
