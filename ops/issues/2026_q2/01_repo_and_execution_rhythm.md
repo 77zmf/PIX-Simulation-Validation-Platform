@@ -38,9 +38,9 @@
 
 ## 当前拆分
 
-- 资产 / corner case / 重建输入：见配套 issue `02`
-- `BEVFusion` / Shadow E2E：见配套 issue `03`
-- 团队 agent 使用和阅读顺序：见配套 issue `04`
+- 资产 / corner case / 重建输入：见配套 issue `[Q2] 公开道路资产、corner case 与重建输入收口`
+- `BEVFusion` / Shadow E2E：见配套 issue `[Q2] BEVFusion 基线与 Shadow E2E 研究计划`
+- 团队 agent 使用和阅读顺序：见配套 issue `[Q2] 子agent上手、阅读顺序与协同约定`
 
 ## 每周回报格式
 
@@ -65,4 +65,3 @@
 - 关键 owner 都有独立 issue，不再把推进动作埋在聊天里
 - 主线文档与 owner issue 的职责边界清晰
 - 每周 blocker、next action、交付日期都能在 issue 中找到
-
