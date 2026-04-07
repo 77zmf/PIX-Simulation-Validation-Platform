@@ -108,6 +108,18 @@ fi
 
 if command -v nvidia-smi >/dev/null 2>&1; then
   pass "nvidia-smi available"
+  if command -v nvcc >/dev/null 2>&1; then
+    pass "nvcc available: $(command -v nvcc)"
+  else
+    warn "nvcc missing"
+    add_step "bash '${REPO_ROOT}/infra/ubuntu/setup_cuda_tensorrt.sh' --execute"
+  fi
+  if ldconfig -p | grep -q libnvinfer; then
+    pass "TensorRT runtime libraries registered"
+  else
+    warn "TensorRT runtime libraries missing"
+    add_step "bash '${REPO_ROOT}/infra/ubuntu/setup_cuda_tensorrt.sh' --execute"
+  fi
 else
   warn "nvidia-smi missing; GPU checks unavailable"
   add_note "If this host should use NVIDIA GPU, verify the driver before running CARLA."

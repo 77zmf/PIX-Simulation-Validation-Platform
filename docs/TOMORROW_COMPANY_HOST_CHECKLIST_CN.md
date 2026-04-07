@@ -57,6 +57,17 @@ cat ./host_fix_plan.sh
 bash infra/ubuntu/bootstrap_host.sh --execute
 ```
 
+### 缺 CUDA / TensorRT
+
+```bash
+bash infra/ubuntu/setup_cuda_tensorrt.sh --execute
+```
+
+这一步默认按仓库当前版本安装：
+
+- `CUDA 12.8`
+- `TensorRT 10.8.0.43-1+cuda12.8`
+
 ### 缺 CARLA runtime
 
 ```bash
@@ -156,6 +167,14 @@ ls artifacts/slot_locks/stable
 3. `simctl bootstrap --stack stable` 能不能通过
 4. `--parallel 2` 能不能真的分到两个槽位
 5. 停掉一个 `run_dir` 时，另一个槽位会不会被误杀
+
+如果你当天还要补 CUDA / TensorRT，再额外确认：
+
+```bash
+source ~/.profile
+nvcc --version
+ldconfig -p | egrep 'libnvinfer|libcudart|libcublas'
+```
 
 ## 7. 如果明天时间不够
 

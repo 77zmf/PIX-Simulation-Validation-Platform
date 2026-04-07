@@ -53,6 +53,16 @@ check_cmd "vcs" vcs
 
 if command -v nvidia-smi >/dev/null 2>&1; then
   pass "nvidia-smi available"
+  if command -v nvcc >/dev/null 2>&1; then
+    pass "nvcc available: $(command -v nvcc)"
+  else
+    warn "nvcc missing; CUDA toolkit is not ready"
+  fi
+  if ldconfig -p | grep -q libnvinfer; then
+    pass "TensorRT runtime libraries registered"
+  else
+    warn "TensorRT runtime libraries missing"
+  fi
 else
   warn "nvidia-smi missing; GPU checks unavailable"
 fi
