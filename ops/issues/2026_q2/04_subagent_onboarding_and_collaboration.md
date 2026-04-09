@@ -2,7 +2,8 @@
 
 {{COORDINATOR_MENTION}} {{LSX_MENTION}} {{YANG_MENTION}}
 
-这条 issue 用来统一团队对仓库内子agent体系的使用方式，避免每个人各自维护一套临时 prompt。
+这条 issue 用来统一团队对仓库内子agent体系的使用方式，避免每个人各自维护一套临时 prompt。  
+现在需要同时把仓库级 `AGENTS.md` 和 repo-side skills 一起纳入阅读顺序。
 
 ## 目标
 
@@ -12,12 +13,15 @@
 
 ## 先看这些内容
 
+- `AGENTS.md`
 - `docs/TEAM_AGENT_USAGE_CN.md`
+- `docs/TEAM_SKILL_USAGE_CN.md`
 - `docs/SUBAGENT_CATALOG.md`
 - `docs/MAC_CODEX_WORKFLOW_CN.md`
 - `docs/PROJECT_OPERATING_TEAM_CN.md`
 - `docs/GIT_COLLABORATION_STANDARD_CN.md`
 - `ops/subagents/`
+- `ops/skills/`
 
 ## 最小命令
 
@@ -61,10 +65,12 @@ python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_
 
 ## 建议的使用节奏
 
-1. 先 `--list` 看可用 agent，不要直接手写 prompt
-2. 再看对应 agent 的 `spawn_json`
-3. 先按 issue 范围提单一问题，不要一次混多个方向
-4. agent 的输出回填到对应 issue，而不是只停在本地终端
+1. 先看 `AGENTS.md`，统一默认边界和优先级
+2. 再 `--list` 看可用 agent，不要直接手写 prompt
+3. 再看对应 agent 的 `spawn_json`
+4. 如果任务需要结构化输出，再选对应 skill
+5. 先按 issue 范围提单一问题，不要一次混多个方向
+6. agent / skill 的输出回填到对应 issue，而不是只停在本地终端
 
 ## 常用命令
 
@@ -85,6 +91,14 @@ python -m simctl subagent-spec --name algorithm_research_explorer
 - 多研究线总览：`algorithm_research_explorer`
 - 看板 / digest / 同步：`project_automation_explorer`
 
+## 配套 skills
+
+- 现场 bug / engineer handoff：`autoware-bug-report`
+- release readiness：`autoware-release-check`
+- CARLA case / replay case：`carla-case-builder`
+- `run_result` / KPI gate / report：`simctl-run-analysis`
+- 周会 / blocker / PMO digest：`ai-superbody-pmo`
+
 ## 协同约定
 
 - agent 规格只从 `ops/subagents/` 读，不在群聊里临时漂移
@@ -99,4 +113,5 @@ python -m simctl subagent-spec --name algorithm_research_explorer
 
 - 每位成员都能列出可用 subagent
 - 每位成员都能渲染至少一个 `spawn_json`
+- 每位成员都知道需要配合哪个 repo-side skill
 - 每位成员都能在对应 issue 用统一格式回报 blocker / next action

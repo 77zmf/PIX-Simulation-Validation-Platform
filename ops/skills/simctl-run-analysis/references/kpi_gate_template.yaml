@@ -1,0 +1,12 @@
+kpi_gate_profile: TODO
+required_metrics:
+  - name: completion_rate
+    threshold: TODO
+  - name: disengagement_count
+    threshold: TODO
+  - name: collision_count
+    threshold: 0
+  - name: timeout_count
+    threshold: TODO
+notes:
+  - TODO

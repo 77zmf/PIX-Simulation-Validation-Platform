@@ -2,6 +2,11 @@
 
 这份文档用于说明当前仓库里的 agent 体系是什么、如何同步给其他电脑，以及团队成员如何按职责使用同一套 agent 规格。
 
+如果你要看 repo-side skills，请同时看：
+
+- `docs/TEAM_SKILL_USAGE_CN.md`
+- `ops/skills/`
+
 ## 1. 这套 Agent 是什么
 
 当前仓库已经把可复用的 agent 规格版本化进代码仓库。
@@ -197,5 +202,6 @@ python -m simctl subagent-spec --name gaussian_reconstruction_explorer --format 
 - 其他成员可以同步使用
 - 当前标准入口不是某个单独的“我的 agent”命令，而是统一的 `subagent-spec`
 - 仓库级默认规则也已经写入 `AGENTS.md`
+- repo-side skills 也已经版本化进 `ops/skills/`
 
 如果后面你想给这套 agent 体系再起一个更明确的团队名字，也可以继续在仓库里补一个别名入口。

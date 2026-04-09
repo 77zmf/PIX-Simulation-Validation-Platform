@@ -1,0 +1,22 @@
+scenario_id: TODO
+scenario_type: regression
+source_type: field_issue
+site_id: TODO
+route_id: TODO
+map:
+  lanelet2_map: lanelet2_map.osm
+  projector: map_projector_info.yaml
+  pointcloud_dir: pointcloud_map/
+ego:
+  initial_pose: TODO
+  initial_speed_mps: 0.0
+environment:
+  weather: clear
+  time_of_day: daytime
+actors: []
+success_criteria:
+  - TODO
+evaluation:
+  replay: true
+  kpi_gate_profile: TODO
+notes: []

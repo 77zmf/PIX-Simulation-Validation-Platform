@@ -23,6 +23,12 @@
       "title": "[Q2] 子agent上手、阅读顺序与协同约定",
       "labels": ["quarter-plan", "subagents", "team-sync"],
       "body_path": "ops/issues/2026_q2/04_subagent_onboarding_and_collaboration.md"
+    },
+    {
+      "slug": "05_repo_skills_and_agents_installation",
+      "title": "[Q2] 仓库级 AGENTS 与 repo-side skills 安装入口",
+      "labels": ["quarter-plan", "skills", "agents", "team-sync"],
+      "body_path": "ops/issues/2026_q2/05_repo_skills_and_agents_installation.md"
     }
   ]
 }
