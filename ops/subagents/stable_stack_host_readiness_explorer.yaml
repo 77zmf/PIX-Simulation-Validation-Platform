@@ -10,6 +10,7 @@ prompt_template: |
   Return:
   1. the current stable-stack bring-up chain on the Ubuntu host
   2. which host dependencies and environment assumptions are external to the repo
-  3. the most important missing readiness or health checks for repeatable closed-loop bring-up
-  4. the most sensible next change for making stable-stack execution more repeatable
+  3. which readiness probes already exist vs which checks are still missing
+  4. the most important missing readiness or health checks for repeatable closed-loop bring-up
+  5. the most sensible next change for making stable-stack execution more repeatable this week
   Include precise file references.

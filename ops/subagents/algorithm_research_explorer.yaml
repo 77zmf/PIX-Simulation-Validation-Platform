@@ -12,4 +12,5 @@ prompt_template: |
   2. which tracks are only documentation/config skeletons vs partially executable
   3. the most sensible next technical milestone for public-road BEVFusion + E2E and Gaussian reconstruction work
   4. any mismatch between docs/plans and actual implementation
+  5. what should not be worked on yet if the stable line is still the quarter gate
   Include precise file references.

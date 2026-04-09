@@ -10,6 +10,7 @@ prompt_template: |
   Return:
   1. the current reconstruction tracks, profiles, scenarios, and gates
   2. which parts are real execution hooks vs placeholders
-  3. the most sensible next milestone for static Gaussian reconstruction and dynamic Gaussian reconstruction
-  4. any mismatch between the reconstruction roadmap and the current implementation
+  3. which existing public-road assets or manifests are the current input base for reconstruction work
+  4. the most sensible next milestone for static Gaussian reconstruction and dynamic Gaussian reconstruction
+  5. any mismatch between the reconstruction roadmap and the current implementation
   Include precise file references.

@@ -34,6 +34,13 @@
 
 这些 agent 已经进入主线仓库，其他成员拉取最新 `main` 后即可使用。
 
+这 6 个 agent 当前已经按最新主线重新收口到：
+
+- 公司 Ubuntu 主机上的 `stable` 运行栈
+- 公开道路资产与回归
+- `BEVFusion + UniAD-style / VADv2 shadow`
+- GitHub / Notion / issue pack / digest 自动化
+
 ## 3. 团队成员怎么用
 
 ### 朱民峰
@@ -49,6 +56,7 @@
 - CARLA / Autoware bring-up
 - `simctl run -> run_result -> report -> replay`
 - runtime、health check、执行链路问题
+- 并行槽位、端口、ROS domain 和 run-dir 隔离问题
 
 ### 罗顺雄 / lsx
 
@@ -90,6 +98,7 @@
 适用问题：
 
 - GitHub Project
+- GitHub issue pack
 - digest
 - Notion / GitHub 同步
 - 周会材料
@@ -187,5 +196,6 @@ python -m simctl subagent-spec --name gaussian_reconstruction_explorer --format 
 - 你的 agent 体系已经在仓库主线里
 - 其他成员可以同步使用
 - 当前标准入口不是某个单独的“我的 agent”命令，而是统一的 `subagent-spec`
+- 仓库级默认规则也已经写入 `AGENTS.md`
 
 如果后面你想给这套 agent 体系再起一个更明确的团队名字，也可以继续在仓库里补一个别名入口。

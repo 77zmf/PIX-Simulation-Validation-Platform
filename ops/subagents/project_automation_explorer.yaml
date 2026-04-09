@@ -10,6 +10,7 @@ prompt_template: |
   Return:
   1. the current GitHub Project, Notion, digest, and workflow automation chain
   2. what parts are operational vs credential-dependent
-  3. the top 3 risks in automation reliability or synchronization
-  4. the most sensible next improvement for making project automation more fault-tolerant
+  3. how repo issue packs, digest, and project boards are meant to work together
+  4. the top 3 risks in automation reliability or synchronization
+  5. the most sensible next improvement for making project automation more fault-tolerant
   Include precise file references.

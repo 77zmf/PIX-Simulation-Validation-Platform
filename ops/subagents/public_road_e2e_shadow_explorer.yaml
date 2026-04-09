@@ -5,11 +5,12 @@ model: gpt-5.4-mini
 reasoning_effort: medium
 description: Explore public-road BEVFusion to E2E shadow planning tracks and implementation gaps.
 prompt_template: |
-  Explore the repo at {repo_root}. Focus only on public-road E2E shadow work.
+  Explore the repo at {repo_root}. Focus only on public-road E2E shadow work on CARLA 0.9.15 / UE4.26.
   Do not modify files.
   Return:
   1. the current BEVFusion, UniAD-style, and VADv2 shadow-related profiles, scenarios, and gates
   2. what parts are executable vs only planning/config skeletons
   3. the most sensible next milestone for a real public-road BEVFusion to shadow-planner chain
   4. any mismatch between the E2E roadmap and the current implementation
+  5. which single scenario should be used first for end-to-end shadow validation and why
   Include precise file references.
