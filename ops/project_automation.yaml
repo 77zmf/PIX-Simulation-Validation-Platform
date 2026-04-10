@@ -2,55 +2,15 @@ timezone: Asia/Shanghai
 
 projects:
   tasks:
-    provider: auto
+    provider: github_project
     owner: pixmoving-moveit
     number: 2
     url: https://github.com/orgs/pixmoving-moveit/projects/2
   scenarios:
-    provider: auto
+    provider: github_project
     owner: pixmoving-moveit
     number: 3
     url: https://github.com/orgs/pixmoving-moveit/projects/3
 
-notion:
-  token_env: NOTION_TOKEN
-  version: "2025-09-03"
-  tasks:
-    database_url: https://www.notion.so/dc730999bb7140338b871dd33dfbfeec
-    property_map:
-      title: Name
-      status: Status
-      priority: Priority
-      phase: Phase
-      track: Track
-      due_date: Due Date
-      owner: Owner
-      blocked: Blocked
-      body: Summary
-  scenarios:
-    database_url: https://www.notion.so/2fb616fb48d5429cbb01a7b6299b84e9
-    property_map:
-      title: Name
-      status: Status
-      severity: Severity
-      stack: Stack
-      source: Source
-      target_track: Target Track
-      scenario_type: Scenario Type
-      due_date: Due Date
-      success_signal: Success Signal
-      body: Summary
-
 reporting:
   due_soon_days: 3
-
-email:
-  subject_prefix: "[Autoware+CARLA]"
-  recipients_env: TEAM_REMINDER_TO
-  cc_env: TEAM_REMINDER_CC
-  smtp_host_env: SMTP_HOST
-  smtp_port_env: SMTP_PORT
-  smtp_username_env: SMTP_USERNAME
-  smtp_password_env: SMTP_PASSWORD
-  smtp_from_env: SMTP_FROM
-  smtp_starttls_env: SMTP_STARTTLS

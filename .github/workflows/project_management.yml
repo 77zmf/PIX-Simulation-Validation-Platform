@@ -29,20 +29,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
-          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
-          TEAM_REMINDER_TO: ${{ secrets.TEAM_REMINDER_TO }}
-          TEAM_REMINDER_CC: ${{ secrets.TEAM_REMINDER_CC }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_FROM: ${{ secrets.SMTP_FROM }}
-          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
-          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_STARTTLS: ${{ secrets.SMTP_STARTTLS }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
             export GH_TOKEN="$GITHUB_TOKEN"
           fi
-          python -m simctl digest --config ops/project_automation.yaml --output-dir automation_outputs/project_digest --send-email
+          python -m simctl digest --config ops/project_automation.yaml --output-dir automation_outputs/project_digest
 
       - name: Upload digest artifact
         uses: actions/upload-artifact@v4

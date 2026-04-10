@@ -37,9 +37,6 @@ Near-term gate:
 - GitHub Task Board: [Project 2](https://github.com/orgs/pixmoving-moveit/projects/2)
 - GitHub Scenario Board: [Project 3](https://github.com/orgs/pixmoving-moveit/projects/3)
 - GitHub Digest Inbox: [project-digest issues](https://github.com/pixmoving-moveit/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
-- Notion project book: [Project Book](https://www.notion.so/32cef7e6aaa98064a3a4ef0d00935f8f)
-- Notion execution board: [Program Board](https://www.notion.so/dc730999bb7140338b871dd33dfbfeec)
-- Notion scenario backlog: [Scenario Backlog](https://www.notion.so/2fb616fb48d5429cbb01a7b6299b84e9)
 
 ## Team Ownership
 
@@ -145,7 +142,6 @@ Digest and replay:
 ```bash
 simctl digest
 simctl replay --run-result runs/<run_id>/run_result.json
-simctl notion-check --config ops/project_automation.yaml
 ```
 
 ## Ubuntu Host Workflow
@@ -234,7 +230,7 @@ This repository includes a repo-side Git collaboration guide and commit template
 - Stable closed-loop delivery remains the quarter gate.
 - `site proxy` and corner cases must accumulate as reusable assets, not one-off scripts.
 - E2E shadow remains a research path under `CARLA 0.9.15 / UE4.26`.
-- Digest automation works now; email delivery still depends on SMTP secrets.
+- Digest automation now uses GitHub Projects and GitHub issues only.
 
 ## Current Gaps
 
@@ -242,7 +238,7 @@ The project-management and control-plane layers are in place, but three delivery
 
 - the real `Autoware + CARLA` runtime path still needs to be brought up on the company Ubuntu host
 - the first reusable public-road scenario still needs to move from asset structure into repeatable validation input
-- digest automation works now, but real mail delivery still depends on SMTP secrets
+- GitHub Project hygiene and digest quality still depend on board field discipline and assignee maintenance
 
 ## Current Asset Note
 

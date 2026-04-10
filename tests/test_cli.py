@@ -511,24 +511,5 @@ class CliTests(unittest.TestCase):
             self.assertTrue(Path(outputs["markdown"]).exists())
             self.assertTrue(Path(outputs["html"]).exists())
 
-    def test_notion_check_reports_missing_token_without_failing(self) -> None:
-        stream = io.StringIO()
-        with redirect_stdout(stream):
-            rc = main(
-                [
-                    "--repo-root",
-                    str(REPO_ROOT),
-                    "notion-check",
-                    "--config",
-                    str(REPO_ROOT / "ops" / "project_automation.yaml"),
-                ]
-            )
-        self.assertEqual(rc, 0)
-        payload = json.loads(stream.getvalue())
-        self.assertTrue(payload["configured"])
-        self.assertIn("tasks", payload["sources"])
-        self.assertFalse(payload["token_present"])
-
-
 if __name__ == "__main__":
     unittest.main()

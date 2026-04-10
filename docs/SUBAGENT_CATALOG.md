@@ -44,7 +44,7 @@ python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_
 
 - `execution_runtime_explorer`: stable execution chain, slot-based parallel runs, launch/result bottlenecks
 - `algorithm_research_explorer`: planning, perception, E2E shadow, reconstruction, and cross-track roadmap consistency
-- `project_automation_explorer`: GitHub Project, issue packs, Notion, digest workflow, secrets, and sync reliability
+- `project_automation_explorer`: GitHub Project, issue packs, digest workflow, secrets, and sync reliability
 - `gaussian_reconstruction_explorer`: static/dynamic Gaussian reconstruction, source assets, gates, and roadmap alignment
 - `public_road_e2e_shadow_explorer`: BEVFusion to UniAD/VADv2 shadow path, scenarios, metrics, and implementation gaps
 - `stable_stack_host_readiness_explorer`: company Ubuntu host, CARLA/Autoware bring-up, readiness probes, and repeatability gaps
@@ -56,7 +56,7 @@ This repository is centered on four active pressures:
 - stable closed-loop repeatability on the Ubuntu host
 - public-road `BEVFusion + shadow E2E` preparation
 - Gaussian reconstruction and map-refresh research
-- GitHub / Notion / digest automation for execution tracking
+- GitHub / digest automation for execution tracking
 
 Because of that, not all specs should be used with the same frequency.
 
@@ -76,7 +76,7 @@ Because of that, not all specs should be used with the same frequency.
 - `algorithm_research_explorer`
   Use when you want one cross-track view spanning planning, perception, E2E, and reconstruction together.
 - `project_automation_explorer`
-  Use when the question is about GitHub Project, Notion, digest workflow, secrets, or synchronization reliability.
+  Use when the question is about GitHub Project, digest workflow, secrets, or synchronization reliability.
 
 ### Default Routing
 

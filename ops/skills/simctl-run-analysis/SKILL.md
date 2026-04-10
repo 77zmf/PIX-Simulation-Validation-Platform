@@ -26,7 +26,7 @@ Convert raw run outputs into a concise result review that supports regression de
 - Separate observed result from hypothesis.
 - If a KPI gate is missing, say so explicitly.
 - If a run is incomplete, mark the result as partial rather than pass/fail.
-- Prefer brief engineering summaries that can be pasted into Notion or GitHub.
+- Prefer brief engineering summaries that can be pasted into GitHub issues, digests, or reviews.
 - If multiple runs are compared, group by scenario, profile, or failure type.
 
 # Companion references

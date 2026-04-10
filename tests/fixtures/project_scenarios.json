@@ -9,7 +9,7 @@
       "target Track": "Public Road",
       "scenario Type": "Unprotected Left",
       "due Date": "2026-04-01",
-      "notion URL": "https://example.com/scenarios/unprotected-left",
+      "item URL": "https://github.com/orgs/pixmoving-moveit/projects/3/views/1",
       "success Signal": "No collision, no red-light violation, and repeatable yield behavior."
     },
     {
@@ -21,7 +21,7 @@
       "target Track": "E2E Shadow",
       "scenario Type": "Occluded Pedestrian",
       "due Date": "2026-04-15",
-      "notion URL": "https://example.com/scenarios/occluded-pedestrian",
+      "item URL": "https://github.com/orgs/pixmoving-moveit/projects/3/views/1",
       "success Signal": "High-fidelity shadow replay captures perception and planner divergence."
     }
   ]

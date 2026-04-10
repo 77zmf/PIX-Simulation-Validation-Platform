@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 import unittest
 from datetime import date
@@ -10,107 +9,61 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from simctl.project_ops import (
-    extract_notion_id,
-    item_from_payload,
-    load_project_items,
-    notion_connection_status,
-    notion_page_to_payload,
-    send_digest_email,
-    summarize_items,
-)
+from simctl.project_ops import item_from_payload, load_project_items, render_digest_markdown, summarize_items
 
 
 class ProjectOpsTests(unittest.TestCase):
-    def test_extract_notion_id_from_url(self) -> None:
-        notion_id = extract_notion_id("https://www.notion.so/dc730999bb7140338b871dd33dfbfeec?v=32cef7e6aaa9819b9826000c4b519313")
-        self.assertEqual(notion_id, "dc730999-bb71-4033-8b87-1dd33dfbfeec")
-
-    def test_notion_page_to_payload_maps_common_property_types(self) -> None:
-        payload = notion_page_to_payload(
+    def test_item_from_payload_maps_generic_project_fields(self) -> None:
+        item = item_from_payload(
             {
-                "url": "https://www.notion.so/example-page",
-                "properties": {
-                    "Name": {"type": "title", "title": [{"plain_text": "Confirm E2E shadow evaluation plan"}]},
-                    "Status": {"type": "status", "status": {"name": "Todo"}},
-                    "Priority": {"type": "select", "select": {"name": "P1"}},
-                    "Due Date": {"type": "date", "date": {"start": "2026-03-25"}},
-                    "Owner": {"type": "people", "people": [{"name": "Yang Zhipeng"}]},
-                    "Blocked": {"type": "checkbox", "checkbox": True},
-                    "Summary": {
-                        "type": "rich_text",
-                        "rich_text": [{"plain_text": "Waiting for the UE4.26 shadow validation plan and scenario shortlist."}],
-                    },
-                },
-            },
-            {
-                "title": "Name",
-                "status": "Status",
-                "priority": "Priority",
-                "due_date": "Due Date",
-                "owner": "Owner",
-                "blocked": "Blocked",
-                "body": "Summary",
-            },
+                "title": "Confirm E2E shadow evaluation plan",
+                "status": "Todo",
+                "priority": "P1",
+                "due Date": "2026-03-25",
+                "owner": "Yang Zhipeng",
+                "blocked": "Yes",
+                "item URL": "https://github.com/orgs/pixmoving-moveit/projects/2/views/1",
+                "content": {"body": "Waiting for the UE4.26 shadow validation plan and scenario shortlist."},
+            }
         )
-        item = item_from_payload(payload)
         self.assertEqual(item.title, "Confirm E2E shadow evaluation plan")
         self.assertEqual(item.owner, "Yang Zhipeng")
         self.assertEqual(item.blocked, "Yes")
         self.assertEqual(item.body, "Waiting for the UE4.26 shadow validation plan and scenario shortlist.")
-        self.assertEqual(item.notion_url, "https://www.notion.so/example-page")
+        self.assertEqual(item.item_url, "https://github.com/orgs/pixmoving-moveit/projects/2/views/1")
 
-    def test_load_project_items_auto_falls_back_to_github_when_notion_token_missing(self) -> None:
+    def test_load_project_items_auto_uses_github_project(self) -> None:
         with patch("simctl.project_ops.fetch_project_items", return_value=["github"]) as github_fetch:
             items = load_project_items(
                 owner="pixmoving-moveit",
                 number=2,
                 provider="auto",
-                notion_cfg={
-                    "token_env": "NOTION_TOKEN",
-                    "tasks": {"database_url": "https://www.notion.so/dc730999bb7140338b871dd33dfbfeec"},
-                },
                 source_name="tasks",
             )
         self.assertEqual(items, ["github"])
         github_fetch.assert_called_once_with("pixmoving-moveit", 2)
 
-    def test_notion_connection_status_reports_missing_token(self) -> None:
-        status = notion_connection_status(
-            {
-                "projects": {},
-                "notion": {
-                    "token_env": "NOTION_TOKEN",
-                    "tasks": {"database_url": "https://www.notion.so/dc730999bb7140338b871dd33dfbfeec"},
-                },
-            }
-        )
-        self.assertTrue(status["configured"])
-        self.assertFalse(status["token_present"])
-        self.assertFalse(status["sources"]["tasks"]["reachable"])
-        self.assertIn("Missing Notion token", status["sources"]["tasks"]["reason"])
-
-    def test_summarize_items_treats_chinese_done_status_as_done(self) -> None:
+    def test_summarize_items_treats_completed_status_as_done(self) -> None:
         items = [
             item_from_payload(
                 {
-                    "title": "闭环验收",
-                    "status": "完成",
+                    "title": "closed_loop_acceptance",
+                    "status": "completed",
                     "priority": "P0",
                     "track": "Stable Stack",
                     "due Date": "2026-03-20",
-                    "owner": "朱民峰",
+                    "owner": "Zhu Minfeng",
                     "blocked": "No",
                 }
             ),
             item_from_payload(
                 {
-                    "title": "E2E shadow 方案确认",
+                    "title": "e2e_shadow_plan_review",
                     "status": "In Progress",
                     "priority": "P1",
                     "track": "E2E Shadow",
                     "due Date": "2026-03-21",
-                    "owner": "杨志朋",
+                    "owner": "Yang Zhipeng",
                     "blocked": "No",
                 }
             ),
@@ -118,33 +71,41 @@ class ProjectOpsTests(unittest.TestCase):
 
         summary = summarize_items(items, today=date(2026, 3, 22), due_soon_days=3)
         self.assertEqual(summary["active"], 1)
-        self.assertEqual([item.title for item in summary["overdue"]], ["E2E shadow 方案确认"])
+        self.assertEqual([item.title for item in summary["overdue"]], ["e2e_shadow_plan_review"])
 
-    def test_send_digest_email_fails_soft_on_smtp_error(self) -> None:
-        config = {"email": {}}
-        previous_env = {key: os.environ.get(key) for key in ("TEAM_REMINDER_TO", "SMTP_HOST", "SMTP_FROM")}
-        os.environ["TEAM_REMINDER_TO"] = "minfengzhu8@gmail.com"
-        os.environ["SMTP_HOST"] = "smtp.example.com"
-        os.environ["SMTP_FROM"] = "minfengzhu8@gmail.com"
-
-        try:
-            with patch("simctl.project_ops.smtplib.SMTP", side_effect=OSError("network down")):
-                result = send_digest_email(
-                    config=config,
-                    subject="digest",
-                    markdown_text="digest",
-                    html_text="<p>digest</p>",
+    def test_render_digest_markdown_lists_overdue_scenarios(self) -> None:
+        scenario_summary = summarize_items(
+            [
+                item_from_payload(
+                    {
+                        "title": "Unprotected left at signalized intersection",
+                        "status": "Todo",
+                        "severity": "P0",
+                        "stack": "Stable",
+                        "target Track": "Public Road",
+                        "scenario Type": "Unprotected Left",
+                        "due Date": "2026-03-20",
+                    }
                 )
-        finally:
-            for key, value in previous_env.items():
-                if value is None:
-                    os.environ.pop(key, None)
-                else:
-                    os.environ[key] = value
-
-        self.assertFalse(result["sent"])
-        self.assertEqual(result["reason"], "smtp_error")
-        self.assertIn("network down", result["error"])
+            ],
+            today=date(2026, 3, 22),
+            due_soon_days=3,
+        )
+        markdown = render_digest_markdown(
+            config={
+                "projects": {
+                    "tasks": {"number": 2, "url": "https://github.com/orgs/pixmoving-moveit/projects/2"},
+                    "scenarios": {"number": 3, "url": "https://github.com/orgs/pixmoving-moveit/projects/3"},
+                },
+                "reporting": {"due_soon_days": 3},
+            },
+            today=date(2026, 3, 22),
+            task_summary=summarize_items([], today=date(2026, 3, 22), due_soon_days=3),
+            scenario_summary=scenario_summary,
+            run_summary=None,
+        )
+        self.assertIn("### Overdue", markdown)
+        self.assertIn("Unprotected left at signalized intersection", markdown)
 
 
 if __name__ == "__main__":
