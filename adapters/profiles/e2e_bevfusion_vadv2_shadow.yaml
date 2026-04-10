@@ -2,6 +2,7 @@ profile_id: e2e_bevfusion_vadv2_shadow
 type: e2e
 description: Public-road BEVFusion plus VADv2 shadow planner for uncertainty-aware comparison
 baseline: e2e_bevfusion_uniad_shadow
+contract_version: 2026q2-shadow-v1
 research_focus:
   - uncertainty_aware_planning
   - vectorized_scene_interaction
@@ -10,6 +11,21 @@ inputs:
   sensors: production_perception_or_carla0915_high_fidelity
   map: lanelet2_or_hd_map
   perception: perception_bevfusion_public_road
+interface_contract:
+  mode: observation_only
+  control_takeover: false
+  comparison_target: e2e_bevfusion_uniad_shadow
+  required_inputs:
+    - bevfusion_objects
+    - bevfusion_tracks
+    - bevfusion_occupancy
+    - lane_graph_features
+    - ego_history
+  additional_representation:
+    - vadv2_scene_tokens
+  synchronization:
+    time_base: stable_stack_sim_time
+    perception_latency_budget_ms: 120
 outputs:
   vectorized_scene: vadv2_scene_tokens
   trajectory: shadow_trajectory

@@ -2,10 +2,16 @@ profile_id: perception_bevfusion_public_road
 type: perception
 description: Public-road BEVFusion perception profile for closed-loop validation and E2E shadow inputs
 baseline: production_perception
+contract_version: 2026q2-shadow-v1
 research_focus:
   - multi_sensor_fusion_robustness
   - lane_topology_and_occupancy_consistency
   - planning_interface_stability
+integration_boundary:
+  role: production_perception_baseline_and_shadow_input
+  control_takeover: false
+  stable_stack_dependency: stable
+  runtime_baseline: carla0915_ue426
 inputs:
   sensors: production_perception_or_carla0915_high_fidelity
   calibration: required
@@ -19,4 +25,16 @@ outputs:
     - lane_graph_features
     - occupancy_queries
     - ego_history
+planner_interface_contract:
+  mode: observation_support_only
+  time_base: stable_stack_sim_time
+  required_fields:
+    - object_queries
+    - lane_graph_features
+    - occupancy_queries
+    - ego_history
+  consumer_profiles:
+    - planning_control_research
+    - e2e_bevfusion_uniad_shadow
+    - e2e_bevfusion_vadv2_shadow
 acceptance_gate: perception_bevfusion_public_road_gate

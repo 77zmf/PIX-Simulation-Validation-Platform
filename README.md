@@ -163,6 +163,7 @@ bash infra/ubuntu/prepare_autoware_workspace.sh
 Reference documents:
 
 - [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
+- [BEVFusion Shadow Interface Baseline](./docs/BEVFUSION_SHADOW_INTERFACE_BASELINE_CN.md)
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)

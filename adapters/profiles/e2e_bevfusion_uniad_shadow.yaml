@@ -2,6 +2,7 @@ profile_id: e2e_bevfusion_uniad_shadow
 type: e2e
 description: Public-road BEVFusion plus UniAD-style planning-oriented shadow planner
 baseline: planning_control_research
+contract_version: 2026q2-shadow-v1
 research_focus:
   - interaction_aware_planning
   - rule_compliance_under_occlusion
@@ -10,6 +11,19 @@ inputs:
   sensors: production_perception_or_carla0915_high_fidelity
   map: lanelet2_or_hd_map
   perception: perception_bevfusion_public_road
+interface_contract:
+  mode: observation_only
+  control_takeover: false
+  comparison_target: planning_control_research
+  required_inputs:
+    - bevfusion_objects
+    - bevfusion_tracks
+    - bevfusion_occupancy
+    - lane_graph_features
+    - ego_history
+  synchronization:
+    time_base: stable_stack_sim_time
+    perception_latency_budget_ms: 120
 outputs:
   occupancy: shadow_occupancy
   trajectories: shadow_multimodal_trajectories
