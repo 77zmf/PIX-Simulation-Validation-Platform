@@ -15,6 +15,7 @@ from .adapters import AdapterContext, load_reconstruction_adapter
 from .assets import asset_snapshot, load_asset_bundle
 from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, make_run_id, to_wsl_path, utc_now
 from .evaluation import evaluate_metrics, load_kpi_gate, synthetic_metrics
+from .health import probe_runtime_health
 from .profiles import (
     algorithm_profile_snapshot,
     load_algorithm_profile,
@@ -125,6 +126,7 @@ def _artifact_paths(run_dir: Path, recording: dict[str, Any]) -> dict[str, str]:
         "sensor_profile_snapshot": str(run_dir / "sensor_profile_snapshot.json"),
         "algorithm_profile_snapshot": str(run_dir / "algorithm_profile_snapshot.json"),
         "launch_plan": str(run_dir / "start_plan.json"),
+        "health_report": str(run_dir / "health.json"),
         "run_result": str(run_dir / "run_result.json"),
         "report_dir": str(run_dir / "report"),
     }
@@ -193,7 +195,10 @@ def _algorithm_execution_snapshot(
     }
 
 
-def _launch_gate_eval(logs: list[dict[str, Any]]) -> tuple[str, dict[str, Any]]:
+def _launch_gate_eval(
+    logs: list[dict[str, Any]],
+    runtime_health: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, Any]]:
     failed_step = next((entry for entry in logs if entry.get("status") == "failed"), None)
     if failed_step:
         return "launch_failed", {
@@ -208,6 +213,19 @@ def _launch_gate_eval(logs: list[dict[str, Any]]) -> tuple[str, dict[str, Any]]:
                 }
             ],
             "failure_labels": ["launch_failed"],
+        }
+    if runtime_health is not None and not runtime_health.get("passed", False):
+        return "launch_failed", {
+            "passed": False,
+            "violations": [
+                {
+                    "metric": "execution",
+                    "reason": "runtime_health_check_failed",
+                    "failed_checks": runtime_health.get("failed_checks", []),
+                    "health_report": runtime_health.get("report_path"),
+                }
+            ],
+            "failure_labels": ["launch_failed", "runtime_health_check_failed"],
         }
     return "launch_submitted", {
         "passed": False,
@@ -230,6 +248,7 @@ def _build_run_result(
     sensor_profile: Any,
     algorithm_profile: Any,
     algorithm_execution: dict[str, Any] | None,
+    runtime_health: dict[str, Any] | None,
     slot: Any | None,
 ) -> dict[str, Any]:
     slot_fields = _slot_payload(slot)
@@ -262,6 +281,7 @@ def _build_run_result(
             "algorithm": algorithm_profile_snapshot(algorithm_profile),
         },
         "algorithm_execution": algorithm_execution,
+        "runtime_health": runtime_health,
         "artifacts": artifacts,
         "replay": {
             "stack": scenario.stack,
@@ -448,6 +468,7 @@ def handle_run(args: argparse.Namespace) -> int:
     )
 
     logs: list[dict[str, Any]] = []
+    runtime_health: dict[str, Any] | None = None
     mode = str(scenario.execution.get("mode", "external"))
     slot_lock_held = False
     try:
@@ -456,7 +477,15 @@ def handle_run(args: argparse.Namespace) -> int:
             slot_lock_held = True
             logs = execute_plan(plan, run_dir)
             metrics: dict[str, float] = {}
-            status, gate_eval = _launch_gate_eval(logs)
+            runtime_health = None
+            if not any(entry.get("status") == "failed" for entry in logs):
+                runtime_health = probe_runtime_health(
+                    run_dir=run_dir,
+                    slot=slot,
+                    logs=logs,
+                    runtime_namespace=slot.runtime_namespace,
+                )
+            status, gate_eval = _launch_gate_eval(logs, runtime_health)
             if status == "launch_failed":
                 release_slot_lock(repo_root, scenario.stack, slot.slot_id)
                 slot_lock_held = False
@@ -495,6 +524,7 @@ def handle_run(args: argparse.Namespace) -> int:
         sensor_profile=sensor_profile,
         algorithm_profile=algorithm_profile,
         algorithm_execution=algorithm_execution,
+        runtime_health=runtime_health,
         slot=slot,
     )
     dump_json(run_dir / "run_result.json", result)

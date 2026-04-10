@@ -201,8 +201,9 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result["status"], "launch_failed")
             self.assertEqual(result["gate"]["violations"][0]["reason"], "launch_step_failed")
             self.assertEqual(result["gate"]["violations"][0]["returncode"], 2)
+            self.assertIsNone(result["runtime_health"])
 
-    def test_run_execute_marks_launch_submitted_when_execution_starts(self) -> None:
+    def test_run_execute_marks_launch_failed_when_health_probe_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             stream = io.StringIO()
             slot_id = "stable-slot-04"
@@ -210,16 +211,112 @@ class CliTests(unittest.TestCase):
             previous_lock = lock_path.read_text(encoding="utf-8") if lock_path.exists() else None
             try:
                 lock_path.unlink(missing_ok=True)
-                with patch(
-                    "simctl.cli.execute_plan",
-                    return_value=[
-                        {
-                            "step": "start-carla-server",
-                            "status": "completed",
-                            "returncode": 0,
-                            "log_path": str(Path(tempdir) / "start-carla-server.log"),
-                        }
-                    ],
+                with (
+                    patch(
+                        "simctl.cli.execute_plan",
+                        return_value=[
+                            {
+                                "step": "start-carla-server",
+                                "status": "started",
+                                "pid": 1001,
+                                "pid_file": str(Path(tempdir) / "carla.pid"),
+                                "log_path": str(Path(tempdir) / "start-carla-server.log"),
+                            },
+                            {
+                                "step": "start-autoware-bridge",
+                                "status": "started",
+                                "pid": 1002,
+                                "pid_file": str(Path(tempdir) / "bridge.pid"),
+                                "log_path": str(Path(tempdir) / "start-autoware-bridge.log"),
+                            },
+                            {
+                                "step": "start-autoware-stack",
+                                "status": "started",
+                                "pid": 1003,
+                                "pid_file": str(Path(tempdir) / "autoware.pid"),
+                                "log_path": str(Path(tempdir) / "start-autoware-stack.log"),
+                            },
+                        ],
+                    ),
+                    patch(
+                        "simctl.cli.probe_runtime_health",
+                        return_value={
+                            "passed": False,
+                            "failed_checks": ["carla_rpc_port"],
+                            "report_path": str(Path(tempdir) / "health.json"),
+                        },
+                    ),
+                ):
+                    with redirect_stdout(stream):
+                        rc = main(
+                            [
+                                "--repo-root",
+                                str(REPO_ROOT),
+                                "run",
+                                "--scenario",
+                                "scenarios/e2e/carla0915_bevfusion_uniad_unprotected_left.yaml",
+                                "--run-root",
+                                tempdir,
+                                "--slot",
+                                slot_id,
+                                "--execute",
+                            ]
+                        )
+            finally:
+                if previous_lock is None:
+                    lock_path.unlink(missing_ok=True)
+                else:
+                    lock_path.write_text(previous_lock, encoding="utf-8")
+            self.assertEqual(rc, 0)
+            result = json.loads(stream.getvalue())
+            self.assertEqual(result["status"], "launch_failed")
+            self.assertEqual(result["gate"]["violations"][0]["reason"], "runtime_health_check_failed")
+            self.assertEqual(result["gate"]["violations"][0]["failed_checks"], ["carla_rpc_port"])
+            self.assertFalse(result["runtime_health"]["passed"])
+
+    def test_run_execute_marks_launch_submitted_when_health_probe_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            slot_id = "stable-slot-01"
+            lock_path = REPO_ROOT / "artifacts" / "slot_locks" / "stable" / f"{slot_id}.json"
+            previous_lock = lock_path.read_text(encoding="utf-8") if lock_path.exists() else None
+            try:
+                lock_path.unlink(missing_ok=True)
+                with (
+                    patch(
+                        "simctl.cli.execute_plan",
+                        return_value=[
+                            {
+                                "step": "start-carla-server",
+                                "status": "started",
+                                "pid": 1001,
+                                "pid_file": str(Path(tempdir) / "carla.pid"),
+                                "log_path": str(Path(tempdir) / "start-carla-server.log"),
+                            },
+                            {
+                                "step": "start-autoware-bridge",
+                                "status": "started",
+                                "pid": 1002,
+                                "pid_file": str(Path(tempdir) / "bridge.pid"),
+                                "log_path": str(Path(tempdir) / "start-autoware-bridge.log"),
+                            },
+                            {
+                                "step": "start-autoware-stack",
+                                "status": "started",
+                                "pid": 1003,
+                                "pid_file": str(Path(tempdir) / "autoware.pid"),
+                                "log_path": str(Path(tempdir) / "start-autoware-stack.log"),
+                            },
+                        ],
+                    ),
+                    patch(
+                        "simctl.cli.probe_runtime_health",
+                        return_value={
+                            "passed": True,
+                            "failed_checks": [],
+                            "report_path": str(Path(tempdir) / "health.json"),
+                        },
+                    ),
                 ):
                     with redirect_stdout(stream):
                         rc = main(
@@ -245,6 +342,7 @@ class CliTests(unittest.TestCase):
             result = json.loads(stream.getvalue())
             self.assertEqual(result["status"], "launch_submitted")
             self.assertEqual(result["gate"]["violations"][0]["reason"], "awaiting_runtime_results")
+            self.assertTrue(result["runtime_health"]["passed"])
 
     def test_batch_and_report(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
