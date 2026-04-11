@@ -29,6 +29,27 @@ git pull --ff-only
 bash infra/ubuntu/preflight_and_next_steps.sh
 ```
 
+如果你明天希望把“远程接入 + 仓库 Python 环境 + 预检”一次铺好，可以直接跑：
+
+```bash
+bash infra/ubuntu/bootstrap_remote_access_tailscale.sh --execute --tailscale-hostname zmf-company-ubuntu
+```
+
+如果你已经提前生成了 Tailscale auth key，也可以用非交互方式：
+
+```bash
+TAILSCALE_AUTH_KEY=tskey-xxxxx \
+bash infra/ubuntu/bootstrap_remote_access_tailscale.sh --execute --tailscale-hostname zmf-company-ubuntu
+```
+
+这个脚本会做：
+
+- 安装并启动 `openssh-server`
+- 用 `uv` 准备本仓库 `Python 3.11` 的 `.venv`
+- 安装并启动 `Tailscale`
+- 让公司 Ubuntu 主机加入你的 tailnet
+- 最后再跑一遍 `infra/ubuntu/preflight_and_next_steps.sh`
+
 如果你想把“建议执行的命令”直接写成一个脚本：
 
 ```bash

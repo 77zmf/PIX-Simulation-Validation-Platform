@@ -150,6 +150,7 @@ Operator-facing helpers:
 
 ```bash
 bash infra/ubuntu/bootstrap_host.sh
+bash infra/ubuntu/bootstrap_remote_access_tailscale.sh
 bash infra/ubuntu/check_host_readiness.sh
 bash infra/ubuntu/preflight_and_next_steps.sh
 bash infra/ubuntu/prepare_carla_runtime.sh
