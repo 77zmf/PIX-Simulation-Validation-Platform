@@ -214,6 +214,7 @@ The repo-side planning documents live in:
 - `docs/TEAM_SKILL_USAGE_CN.md`
 - `docs/MAC_CODEX_WORKFLOW_CN.md`
 - `docs/PAPER_READING_MAP_CN.md`
+- `docs/YANG_SHADOW_E2E_READING_NOTES_CN.md`
 - `docs/PAPER_LANDSCAPE_CN.md`
 - `docs/LOCAL_PDF_INDEX_CN.md`
 - `ops/issues/README.md`

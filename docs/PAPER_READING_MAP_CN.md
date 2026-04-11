@@ -58,6 +58,10 @@
 6. Hydra-NeXt
 7. MomAD
 
+首轮阅读输出：
+
+- [杨志朋 Shadow E2E 阅读纪要](./YANG_SHADOW_E2E_READING_NOTES_CN.md)
+
 ### 罗顺雄 / lsx
 
 1. 2D Gaussian Splatting
