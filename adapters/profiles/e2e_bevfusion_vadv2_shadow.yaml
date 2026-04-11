@@ -14,6 +14,54 @@ outputs:
   vectorized_scene: vadv2_scene_tokens
   trajectory: shadow_trajectory
   control: shadow_control
+interface_contract:
+  contract_version: 2026q2-shadow-v1
+  comparison_role: uncertainty_aware_control_line
+  consumes:
+    perception_profile: perception_bevfusion_public_road
+    outputs:
+      - bevfusion_objects
+      - bevfusion_occupancy
+      - bevfusion_tracks
+    planner_interface:
+      - object_queries
+      - lane_graph_features
+      - occupancy_queries
+      - ego_history
+  minimal_inputs:
+    object_queries:
+      required: true
+    lane_graph_features:
+      required: true
+    ego_history:
+      required: true
+    route_reference:
+      required: true
+    vectorized_scene_tokens:
+      required: true
+      source: vadv2_scene_tokens
+  synchronization:
+    target_frame: map
+    max_perception_age_ms: 100
+    planning_tick_hz: 10
+  outputs:
+    vadv2_scene_tokens:
+      uncertainty_required: true
+    shadow_trajectory:
+      horizon_sec: 8.0
+      step_sec: 0.5
+    shadow_control:
+      observation_only: true
+  comparison_metrics:
+    common:
+      - route_completion
+      - collision_count
+      - trajectory_divergence_m
+      - min_ttc_sec
+      - planner_disengagement_triggers
+    profile_specific:
+      - cut_in_yield_failures
+      - shadow_uncertainty_coverage
 constraints:
   shadow_only: true
   requires_gate_pass_before_online: true
