@@ -52,11 +52,15 @@ def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, 
             {
                 "profile_id": profile_id,
                 "run_count": 0,
+                "comparison_ready_runs": 0,
                 "passed_runs": 0,
                 "gate_passed_runs": 0,
                 "scenario_ids": [],
                 "shared_metric_stats": {},
+                "shared_metric_coverage": {},
                 "profile_specific_metric_stats": {},
+                "profile_specific_metric_coverage": {},
+                "comparison_gaps": [],
             },
         )
 
@@ -74,19 +78,39 @@ def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, 
         if not isinstance(kpis, dict):
             kpis = {}
 
+        missing_shared_metrics: list[str] = []
         for name in common_metrics:
             if name not in shared_metric_order:
                 shared_metric_order.append(name)
             value = kpis.get(name)
             if isinstance(value, (int, float)):
                 bucket["shared_metric_stats"].setdefault(name, []).append(float(value))
+                bucket["shared_metric_coverage"][name] = bucket["shared_metric_coverage"].get(name, 0) + 1
+            else:
+                missing_shared_metrics.append(name)
 
+        missing_profile_specific_metrics: list[str] = []
         for name in profile_specific_metrics:
             if name not in profile_specific_metric_order:
                 profile_specific_metric_order.append(name)
             value = kpis.get(name)
             if isinstance(value, (int, float)):
                 bucket["profile_specific_metric_stats"].setdefault(name, []).append(float(value))
+                bucket["profile_specific_metric_coverage"][name] = bucket["profile_specific_metric_coverage"].get(name, 0) + 1
+            else:
+                missing_profile_specific_metrics.append(name)
+
+        if not missing_shared_metrics:
+            bucket["comparison_ready_runs"] += 1
+        if missing_shared_metrics or missing_profile_specific_metrics:
+            bucket["comparison_gaps"].append(
+                {
+                    "run_id": str(result.get("run_id", "unknown")),
+                    "scenario_id": scenario_id,
+                    "missing_shared_metrics": missing_shared_metrics,
+                    "missing_profile_specific_metrics": missing_profile_specific_metrics,
+                }
+            )
 
     if not profile_buckets:
         return None
@@ -98,6 +122,7 @@ def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, 
             {
                 "profile_id": bucket["profile_id"],
                 "run_count": bucket["run_count"],
+                "comparison_ready_runs": bucket["comparison_ready_runs"],
                 "passed_runs": bucket["passed_runs"],
                 "gate_passed_runs": bucket["gate_passed_runs"],
                 "scenario_ids": bucket["scenario_ids"],
@@ -106,11 +131,28 @@ def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, 
                     for name, values in sorted(bucket["shared_metric_stats"].items())
                     if values
                 },
+                "shared_metric_coverage": {
+                    name: {
+                        "present_runs": count,
+                        "run_count": bucket["run_count"],
+                        "ratio": round(count / bucket["run_count"], 4),
+                    }
+                    for name, count in sorted(bucket["shared_metric_coverage"].items())
+                },
                 "profile_specific_metric_stats": {
                     name: _metric_stats(values)
                     for name, values in sorted(bucket["profile_specific_metric_stats"].items())
                     if values
                 },
+                "profile_specific_metric_coverage": {
+                    name: {
+                        "present_runs": count,
+                        "run_count": bucket["run_count"],
+                        "ratio": round(count / bucket["run_count"], 4),
+                    }
+                    for name, count in sorted(bucket["profile_specific_metric_coverage"].items())
+                },
+                "comparison_gaps": bucket["comparison_gaps"],
             }
         )
 
@@ -187,8 +229,8 @@ def render_markdown(summary: dict[str, Any]) -> str:
         )
         shared_metrics = list(shadow_comparison.get("shared_metric_order", []))
         if shared_metrics:
-            header = "| Profile | Runs | Gate Passed | " + " | ".join(f"{metric} avg" for metric in shared_metrics) + " |"
-            separator = "| --- | ---: | ---: | " + " | ".join("---:" for _ in shared_metrics) + " |"
+            header = "| Profile | Runs | Comparison Ready | Gate Passed | " + " | ".join(f"{metric} avg" for metric in shared_metrics) + " |"
+            separator = "| --- | ---: | ---: | ---: | " + " | ".join("---:" for _ in shared_metrics) + " |"
             lines.extend([header, separator])
             for profile in shadow_comparison["profiles"]:
                 stats = profile.get("shared_metric_stats", {})
@@ -202,6 +244,7 @@ def render_markdown(summary: dict[str, Any]) -> str:
                         [
                             f"`{profile['profile_id']}`",
                             str(profile["run_count"]),
+                            str(profile["comparison_ready_runs"]),
                             str(profile["gate_passed_runs"]),
                             *metric_cells,
                         ]
@@ -218,6 +261,26 @@ def render_markdown(summary: dict[str, Any]) -> str:
                 )
                 if rendered:
                     lines.append(f"- `{profile['profile_id']}`: {rendered}")
+        lines.extend(["", "### Comparison Gaps", ""])
+        rendered_gap = False
+        for profile in shadow_comparison["profiles"]:
+            for gap in profile.get("comparison_gaps", []):
+                rendered_gap = True
+                missing_shared = gap.get("missing_shared_metrics") or []
+                missing_profile_specific = gap.get("missing_profile_specific_metrics") or []
+                parts = []
+                if missing_shared:
+                    parts.append("missing shared: " + ", ".join(f"`{metric}`" for metric in missing_shared))
+                if missing_profile_specific:
+                    parts.append(
+                        "missing profile-specific: "
+                        + ", ".join(f"`{metric}`" for metric in missing_profile_specific)
+                    )
+                lines.append(
+                    f"- `{profile['profile_id']}` / `{gap['run_id']}` / `{gap['scenario_id']}`: {'; '.join(parts)}"
+                )
+        if not rendered_gap:
+            lines.append("- None")
     lines.extend(["", "## Runs", "", "| Run ID | Scenario | Stack | Status | Gate Passed |", "| --- | --- | --- | --- | --- |"])
     for result in summary["runs"]:
         gate_passed = result.get("gate", {}).get("passed")
@@ -259,15 +322,39 @@ def render_html(summary: dict[str, Any]) -> str:
                     "<tr>"
                     f"<td><code>{profile['profile_id']}</code></td>"
                     f"<td><code>{profile['run_count']}</code></td>"
+                    f"<td><code>{profile['comparison_ready_runs']}</code></td>"
                     f"<td><code>{profile['gate_passed_runs']}</code></td>"
                     f"{metric_cells}"
                     "</tr>"
                 )
+            gap_items = []
+            for profile in shadow_comparison["profiles"]:
+                for gap in profile.get("comparison_gaps", []):
+                    parts = []
+                    if gap.get("missing_shared_metrics"):
+                        parts.append(
+                            "missing shared: "
+                            + ", ".join(gap["missing_shared_metrics"])
+                        )
+                    if gap.get("missing_profile_specific_metrics"):
+                        parts.append(
+                            "missing profile-specific: "
+                            + ", ".join(gap["missing_profile_specific_metrics"])
+                        )
+                    gap_items.append(
+                        "<li>"
+                        f"<code>{profile['profile_id']}</code> / <code>{gap['run_id']}</code> / "
+                        f"<code>{gap['scenario_id']}</code>: {'; '.join(parts)}"
+                        "</li>"
+                    )
+            gap_list = "".join(gap_items) or "<li>None</li>"
             shadow_section = (
                 "<h2>Shadow Comparison</h2>"
                 f"<p>Profiles compared: <code>{shadow_comparison['profile_count']}</code></p>"
-                "<table><thead><tr><th>Profile</th><th>Runs</th><th>Gate Passed</th>"
+                "<table><thead><tr><th>Profile</th><th>Runs</th><th>Comparison Ready</th><th>Gate Passed</th>"
                 f"{shadow_header}</tr></thead><tbody>{''.join(shadow_rows)}</tbody></table>"
+                "<h3>Comparison Gaps</h3>"
+                f"<ul>{gap_list}</ul>"
             )
     return f"""<!doctype html>
 <html lang="en">

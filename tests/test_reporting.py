@@ -96,6 +96,7 @@ class ReportingTests(unittest.TestCase):
         )
 
         profiles = {profile["profile_id"]: profile for profile in shadow["profiles"]}
+        self.assertEqual(profiles["e2e_bevfusion_uniad_shadow"]["comparison_ready_runs"], 1)
         self.assertEqual(profiles["e2e_bevfusion_uniad_shadow"]["shared_metric_stats"]["trajectory_divergence_m"]["avg"], 0.42)
         self.assertEqual(profiles["e2e_bevfusion_vadv2_shadow"]["shared_metric_stats"]["planner_disengagement_triggers"]["avg"], 1.0)
         self.assertEqual(profiles["e2e_bevfusion_uniad_shadow"]["profile_specific_metric_stats"]["comfort_cost"]["avg"], 0.21)
@@ -103,6 +104,10 @@ class ReportingTests(unittest.TestCase):
             profiles["e2e_bevfusion_vadv2_shadow"]["profile_specific_metric_stats"]["shadow_uncertainty_coverage"]["avg"],
             0.88,
         )
+        self.assertEqual(
+            profiles["e2e_bevfusion_vadv2_shadow"]["shared_metric_coverage"]["trajectory_divergence_m"]["ratio"], 1.0
+        )
+        self.assertEqual(profiles["e2e_bevfusion_uniad_shadow"]["comparison_gaps"], [])
 
     def test_render_markdown_includes_shadow_comparison_section(self) -> None:
         summary = aggregate_run_results(
@@ -129,6 +134,44 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("`e2e_bevfusion_uniad_shadow`", markdown)
         self.assertIn("trajectory_divergence_m avg", markdown)
         self.assertIn("### Profile-Specific Signals", markdown)
+        self.assertIn("### Comparison Gaps", markdown)
+        self.assertIn("- None", markdown)
+
+    def test_shadow_comparison_reports_missing_metrics_as_gaps(self) -> None:
+        summary = aggregate_run_results(
+            [
+                _shadow_run_result(
+                    run_id="run-vadv2-gap",
+                    scenario_id="carla0915_public_road_bevfusion_vadv2_gap_case",
+                    profile_id="e2e_bevfusion_vadv2_shadow",
+                    kpis={
+                        "route_completion": 0.97,
+                        "collision_count": 0.0,
+                        "trajectory_divergence_m": 0.61,
+                        "planner_disengagement_triggers": 1.0,
+                    },
+                    profile_specific=["shadow_uncertainty_coverage"],
+                )
+            ]
+        )
+
+        shadow = summary["shadow_comparison"]
+        profile = shadow["profiles"][0]
+        self.assertEqual(profile["comparison_ready_runs"], 0)
+        self.assertEqual(
+            profile["comparison_gaps"],
+            [
+                {
+                    "run_id": "run-vadv2-gap",
+                    "scenario_id": "carla0915_public_road_bevfusion_vadv2_gap_case",
+                    "missing_shared_metrics": ["min_ttc_sec"],
+                    "missing_profile_specific_metrics": ["shadow_uncertainty_coverage"],
+                }
+            ],
+        )
+        markdown = render_markdown(summary)
+        self.assertIn("missing shared: `min_ttc_sec`", markdown)
+        self.assertIn("missing profile-specific: `shadow_uncertainty_coverage`", markdown)
 
 
 if __name__ == "__main__":
