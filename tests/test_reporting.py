@@ -16,6 +16,7 @@ def _shadow_run_result(
     run_id: str,
     scenario_id: str,
     profile_id: str,
+    gate_id: str,
     kpis: dict[str, float],
     profile_specific: list[str],
 ) -> dict[str, object]:
@@ -24,7 +25,7 @@ def _shadow_run_result(
         "scenario_id": scenario_id,
         "stack": "stable",
         "status": "passed",
-        "gate": {"passed": True},
+        "gate": {"passed": True, "gate_id": gate_id, "violations": []},
         "kpis": kpis,
         "resolved_profiles": {
             "algorithm": {
@@ -54,6 +55,7 @@ class ReportingTests(unittest.TestCase):
                     run_id="run-uniad",
                     scenario_id="carla0915_public_road_bevfusion_uniad_unprotected_left",
                     profile_id="e2e_bevfusion_uniad_shadow",
+                    gate_id="e2e_bevfusion_uniad_shadow_gate",
                     kpis={
                         "route_completion": 1.0,
                         "collision_count": 0.0,
@@ -68,6 +70,7 @@ class ReportingTests(unittest.TestCase):
                     run_id="run-vadv2",
                     scenario_id="carla0915_public_road_bevfusion_vadv2_occluded_pedestrian",
                     profile_id="e2e_bevfusion_vadv2_shadow",
+                    gate_id="e2e_bevfusion_vadv2_shadow_gate",
                     kpis={
                         "route_completion": 0.98,
                         "collision_count": 0.0,
@@ -105,6 +108,16 @@ class ReportingTests(unittest.TestCase):
             0.88,
         )
         self.assertEqual(
+            profiles["e2e_bevfusion_uniad_shadow"]["shared_metric_verdicts"]["route_completion"],
+            {
+                "threshold": ">=0.96",
+                "passed_runs": 1,
+                "failed_runs": 0,
+                "missing_runs": 0,
+                "run_count": 1,
+            },
+        )
+        self.assertEqual(
             profiles["e2e_bevfusion_vadv2_shadow"]["shared_metric_coverage"]["trajectory_divergence_m"]["ratio"], 1.0
         )
         self.assertEqual(profiles["e2e_bevfusion_uniad_shadow"]["comparison_gaps"], [])
@@ -116,6 +129,7 @@ class ReportingTests(unittest.TestCase):
                     run_id="run-uniad",
                     scenario_id="carla0915_public_road_bevfusion_uniad_unprotected_left",
                     profile_id="e2e_bevfusion_uniad_shadow",
+                    gate_id="e2e_bevfusion_uniad_shadow_gate",
                     kpis={
                         "route_completion": 1.0,
                         "collision_count": 0.0,
@@ -134,6 +148,8 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("`e2e_bevfusion_uniad_shadow`", markdown)
         self.assertIn("trajectory_divergence_m avg", markdown)
         self.assertIn("### Profile-Specific Signals", markdown)
+        self.assertIn("### Gate Verdicts", markdown)
+        self.assertIn("`route_completion` | `>=0.96` | 1 | 0 | 0", markdown)
         self.assertIn("### Comparison Gaps", markdown)
         self.assertIn("- None", markdown)
 
@@ -144,6 +160,7 @@ class ReportingTests(unittest.TestCase):
                     run_id="run-vadv2-gap",
                     scenario_id="carla0915_public_road_bevfusion_vadv2_gap_case",
                     profile_id="e2e_bevfusion_vadv2_shadow",
+                    gate_id="e2e_bevfusion_vadv2_shadow_gate",
                     kpis={
                         "route_completion": 0.97,
                         "collision_count": 0.0,
@@ -158,6 +175,16 @@ class ReportingTests(unittest.TestCase):
         shadow = summary["shadow_comparison"]
         profile = shadow["profiles"][0]
         self.assertEqual(profile["comparison_ready_runs"], 0)
+        self.assertEqual(
+            profile["shared_metric_verdicts"]["min_ttc_sec"],
+            {
+                "threshold": ">=1.9",
+                "passed_runs": 0,
+                "failed_runs": 0,
+                "missing_runs": 1,
+                "run_count": 1,
+            },
+        )
         self.assertEqual(
             profile["comparison_gaps"],
             [

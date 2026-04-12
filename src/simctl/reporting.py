@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import dump_json, ensure_dir, utc_now
-from .evaluation import cluster_failures, summarize_statuses
+from .evaluation import cluster_failures, load_kpi_gate, summarize_statuses
 
 
 def load_run_result(path: Path) -> dict[str, Any]:
@@ -25,10 +25,15 @@ def _metric_stats(values: list[float]) -> dict[str, float | int]:
     }
 
 
+def _format_threshold(rule: dict[str, Any]) -> str:
+    return f"{rule['op']}{rule['value']}"
+
+
 def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, Any] | None:
     profile_buckets: dict[str, dict[str, Any]] = {}
     shared_metric_order: list[str] = []
     profile_specific_metric_order: list[str] = []
+    gate_cache: dict[str, dict[str, Any]] = {}
 
     for result in run_results:
         algorithm = result.get("resolved_profiles", {}).get("algorithm", {})
@@ -55,11 +60,14 @@ def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, 
                 "comparison_ready_runs": 0,
                 "passed_runs": 0,
                 "gate_passed_runs": 0,
+                "gate_id": None,
                 "scenario_ids": [],
                 "shared_metric_stats": {},
                 "shared_metric_coverage": {},
+                "shared_metric_verdicts": {},
                 "profile_specific_metric_stats": {},
                 "profile_specific_metric_coverage": {},
+                "profile_specific_metric_verdicts": {},
                 "comparison_gaps": [],
             },
         )
@@ -74,31 +82,74 @@ def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, 
         if scenario_id not in bucket["scenario_ids"]:
             bucket["scenario_ids"].append(scenario_id)
 
+        gate_id = str(result.get("gate", {}).get("gate_id", ""))
+        if gate_id and bucket["gate_id"] is None:
+            bucket["gate_id"] = gate_id
+        gate_metrics: dict[str, dict[str, Any]] = {}
+        if gate_id:
+            cached_gate = gate_cache.get(gate_id)
+            if cached_gate is None:
+                gate = load_kpi_gate(gate_id)
+                cached_gate = gate.metrics
+                gate_cache[gate_id] = cached_gate
+            gate_metrics = cached_gate
+
         kpis = result.get("kpis", {})
         if not isinstance(kpis, dict):
             kpis = {}
+        gate_violations = {
+            str(item.get("metric")): item for item in result.get("gate", {}).get("violations", []) if item.get("metric")
+        }
 
         missing_shared_metrics: list[str] = []
         for name in common_metrics:
             if name not in shared_metric_order:
                 shared_metric_order.append(name)
+            verdict = bucket["shared_metric_verdicts"].setdefault(
+                name,
+                {
+                    "threshold": _format_threshold(gate_metrics[name]) if name in gate_metrics else None,
+                    "passed_runs": 0,
+                    "failed_runs": 0,
+                    "missing_runs": 0,
+                },
+            )
             value = kpis.get(name)
             if isinstance(value, (int, float)):
                 bucket["shared_metric_stats"].setdefault(name, []).append(float(value))
                 bucket["shared_metric_coverage"][name] = bucket["shared_metric_coverage"].get(name, 0) + 1
+                if name in gate_violations:
+                    verdict["failed_runs"] += 1
+                else:
+                    verdict["passed_runs"] += 1
             else:
                 missing_shared_metrics.append(name)
+                verdict["missing_runs"] += 1
 
         missing_profile_specific_metrics: list[str] = []
         for name in profile_specific_metrics:
             if name not in profile_specific_metric_order:
                 profile_specific_metric_order.append(name)
+            verdict = bucket["profile_specific_metric_verdicts"].setdefault(
+                name,
+                {
+                    "threshold": _format_threshold(gate_metrics[name]) if name in gate_metrics else None,
+                    "passed_runs": 0,
+                    "failed_runs": 0,
+                    "missing_runs": 0,
+                },
+            )
             value = kpis.get(name)
             if isinstance(value, (int, float)):
                 bucket["profile_specific_metric_stats"].setdefault(name, []).append(float(value))
                 bucket["profile_specific_metric_coverage"][name] = bucket["profile_specific_metric_coverage"].get(name, 0) + 1
+                if name in gate_violations:
+                    verdict["failed_runs"] += 1
+                else:
+                    verdict["passed_runs"] += 1
             else:
                 missing_profile_specific_metrics.append(name)
+                verdict["missing_runs"] += 1
 
         if not missing_shared_metrics:
             bucket["comparison_ready_runs"] += 1
@@ -125,6 +176,7 @@ def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, 
                 "comparison_ready_runs": bucket["comparison_ready_runs"],
                 "passed_runs": bucket["passed_runs"],
                 "gate_passed_runs": bucket["gate_passed_runs"],
+                "gate_id": bucket["gate_id"],
                 "scenario_ids": bucket["scenario_ids"],
                 "shared_metric_stats": {
                     name: _metric_stats(values)
@@ -139,6 +191,13 @@ def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, 
                     }
                     for name, count in sorted(bucket["shared_metric_coverage"].items())
                 },
+                "shared_metric_verdicts": {
+                    name: {
+                        **verdict,
+                        "run_count": bucket["run_count"],
+                    }
+                    for name, verdict in sorted(bucket["shared_metric_verdicts"].items())
+                },
                 "profile_specific_metric_stats": {
                     name: _metric_stats(values)
                     for name, values in sorted(bucket["profile_specific_metric_stats"].items())
@@ -151,6 +210,13 @@ def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, 
                         "ratio": round(count / bucket["run_count"], 4),
                     }
                     for name, count in sorted(bucket["profile_specific_metric_coverage"].items())
+                },
+                "profile_specific_metric_verdicts": {
+                    name: {
+                        **verdict,
+                        "run_count": bucket["run_count"],
+                    }
+                    for name, verdict in sorted(bucket["profile_specific_metric_verdicts"].items())
                 },
                 "comparison_gaps": bucket["comparison_gaps"],
             }
@@ -261,6 +327,23 @@ def render_markdown(summary: dict[str, Any]) -> str:
                 )
                 if rendered:
                     lines.append(f"- `{profile['profile_id']}`: {rendered}")
+        lines.extend(["", "### Gate Verdicts", ""])
+        verdict_rows = []
+        for profile in shadow_comparison["profiles"]:
+            for metric, verdict in profile.get("shared_metric_verdicts", {}).items():
+                verdict_rows.append(
+                    f"| `{profile['profile_id']}` | `{metric}` | `{verdict.get('threshold')}` | {verdict['passed_runs']} | {verdict['failed_runs']} | {verdict['missing_runs']} |"
+                )
+        if verdict_rows:
+            lines.extend(
+                [
+                    "| Profile | Metric | Threshold | Passed | Failed | Missing |",
+                    "| --- | --- | --- | ---: | ---: | ---: |",
+                    *verdict_rows,
+                ]
+            )
+        else:
+            lines.append("- None")
         lines.extend(["", "### Comparison Gaps", ""])
         rendered_gap = False
         for profile in shadow_comparison["profiles"]:
@@ -327,6 +410,19 @@ def render_html(summary: dict[str, Any]) -> str:
                     f"{metric_cells}"
                     "</tr>"
                 )
+            verdict_rows = []
+            for profile in shadow_comparison["profiles"]:
+                for metric, verdict in profile.get("shared_metric_verdicts", {}).items():
+                    verdict_rows.append(
+                        "<tr>"
+                        f"<td><code>{profile['profile_id']}</code></td>"
+                        f"<td><code>{metric}</code></td>"
+                        f"<td><code>{verdict.get('threshold')}</code></td>"
+                        f"<td><code>{verdict['passed_runs']}</code></td>"
+                        f"<td><code>{verdict['failed_runs']}</code></td>"
+                        f"<td><code>{verdict['missing_runs']}</code></td>"
+                        "</tr>"
+                    )
             gap_items = []
             for profile in shadow_comparison["profiles"]:
                 for gap in profile.get("comparison_gaps", []):
@@ -353,6 +449,9 @@ def render_html(summary: dict[str, Any]) -> str:
                 f"<p>Profiles compared: <code>{shadow_comparison['profile_count']}</code></p>"
                 "<table><thead><tr><th>Profile</th><th>Runs</th><th>Comparison Ready</th><th>Gate Passed</th>"
                 f"{shadow_header}</tr></thead><tbody>{''.join(shadow_rows)}</tbody></table>"
+                "<h3>Gate Verdicts</h3>"
+                "<table><thead><tr><th>Profile</th><th>Metric</th><th>Threshold</th><th>Passed</th><th>Failed</th><th>Missing</th></tr></thead>"
+                f"<tbody>{''.join(verdict_rows)}</tbody></table>"
                 "<h3>Comparison Gaps</h3>"
                 f"<ul>{gap_list}</ul>"
             )
