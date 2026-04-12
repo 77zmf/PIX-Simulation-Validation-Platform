@@ -62,7 +62,7 @@ Near-term gate:
   - `lanelet2_map.osm`
   - `map_projector_info.yaml`
   - `pointcloud_map.pcd/`
-  - `metadata.yaml`
+  - `pointcloud_map_metadata.yaml`
 - large raw assets stay out of Git history and are referenced by manifests
 - reconstruction direction is staged:
   - `map refresh` for asset and localization support
@@ -129,6 +129,12 @@ simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-res
 simctl report --run-root runs
 ```
 
+Asset validation:
+
+```bash
+simctl asset-check --bundle site_gy_qyhx_gsh20260302
+```
+
 Stable slot catalog:
 
 ```text
@@ -160,6 +166,7 @@ bash infra/ubuntu/prepare_autoware_workspace.sh
 Reference documents:
 
 - [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
+- [Windows Local Setup](./docs/WINDOWS_LOCAL_SETUP_CN.md)
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)

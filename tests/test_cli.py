@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -31,6 +32,74 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["steps"][0]["runner"], "bash")
         self.assertIn("infra/ubuntu/bootstrap_host.sh", payload["steps"][0]["command"])
         self.assertNotIn("wsl.exe", payload["steps"][0]["command"].lower())
+
+    def test_asset_check_reports_virtual_paths_for_builtin_bundle(self) -> None:
+        stream = io.StringIO()
+        with redirect_stdout(stream):
+            rc = main(["--repo-root", str(REPO_ROOT), "asset-check", "--bundle", "carla_town01"])
+        self.assertEqual(rc, 0)
+        payload = json.loads(stream.getvalue())
+        self.assertEqual(payload["bundle_id"], "carla-town01")
+        self.assertTrue(payload["summary"]["all_required_present"])
+        statuses = {entry["name"]: entry["status"] for entry in payload["checks"]}
+        self.assertEqual(statuses["lanelet2"], "virtual")
+        self.assertEqual(statuses["projector"], "virtual")
+        self.assertEqual(statuses["pointcloud_dir"], "virtual")
+
+    def test_replay_renders_plan_from_run_result(self) -> None:
+        temp_root = REPO_ROOT / ".tmp" / "test_replay_plan"
+        shutil.rmtree(temp_root, ignore_errors=True)
+        run_dir = temp_root / "run_001"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        run_result_path = run_dir / "run_result.json"
+        run_result_path.write_text(
+            json.dumps(
+                {
+                    "run_id": "run_001",
+                    "scenario_id": "stable_l2_reconstruction_public_road_map_refresh",
+                    "stack": "stable",
+                    "scenario_path": str(REPO_ROOT / "scenarios" / "l2" / "reconstruction_public_road_map_refresh.yaml"),
+                    "scenario_params": {
+                        "asset_bundle": "site_gy_qyhx_gsh20260302",
+                        "sensor_profile": "reconstruction_capture",
+                        "algorithm_profile": "reconstruction_public_road_map_refresh",
+                    },
+                    "resolved_profiles": {
+                        "sensor": {"profile_id": "reconstruction_capture"},
+                        "algorithm": {"profile_id": "reconstruction_public_road_map_refresh"},
+                    },
+                    "artifacts": {
+                        "run_dir": str(run_dir),
+                        "rosbag2": str(run_dir / "rosbags" / "capture"),
+                        "carla_recorder": str(run_dir / "carla" / "capture.log"),
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        try:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "replay",
+                        "--run-result",
+                        str(run_result_path),
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            payload = json.loads(stream.getvalue())
+        finally:
+            shutil.rmtree(temp_root, ignore_errors=True)
+
+        self.assertEqual(payload["action"], "replay")
+        self.assertEqual(len(payload["steps"]), 2)
+        self.assertIn("ros2 bag play", payload["steps"][0]["command"])
+        self.assertNotIn("{rosbag_path}", payload["steps"][0]["command"])
+        self.assertIn("/mnt/g/", payload["steps"][0]["command"].lower())
+        self.assertIn("capture.log", payload["steps"][1]["command"])
 
     def test_run_creates_passed_stub_result(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

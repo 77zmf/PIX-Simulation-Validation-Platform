@@ -12,7 +12,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .adapters import AdapterContext, load_reconstruction_adapter
-from .assets import asset_snapshot, load_asset_bundle
+from .assets import asset_snapshot, inspect_asset_bundle, load_asset_bundle
 from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, make_run_id, to_wsl_path, utc_now
 from .evaluation import evaluate_metrics, load_kpi_gate, synthetic_metrics
 from .health import probe_runtime_health
@@ -125,6 +125,16 @@ def handle_bootstrap(args: argparse.Namespace) -> int:
         logs = execute_plan(plan, output_dir)
         dump_json(output_dir / "bootstrap_logs.json", logs)
     _print_json(plan)
+    return 0
+
+
+def handle_asset_check(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    asset_root = _asset_root(repo_root, args.asset_root)
+    bundle = load_asset_bundle(args.bundle, repo_root, asset_root)
+    payload = inspect_asset_bundle(bundle)
+    payload["asset_root"] = str(asset_root)
+    _print_json(payload)
     return 0
 
 
@@ -651,22 +661,59 @@ def handle_batch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _to_bash_path(path_value: str | None) -> str:
+    if not path_value:
+        return ""
+    raw = str(path_value)
+    if "\\" in raw or (len(raw) >= 2 and raw[1] == ":"):
+        return to_wsl_path(raw)
+    return raw
+
+
 def handle_replay(args: argparse.Namespace) -> int:
     run_result_path = Path(args.run_result).resolve()
     result = load_run_result(run_result_path)
     repo_root = _repo_root(args.repo_root)
     asset_root = _asset_root(repo_root, args.asset_root)
     profile = load_stack_profile(result["stack"], repo_root)
+    scenario_params = result.get("scenario_params", {})
+    resolved_profiles = result.get("resolved_profiles", {})
+    sensor_profile_id = str(
+        scenario_params.get("sensor_profile")
+        or resolved_profiles.get("sensor", {}).get("profile_id")
+        or ""
+    )
+    algorithm_profile_id = str(
+        scenario_params.get("algorithm_profile")
+        or resolved_profiles.get("algorithm", {}).get("profile_id")
+        or ""
+    )
+    asset_bundle_id = str(scenario_params.get("asset_bundle", ""))
     fake_scenario = type(
         "ReplayScenario",
         (),
-        {"scenario_path": Path(result["scenario_path"]), "scenario_id": result["scenario_id"]},
+        {
+            "scenario_path": Path(result["scenario_path"]),
+            "scenario_id": result["scenario_id"],
+            "sensor_profile": sensor_profile_id,
+            "algorithm_profile": algorithm_profile_id,
+        },
     )()
-    context = build_context(repo_root, Path(result["artifacts"]["run_dir"]), fake_scenario, asset_root, execute=False)
+    context = build_context(
+        repo_root,
+        Path(result["artifacts"]["run_dir"]),
+        fake_scenario,
+        asset_root,
+        asset_bundle_id=asset_bundle_id,
+        execute=False,
+    )
+    rosbag_path = result["artifacts"].get("rosbag2")
+    carla_recorder_path = result["artifacts"].get("carla_recorder")
     context.update(
         {
-            "rosbag_path_wsl": to_wsl_path(result["artifacts"]["rosbag2"]) if result["artifacts"].get("rosbag2") else "",
-            "carla_recorder_path": result["artifacts"].get("carla_recorder", ""),
+            "rosbag_path": _to_bash_path(rosbag_path),
+            "rosbag_path_wsl": _to_bash_path(rosbag_path),
+            "carla_recorder_path": _to_bash_path(carla_recorder_path),
         }
     )
     plan = render_action(profile, "replay", context)
@@ -808,6 +855,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repo-root", help="Override repository root")
     parser.add_argument("--asset-root", help="Override extracted asset root")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    asset_check = subparsers.add_parser("asset-check", help="Validate one asset bundle against the local asset root")
+    asset_check.add_argument("--bundle", required=True, help="Bundle id or manifest path")
+    asset_check.set_defaults(func=handle_asset_check)
 
     bootstrap = subparsers.add_parser("bootstrap", help="Prepare host, WSL, or remote nodes")
     bootstrap.add_argument("--stack", choices=["stable"], required=True)
