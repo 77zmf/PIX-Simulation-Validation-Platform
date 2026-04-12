@@ -172,6 +172,10 @@ simctl run --scenario scenarios/e2e/carla0915_bevfusion_uniad_unprotected_left.y
 simctl run --scenario scenarios/e2e/carla0915_bevfusion_vadv2_occluded_pedestrian.yaml --run-root runs --slot stable-slot-02 --execute
 ```
 
+如果要按 issue `#18 / #27` 做一次完整的真实回填，并把 `Shadow Comparison` 和 `Gate Verdicts` 一次性产出，直接看：
+
+- [docs/BEVFUSION_SHADOW_UBUNTU_EXECUTE_RUNBOOK_CN.md](./BEVFUSION_SHADOW_UBUNTU_EXECUTE_RUNBOOK_CN.md)
+
 ## 7. 哪些 KPI 或可观察量应该变化
 
 - 感知契约冻结后，应优先稳定 `planner_interface_disagreement_rate`、`lane_topology_recall` 和 `latency_ms`。
