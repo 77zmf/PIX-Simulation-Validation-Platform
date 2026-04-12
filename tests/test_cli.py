@@ -374,6 +374,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertTrue((report_dir / "report.md").exists())
             self.assertTrue((report_dir / "report.html").exists())
+            self.assertTrue((report_dir / "issue_update.md").exists())
 
     def test_batch_parallel_uses_two_slots_and_reuses_one_for_third_run(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

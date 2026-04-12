@@ -8,7 +8,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from simctl.reporting import aggregate_run_results, render_markdown
+from simctl.reporting import aggregate_run_results, render_issue_update, render_markdown
 
 
 def _shadow_run_result(
@@ -199,6 +199,51 @@ class ReportingTests(unittest.TestCase):
         markdown = render_markdown(summary)
         self.assertIn("missing shared: `min_ttc_sec`", markdown)
         self.assertIn("missing profile-specific: `shadow_uncertainty_coverage`", markdown)
+
+    def test_render_issue_update_contains_issue_ready_sections(self) -> None:
+        summary = aggregate_run_results(
+            [
+                _shadow_run_result(
+                    run_id="run-uniad",
+                    scenario_id="carla0915_public_road_bevfusion_uniad_unprotected_left",
+                    profile_id="e2e_bevfusion_uniad_shadow",
+                    gate_id="e2e_bevfusion_uniad_shadow_gate",
+                    kpis={
+                        "route_completion": 1.0,
+                        "collision_count": 0.0,
+                        "trajectory_divergence_m": 0.42,
+                        "min_ttc_sec": 2.1,
+                        "planner_disengagement_triggers": 0.0,
+                        "comfort_cost": 0.21,
+                    },
+                    profile_specific=["comfort_cost"],
+                ),
+                _shadow_run_result(
+                    run_id="run-vadv2",
+                    scenario_id="carla0915_public_road_bevfusion_vadv2_occluded_pedestrian",
+                    profile_id="e2e_bevfusion_vadv2_shadow",
+                    gate_id="e2e_bevfusion_vadv2_shadow_gate",
+                    kpis={
+                        "route_completion": 0.98,
+                        "collision_count": 0.0,
+                        "trajectory_divergence_m": 0.51,
+                        "min_ttc_sec": 2.0,
+                        "planner_disengagement_triggers": 1.0,
+                        "shadow_uncertainty_coverage": 0.88,
+                    },
+                    profile_specific=["shadow_uncertainty_coverage"],
+                ),
+            ]
+        )
+
+        issue_update = render_issue_update(summary)
+        self.assertIn("本周研究结论：", issue_update)
+        self.assertIn("接口草案变化：", issue_update)
+        self.assertIn("指标口径变化：", issue_update)
+        self.assertIn("运行回填：", issue_update)
+        self.assertIn("Gate Verdicts：", issue_update)
+        self.assertIn("`UniAD-style shadow`", issue_update)
+        self.assertIn("`VADv2 shadow`", issue_update)
 
 
 if __name__ == "__main__":

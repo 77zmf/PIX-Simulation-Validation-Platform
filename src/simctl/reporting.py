@@ -29,6 +29,26 @@ def _format_threshold(rule: dict[str, Any]) -> str:
     return f"{rule['op']}{rule['value']}"
 
 
+def _display_profile_name(profile_id: str) -> str:
+    return {
+        "perception_bevfusion_public_road": "BEVFusion perception baseline",
+        "e2e_bevfusion_uniad_shadow": "UniAD-style shadow",
+        "e2e_bevfusion_vadv2_shadow": "VADv2 shadow",
+    }.get(profile_id, profile_id)
+
+
+def _result_profile_id(result: dict[str, Any]) -> str:
+    algorithm = result.get("resolved_profiles", {}).get("algorithm", {})
+    if isinstance(algorithm, dict):
+        profile_id = algorithm.get("profile_id")
+        if profile_id:
+            return str(profile_id)
+    scenario_params = result.get("scenario_params", {})
+    if isinstance(scenario_params, dict) and scenario_params.get("algorithm_profile"):
+        return str(scenario_params["algorithm_profile"])
+    return "unknown"
+
+
 def summarize_shadow_comparison(run_results: list[dict[str, Any]]) -> dict[str, Any] | None:
     profile_buckets: dict[str, dict[str, Any]] = {}
     shared_metric_order: list[str] = []
@@ -248,6 +268,142 @@ def aggregate_run_results(run_results: list[dict[str, Any]]) -> dict[str, Any]:
         "shadow_comparison": summarize_shadow_comparison(run_results),
         "runs": run_results,
     }
+
+
+def render_issue_update(summary: dict[str, Any]) -> str:
+    shadow_comparison = summary.get("shadow_comparison")
+    shadow_profiles = []
+    if shadow_comparison:
+        shadow_profiles = list(shadow_comparison.get("profiles", []))
+
+    lines = ["本周研究结论："]
+    lines.append(f"- 当前 `simctl report` 共汇总 `{summary['total_runs']}` 条运行结果。")
+    if shadow_comparison:
+        lines.append(
+            "- `Shadow Comparison` 已覆盖 "
+            + "、".join(f"`{_display_profile_name(profile['profile_id'])}`" for profile in shadow_profiles)
+            + "。"
+        )
+        gap_count = sum(len(profile.get("comparison_gaps", [])) for profile in shadow_profiles)
+        if gap_count:
+            lines.append(f"- 当前仍有 `{gap_count}` 条 comparison gap，需要先补齐缺失指标再做正式比较。")
+        else:
+            lines.append("- 当前 `Comparison Gaps` 为 `None`，共享指标已经具备同口径比较条件。")
+    else:
+        lines.append("- 当前报告里还没有 shadow comparison 数据，尚不能形成 `UniAD-style / VADv2` 对照结论。")
+
+    lines.extend(["", "接口草案变化："])
+    lines.append("- 本次报告不新增接口字段，继续沿用 `2026q2-shadow-v1` 契约。")
+    lines.append("- `BEVFusion` 仍作为感知基线，`UniAD-style / VADv2` 仍然只做 `shadow` 旁路比较。")
+
+    lines.extend(["", "指标口径变化："])
+    if shadow_comparison:
+        lines.append(
+            "- 共享指标继续沿用 "
+            + "、".join(f"`{metric}`" for metric in shadow_comparison.get("shared_metric_order", []))
+            + "。"
+        )
+        for metric in shadow_comparison.get("shared_metric_order", []):
+            parts = []
+            for profile in shadow_profiles:
+                stat = profile.get("shared_metric_stats", {}).get(metric)
+                verdict = profile.get("shared_metric_verdicts", {}).get(metric, {})
+                avg = "n/a" if stat is None else stat["avg"]
+                threshold = verdict.get("threshold") or "n/a"
+                parts.append(
+                    f"`{_display_profile_name(profile['profile_id'])}` avg=`{avg}` threshold=`{threshold}`"
+                )
+            lines.append(f"- `{metric}`: " + "；".join(parts))
+    else:
+        lines.append("- 当前没有可汇总的 shadow 共享指标。")
+
+    lines.extend(["", "当前假设："])
+    lines.append("- 当前摘要来自 `simctl report` 汇总结果；正式验收仍应以公司 `Ubuntu 22.04` 主机上的真实 `--execute` 产物为准。")
+
+    lines.extend(["", "当前 blocker："])
+    if not shadow_comparison:
+        lines.append("- 还缺带有 `comparison_metrics` 的 shadow 运行结果，暂时无法生成正式对照摘要。")
+    else:
+        gap_lines = []
+        for profile in shadow_profiles:
+            for gap in profile.get("comparison_gaps", []):
+                parts = []
+                if gap.get("missing_shared_metrics"):
+                    parts.append("缺共享指标 " + "、".join(f"`{metric}`" for metric in gap["missing_shared_metrics"]))
+                if gap.get("missing_profile_specific_metrics"):
+                    parts.append(
+                        "缺 profile-specific 指标 "
+                        + "、".join(f"`{metric}`" for metric in gap["missing_profile_specific_metrics"])
+                    )
+                gap_lines.append(
+                    f"- `{_display_profile_name(profile['profile_id'])}` / `{gap['run_id']}`："
+                    + "；".join(parts)
+                )
+        if gap_lines:
+            lines.extend(gap_lines)
+        else:
+            lines.append("- 当前报告已经具备 issue 回贴条件；如果这些结果不是来自公司 Ubuntu 主机真实 `--execute`，则仍缺正式验收回填。")
+
+    lines.extend(["", "下一步实验："])
+    if shadow_comparison and not any(profile.get("comparison_gaps") for profile in shadow_profiles):
+        lines.append("- 直接把本文件回贴到 `#18 / #27`，并附上 `summary.json / report.md / report.html` 路径。")
+        lines.append("- 如需正式验收，在公司 Ubuntu 主机复用同一 `run_root` 跑 3 条真实 `--execute` 后再次执行 `simctl report`。")
+    else:
+        lines.append("- 先补齐缺失指标或 shadow 运行结果，再重新执行 `simctl report`。")
+
+    lines.extend(["", "运行回填："])
+    tracked_profiles = {"perception_bevfusion_public_road"}
+    tracked_profiles.update(profile["profile_id"] for profile in shadow_profiles)
+    ordered_profiles = [
+        "perception_bevfusion_public_road",
+        "e2e_bevfusion_uniad_shadow",
+        "e2e_bevfusion_vadv2_shadow",
+    ]
+    ordered_results = []
+    for profile_id in ordered_profiles:
+        ordered_results.extend(result for result in summary["runs"] if _result_profile_id(result) == profile_id)
+    ordered_results.extend(
+        result
+        for result in summary["runs"]
+        if _result_profile_id(result) not in tracked_profiles and result not in ordered_results
+    )
+    for result in ordered_results:
+        lines.append(
+            f"- `{_display_profile_name(_result_profile_id(result))}`: "
+            f"run_id=`{result['run_id']}`，scenario=`{result['scenario_id']}`，gate_passed=`{result.get('gate', {}).get('passed')}`"
+        )
+
+    lines.extend(["", "Gate Verdicts："])
+    if shadow_comparison:
+        for profile in shadow_profiles:
+            shared_passed = sum(
+                verdict["passed_runs"] for verdict in profile.get("shared_metric_verdicts", {}).values()
+            )
+            shared_failed = sum(
+                verdict["failed_runs"] for verdict in profile.get("shared_metric_verdicts", {}).values()
+            )
+            shared_missing = sum(
+                verdict["missing_runs"] for verdict in profile.get("shared_metric_verdicts", {}).values()
+            )
+            specific_passed = sum(
+                verdict["passed_runs"] for verdict in profile.get("profile_specific_metric_verdicts", {}).values()
+            )
+            specific_failed = sum(
+                verdict["failed_runs"] for verdict in profile.get("profile_specific_metric_verdicts", {}).values()
+            )
+            specific_missing = sum(
+                verdict["missing_runs"] for verdict in profile.get("profile_specific_metric_verdicts", {}).values()
+            )
+            lines.append(
+                f"- `{_display_profile_name(profile['profile_id'])}`: "
+                f"shared passed=`{shared_passed}` failed=`{shared_failed}` missing=`{shared_missing}`；"
+                f"profile-specific passed=`{specific_passed}` failed=`{specific_failed}` missing=`{specific_missing}`"
+            )
+    else:
+        lines.append("- 当前没有可汇总的 shadow gate verdict。")
+
+    lines.append("")
+    return "\n".join(lines)
 
 
 def render_markdown(summary: dict[str, Any]) -> str:
@@ -495,7 +651,14 @@ def write_report(output_dir: Path, summary: dict[str, Any]) -> dict[str, str]:
     markdown_path = output_dir / "report.md"
     html_path = output_dir / "report.html"
     summary_path = output_dir / "summary.json"
+    issue_update_path = output_dir / "issue_update.md"
     markdown_path.write_text(render_markdown(summary), encoding="utf-8")
     html_path.write_text(render_html(summary), encoding="utf-8")
+    issue_update_path.write_text(render_issue_update(summary), encoding="utf-8")
     dump_json(summary_path, summary)
-    return {"markdown": str(markdown_path), "html": str(html_path), "summary": str(summary_path)}
+    return {
+        "markdown": str(markdown_path),
+        "html": str(html_path),
+        "summary": str(summary_path),
+        "issue_update": str(issue_update_path),
+    }

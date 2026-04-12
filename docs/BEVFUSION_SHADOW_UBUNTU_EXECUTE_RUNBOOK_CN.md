@@ -129,6 +129,7 @@ simctl report \
 - `${RUN_ROOT}/report_shadow_issue18/summary.json`
 - `${RUN_ROOT}/report_shadow_issue18/report.md`
 - `${RUN_ROOT}/report_shadow_issue18/report.html`
+- `${RUN_ROOT}/report_shadow_issue18/issue_update.md`
 
 现在 `report.md` 和 `report.html` 里应该能看到：
 
@@ -136,6 +137,8 @@ simctl report \
 - `### Profile-Specific Signals`
 - `### Gate Verdicts`
 - `### Comparison Gaps`
+
+`issue_update.md` 则是给 `#18 / #27` 准备的可直接回贴摘要，不需要再手工整理一遍共享指标和 gate verdict。
 
 ## 6. 达标时该看到什么
 
