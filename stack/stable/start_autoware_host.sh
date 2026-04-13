@@ -24,7 +24,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-AUTOWARE_WS="${AUTOWARE_WS:-$HOME/autoware_ws}"
+AUTOWARE_WS="${AUTOWARE_WS:-$HOME/zmf_ws/projects/autoware_universe/autoware}"
 ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-21}"
 CMD="cd ${AUTOWARE_WS} && source install/setup.bash && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && export ROS_NAMESPACE='${RUNTIME_NAMESPACE}' && ros2 launch autoware_launch planning_simulator.launch.xml"
 echo "Scenario: ${SCENARIO}"
@@ -38,6 +38,10 @@ echo "CPU Affinity: ${CPU_AFFINITY}"
 echo "Command: ${CMD}"
 
 if [[ "$EXECUTE" -eq 1 ]]; then
+  if [[ ! -f "${AUTOWARE_WS}/install/setup.bash" ]]; then
+    echo "Autoware setup script not found at ${AUTOWARE_WS}/install/setup.bash" >&2
+    exit 1
+  fi
   if [[ -n "$CPU_AFFINITY" ]]; then
     exec taskset -c "$CPU_AFFINITY" bash -lc "${CMD}"
   fi

@@ -58,7 +58,8 @@ if command -v nvidia-smi >/dev/null 2>&1; then
   else
     warn "nvcc missing; CUDA toolkit is not ready"
   fi
-  if ldconfig -p | grep -q libnvinfer; then
+  LDCONFIG_CACHE="$(ldconfig -p 2>/dev/null || true)"
+  if grep -q 'libnvinfer' <<<"$LDCONFIG_CACHE"; then
     pass "TensorRT runtime libraries registered"
   else
     warn "TensorRT runtime libraries missing"
@@ -67,7 +68,7 @@ else
   warn "nvidia-smi missing; GPU checks unavailable"
 fi
 
-if sudo dpkg --audit | grep -q .; then
+if dpkg --audit | grep -q .; then
   fail "dpkg audit reports broken packages"
 else
   pass "dpkg audit clean"

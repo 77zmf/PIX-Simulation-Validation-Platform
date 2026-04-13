@@ -114,7 +114,8 @@ if command -v nvidia-smi >/dev/null 2>&1; then
     warn "nvcc missing"
     add_step "bash '${REPO_ROOT}/infra/ubuntu/setup_cuda_tensorrt.sh' --execute"
   fi
-  if ldconfig -p | grep -q libnvinfer; then
+  LDCONFIG_CACHE="$(ldconfig -p 2>/dev/null || true)"
+  if grep -q 'libnvinfer' <<<"$LDCONFIG_CACHE"; then
     pass "TensorRT runtime libraries registered"
   else
     warn "TensorRT runtime libraries missing"
@@ -125,9 +126,9 @@ else
   add_note "If this host should use NVIDIA GPU, verify the driver before running CARLA."
 fi
 
-if sudo dpkg --audit | grep -q .; then
+if dpkg --audit | grep -q .; then
   fail "dpkg audit reports broken packages"
-  add_blocker "Resolve package conflicts first: sudo dpkg --audit"
+  add_blocker "Resolve package conflicts first: dpkg --audit"
 else
   pass "dpkg audit clean"
 fi
