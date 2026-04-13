@@ -84,6 +84,13 @@ ros2 pkg prefix autoware_launch
 ros2 pkg prefix autoware_carla_interface
 ```
 
+当前 stable Autoware host 启动脚本默认使用：
+
+- `map_path=/home/pixmoving/PIX-Simulation-Validation-Platform`
+- `vehicle_model=sample_vehicle`
+- `sensor_model=carla_sensor_kit`
+- `rviz=true`
+
 ## 继续编译时建议
 
 先看之前的编译日志：
