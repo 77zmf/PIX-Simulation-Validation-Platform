@@ -162,6 +162,7 @@ Reference documents:
 - [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
 - [Remote GPU Resource And UE4 Blockers](./docs/REMOTE_GPU_RESOURCE_AND_UE4_BLOCKERS_CN.md)
+- [Remote GPU Access Plan](./docs/REMOTE_GPU_ACCESS_PLAN_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
@@ -206,6 +207,7 @@ The repo-side planning documents live in:
 - `docs/UBUNTU_HOST_BRINGUP_CN.md`
 - `docs/SERVER_COMPILE_BASELINE_CN.md`
 - `docs/REMOTE_GPU_RESOURCE_AND_UE4_BLOCKERS_CN.md`
+- `docs/REMOTE_GPU_ACCESS_PLAN_CN.md`
 - `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
 - `docs/PROJECT_AUTOMATION.md`
 - `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
