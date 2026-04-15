@@ -165,6 +165,7 @@ Reference documents:
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
+- [BEVFusion Shadow PR Review Guide](./docs/BEVFUSION_SHADOW_PR_REVIEW_GUIDE_CN.md)
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
 
 ## Subagent Catalog
@@ -205,6 +206,7 @@ The repo-side planning documents live in:
 - `docs/UBUNTU_HOST_BRINGUP_CN.md`
 - `docs/SERVER_COMPILE_BASELINE_CN.md`
 - `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
+- `docs/BEVFUSION_SHADOW_PR_REVIEW_GUIDE_CN.md`
 - `docs/PROJECT_AUTOMATION.md`
 - `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
 - `docs/GIT_COLLABORATION_STANDARD_CN.md`
