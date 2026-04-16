@@ -375,6 +375,73 @@ class CliTests(unittest.TestCase):
             self.assertTrue((report_dir / "report.md").exists())
             self.assertTrue((report_dir / "report.html").exists())
 
+    def test_run_report_and_replay_form_a_local_closed_loop(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_stream = io.StringIO()
+            with redirect_stdout(run_stream):
+                run_rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "run",
+                        "--scenario",
+                        "scenarios/l0/smoke_stub.yaml",
+                        "--run-root",
+                        tempdir,
+                        "--slot",
+                        "stable-slot-01",
+                    ]
+                )
+            self.assertEqual(run_rc, 0)
+            run_result = json.loads(run_stream.getvalue())
+            run_result_path = Path(run_result["artifacts"]["run_result"])
+            self.assertTrue(run_result_path.exists())
+
+            report_dir = Path(tempdir) / "report"
+            report_stream = io.StringIO()
+            with redirect_stdout(report_stream):
+                report_rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "report",
+                        "--run-root",
+                        tempdir,
+                        "--output-dir",
+                        str(report_dir),
+                    ]
+                )
+            self.assertEqual(report_rc, 0)
+            report_outputs = json.loads(report_stream.getvalue())
+            report_markdown = Path(report_outputs["markdown"]).read_text(encoding="utf-8")
+            report_summary = json.loads(Path(report_outputs["summary"]).read_text(encoding="utf-8"))
+            self.assertIn("## Replay Entries", report_markdown)
+            self.assertIn('simctl replay --run-result "', report_markdown)
+            self.assertEqual(report_summary["replay"]["entries"], 1)
+            self.assertEqual(report_summary["replay"]["with_inputs"], 1)
+            self.assertTrue(report_summary["runs"][0]["replay_entry"]["has_inputs"])
+
+            replay_stream = io.StringIO()
+            with redirect_stdout(replay_stream):
+                replay_rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "replay",
+                        "--run-result",
+                        str(run_result_path),
+                    ]
+                )
+            self.assertEqual(replay_rc, 0)
+            replay_plan = json.loads(replay_stream.getvalue())
+            self.assertEqual(replay_plan["action"], "replay")
+            self.assertEqual(replay_plan["stack_id"], "stable")
+            self.assertEqual(replay_plan["steps"][0]["name"], "replay-rosbag")
+            self.assertIn("ros2 bag play", replay_plan["steps"][0]["command"])
+            self.assertIn(run_result["artifacts"]["rosbag2"], replay_plan["steps"][0]["command"])
+            self.assertEqual(replay_plan["steps"][1]["name"], "replay-carla")
+            self.assertIn(run_result["artifacts"]["carla_recorder"], replay_plan["steps"][1]["command"])
+
     def test_batch_parallel_uses_two_slots_and_reuses_one_for_third_run(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             stream = io.StringIO()
