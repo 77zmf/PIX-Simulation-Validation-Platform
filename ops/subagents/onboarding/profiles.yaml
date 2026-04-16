@@ -1,0 +1,125 @@
+profiles:
+  zhu_minfeng:
+    display_name: Zhu Minfeng
+    description: Stable mainline owner focused on Ubuntu host, execution chain, and closed-loop delivery.
+    reading_order:
+      - README.md
+      - AGENTS.md
+      - docs/UBUNTU_HOST_BRINGUP_CN.md
+      - docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md
+      - docs/TEAM_AGENT_USAGE_CN.md
+      - docs/SUBAGENT_CATALOG.md
+      - docs/TEAM_SKILL_USAGE_CN.md
+    recommended_subagents:
+      - stable_stack_host_readiness_explorer
+      - execution_runtime_explorer
+    related_skills:
+      - simctl-run-analysis
+      - autoware-release-check
+      - ai-superbody-pmo
+    starter_commands:
+      - python -m simctl subagent-spec --list
+      - python -m simctl subagent-spec --onboarding zhu_minfeng
+      - python -m simctl subagent-spec --name stable_stack_host_readiness_explorer
+      - python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_json
+    issue_sync_format:
+      - 当前现象
+      - 已验证过什么
+      - 当前 blocker
+      - 下一步建议
+    notes:
+      - stable closed-loop delivery stays ahead of research expansion
+      - formal runtime validation still belongs on the company Ubuntu host
+  lsxala:
+    display_name: Luo Shunxiong / lsx
+    description: Site proxy, public-road assets, replay templates, and reconstruction-input owner.
+    reading_order:
+      - README.md
+      - AGENTS.md
+      - docs/PROJECT_OPERATING_TEAM_CN.md
+      - docs/FUTURE_EXECUTION_ROADMAP_CN.md
+      - docs/TEAM_AGENT_USAGE_CN.md
+      - docs/SUBAGENT_CATALOG.md
+      - docs/TEAM_SKILL_USAGE_CN.md
+      - assets/
+      - scenarios/
+    recommended_subagents:
+      - gaussian_reconstruction_explorer
+      - execution_runtime_explorer
+    related_skills:
+      - carla-case-builder
+      - autoware-bug-report
+    starter_commands:
+      - python -m simctl subagent-spec --list
+      - python -m simctl subagent-spec --onboarding lsxala
+      - python -m simctl subagent-spec --name gaussian_reconstruction_explorer
+      - python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_json
+    issue_sync_format:
+      - 当前资产输入
+      - 已整理内容
+      - 缺失项或 blocker
+      - 下一步建议
+    notes:
+      - asset and reconstruction work should stay traceable to source bundles and replay use
+      - do not let reconstruction work block stable delivery in this quarter
+  yzp333666:
+    display_name: Yang Zhipeng / 杨志朋
+    description: BEVFusion baseline, public-road perception, and shadow E2E owner.
+    reading_order:
+      - README.md
+      - AGENTS.md
+      - docs/ALGORITHM_RESEARCH_ROADMAP_CN.md
+      - docs/PAPER_READING_MAP_CN.md
+      - docs/PAPER_LANDSCAPE_CN.md
+      - docs/TEAM_AGENT_USAGE_CN.md
+      - docs/SUBAGENT_CATALOG.md
+      - docs/TEAM_SKILL_USAGE_CN.md
+    recommended_subagents:
+      - public_road_e2e_shadow_explorer
+      - algorithm_research_explorer
+    related_skills:
+      - simctl-run-analysis
+      - carla-case-builder
+    starter_commands:
+      - python -m simctl subagent-spec --list
+      - python -m simctl subagent-spec --onboarding yzp333666
+      - python -m simctl subagent-spec --name public_road_e2e_shadow_explorer
+      - python -m simctl subagent-spec --name algorithm_research_explorer --format spawn_json
+    issue_sync_format:
+      - 当前研究结论
+      - 接口或指标变化
+      - 当前 blocker
+      - 下一步实验
+    notes:
+      - keep shadow work as observation_only until stable runtime evidence says otherwise
+      - route conclusions back to scenarios, profiles, and KPI gates instead of paper-only summaries
+  codex_pmo:
+    display_name: Codex PMO
+    description: Repo-side project automation, digest, and cross-track blocker aggregation support.
+    reading_order:
+      - README.md
+      - AGENTS.md
+      - docs/PROJECT_OPERATING_TEAM_CN.md
+      - docs/TEAM_AGENT_USAGE_CN.md
+      - docs/TEAM_SKILL_USAGE_CN.md
+      - docs/SUBAGENT_CATALOG.md
+      - docs/PROJECT_AUTOMATION.md
+    recommended_subagents:
+      - project_automation_explorer
+      - algorithm_research_explorer
+    related_skills:
+      - ai-superbody-pmo
+      - simctl-run-analysis
+    starter_commands:
+      - python -m simctl subagent-spec --list
+      - python -m simctl subagent-spec --onboarding codex_pmo
+      - python -m simctl subagent-spec --name project_automation_explorer
+      - python -m simctl subagent-spec --name algorithm_research_explorer --format spawn_json
+    issue_sync_format:
+      - milestone status
+      - completed
+      - blockers
+      - owner next actions
+    notes:
+      - GitHub-only execution tracking is the current default
+      - support stable delivery first, then research coordination

@@ -12,7 +12,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from simctl.cli import main
-from simctl.subagents import list_subagent_specs, load_subagent_spec
+from simctl.subagents import (
+    list_onboarding_profiles,
+    list_subagent_specs,
+    load_onboarding_profile,
+    load_subagent_spec,
+)
 
 
 class SubagentSpecTests(unittest.TestCase):
@@ -99,6 +104,46 @@ class SubagentSpecTests(unittest.TestCase):
         self.assertEqual(payload["model"], "gpt-5.4-mini")
         self.assertEqual(payload["reasoning_effort"], "medium")
         self.assertIn(str(REPO_ROOT), payload["message"])
+
+    def test_list_onboarding_profiles_loads_catalog(self) -> None:
+        profiles = list_onboarding_profiles(REPO_ROOT)
+        self.assertEqual(
+            [profile.profile_id for profile in profiles],
+            ["codex_pmo", "lsxala", "yzp333666", "zhu_minfeng"],
+        )
+
+    def test_load_onboarding_profile_for_yang_includes_expected_routes(self) -> None:
+        profile = load_onboarding_profile("yzp333666", REPO_ROOT)
+        payload = profile.as_payload(REPO_ROOT)
+        self.assertEqual(payload["display_name"], "Yang Zhipeng / 杨志朋")
+        self.assertEqual(
+            [spec["spec_id"] for spec in payload["recommended_subagents"]],
+            ["public_road_e2e_shadow_explorer", "algorithm_research_explorer"],
+        )
+        self.assertEqual(
+            [skill["skill_id"] for skill in payload["related_skills"]],
+            ["simctl-run-analysis", "carla-case-builder"],
+        )
+        self.assertIn("python -m simctl subagent-spec --onboarding yzp333666", payload["starter_commands"])
+
+    def test_cli_lists_onboarding_profiles(self) -> None:
+        stream = io.StringIO()
+        with redirect_stdout(stream):
+            rc = main(["--repo-root", str(REPO_ROOT), "subagent-spec", "--list-onboarding"])
+        self.assertEqual(rc, 0)
+        payload = json.loads(stream.getvalue())
+        self.assertEqual(len(payload["profiles"]), 4)
+        self.assertEqual(payload["profiles"][0]["profile_id"], "codex_pmo")
+
+    def test_cli_renders_one_onboarding_profile(self) -> None:
+        stream = io.StringIO()
+        with redirect_stdout(stream):
+            rc = main(["--repo-root", str(REPO_ROOT), "subagent-spec", "--onboarding", "zhu_minfeng"])
+        self.assertEqual(rc, 0)
+        payload = json.loads(stream.getvalue())
+        self.assertEqual(payload["profile_id"], "zhu_minfeng")
+        self.assertEqual(payload["recommended_subagents"][0]["spec_id"], "stable_stack_host_readiness_explorer")
+        self.assertEqual(payload["related_skills"][0]["skill_id"], "simctl-run-analysis")
 
 
 if __name__ == "__main__":

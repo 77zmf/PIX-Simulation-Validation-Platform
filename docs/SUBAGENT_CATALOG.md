@@ -28,6 +28,18 @@ Render one spec as JSON payload for `spawn_agent`:
 python -m simctl subagent-spec --name execution_runtime_explorer
 ```
 
+List onboarding profiles:
+
+```powershell
+python -m simctl subagent-spec --list-onboarding
+```
+
+Render one onboarding profile:
+
+```powershell
+python -m simctl subagent-spec --onboarding yzp333666
+```
+
 Render only the prompt text:
 
 ```powershell
@@ -99,9 +111,10 @@ Because of that, not all specs should be used with the same frequency.
 1. Pull the latest repo on the other machine.
 2. Activate the repo environment.
 3. Run `python -m simctl subagent-spec --list`.
-4. Render the spec you want.
-5. Use `--format spawn_json` if you want a direct `spawn_agent` parameter object.
-6. Use the emitted JSON as the `spawn_agent` input in Codex.
+4. Run `python -m simctl subagent-spec --list-onboarding` if you want role-based guidance first.
+5. Render the spec or onboarding profile you want.
+6. Use `--format spawn_json` if you want a direct `spawn_agent` parameter object.
+7. Use the emitted JSON as the `spawn_agent` input in Codex.
 
 ## Notes
 

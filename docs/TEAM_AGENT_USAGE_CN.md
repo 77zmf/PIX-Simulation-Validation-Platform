@@ -11,6 +11,8 @@
 调用入口：
 
 - `python -m simctl subagent-spec`
+- `python -m simctl subagent-spec --list-onboarding`
+- `python -m simctl subagent-spec --onboarding yzp333666`
 
 ## 2. 当前可复用 Agent
 
@@ -97,6 +99,7 @@ git switch main
 git pull --ff-only origin main
 python -m pip install -e .
 python -m simctl subagent-spec --list
+python -m simctl subagent-spec --list-onboarding
 python -m simctl subagent-spec --name execution_runtime_explorer
 python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_json
 ```
