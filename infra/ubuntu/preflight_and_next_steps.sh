@@ -61,6 +61,36 @@ check_cmd() {
   return 1
 }
 
+check_optional_visual_cmd() {
+  local name="$1"
+  local cmd="$2"
+  if command -v "$cmd" >/dev/null 2>&1; then
+    pass "$name available: $(command -v "$cmd")"
+    return 0
+  fi
+  warn "$name missing"
+  return 1
+}
+
+check_ros2_cli() {
+  if command -v ros2 >/dev/null 2>&1; then
+    if ros2 --help >/dev/null 2>&1; then
+      pass "ROS 2 CLI responds"
+      return 0
+    fi
+    fail "ROS 2 CLI found but not responding correctly"
+    return 1
+  fi
+
+  if [[ -f /opt/ros/humble/setup.bash ]] && bash -lc "source /opt/ros/humble/setup.bash >/dev/null 2>&1 && command -v ros2 >/dev/null 2>&1 && ros2 --help >/dev/null 2>&1"; then
+    pass "ROS 2 CLI responds after sourcing /opt/ros/humble/setup.bash"
+    return 0
+  fi
+
+  fail "ros2 missing"
+  return 1
+}
+
 check_port() {
   local port="$1"
   if ss -ltn | awk '{print $4}' | grep -E "[:.]${port}$" >/dev/null 2>&1; then
@@ -94,15 +124,7 @@ check_cmd "colcon" colcon || add_step "bash '${REPO_ROOT}/infra/ubuntu/bootstrap
 check_cmd "rosdep" rosdep || add_step "bash '${REPO_ROOT}/infra/ubuntu/bootstrap_host.sh' --execute"
 check_cmd "vcs" vcs || add_step "bash '${REPO_ROOT}/infra/ubuntu/bootstrap_host.sh' --execute"
 
-if command -v ros2 >/dev/null 2>&1; then
-  if ros2 --help >/dev/null 2>&1; then
-    pass "ROS 2 CLI responds"
-  else
-    fail "ROS 2 CLI found but not responding correctly"
-    add_step "bash '${REPO_ROOT}/infra/ubuntu/bootstrap_host.sh' --execute"
-  fi
-else
-  fail "ros2 missing"
+if ! check_ros2_cli; then
   add_step "bash '${REPO_ROOT}/infra/ubuntu/bootstrap_host.sh' --execute"
 fi
 
@@ -112,7 +134,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
     pass "nvcc available: $(command -v nvcc)"
   else
     warn "nvcc missing"
-    add_step "bash '${REPO_ROOT}/infra/ubuntu/setup_cuda_tensorrt.sh' --execute"
+    add_note "nvcc is only required for CUDA source builds; it is not a blocker for using an already-built Autoware install."
   fi
   LDCONFIG_CACHE="$(ldconfig -p 2>/dev/null || true)"
   if grep -q 'libnvinfer' <<<"$LDCONFIG_CACHE"; then
@@ -178,6 +200,32 @@ if [[ -d "${REPO_ROOT}/.venv" ]]; then
 else
   warn "Repo virtual environment missing"
   add_step "cd '${REPO_ROOT}' && python3 -m venv .venv && source .venv/bin/activate && python -m pip install -e ."
+fi
+
+VISUAL_TOOLS_STEP="bash '${REPO_ROOT}/infra/ubuntu/bootstrap_host.sh' --with-visual-tools --execute"
+if check_optional_visual_cmd "ffmpeg visual recorder" ffmpeg; then
+  :
+else
+  add_step "$VISUAL_TOOLS_STEP"
+fi
+
+MISSING_OPTIONAL_VISUAL=0
+for visual_cmd in xwd xprop xwininfo wmctrl xdotool gnome-screenshot scrot import glxinfo; do
+  if ! check_optional_visual_cmd "visual helper ${visual_cmd}" "$visual_cmd"; then
+    MISSING_OPTIONAL_VISUAL=1
+  fi
+done
+
+if [[ "$MISSING_OPTIONAL_VISUAL" -eq 1 ]]; then
+  add_step "$VISUAL_TOOLS_STEP"
+  add_note "Missing visual helpers do not block offscreen CARLA, but they make NoMachine window control, screenshots, and visual evidence capture harder."
+fi
+
+if [[ -n "${DISPLAY:-}" ]]; then
+  pass "DISPLAY is set for visual validation: ${DISPLAY}"
+else
+  warn "DISPLAY is not set in this shell"
+  add_note "For NoMachine visual runs over SSH, try: export DISPLAY=:0 XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority"
 fi
 
 for port in 2000 2010 2020 2030 8000 8010 8020 8030; do

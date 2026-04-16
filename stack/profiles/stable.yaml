@@ -13,7 +13,7 @@ start:
   - name: start-carla-server
     runner: bash
     background: true
-    command: "bash '{repo_root}/stack/stable/start_carla_host.sh' --run-dir '{run_dir}' --asset-root '{asset_root}' --slot-id '{slot_id}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --gpu-id '{gpu_id}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/start_carla_host.sh' --run-dir '{run_dir}' --asset-root '{asset_root}' --slot-id '{slot_id}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --gpu-id '{gpu_id}' --cpu-affinity '{cpu_affinity}' --carla-map '{carla_map}' --render-mode '{carla_render_mode}' --res-x '{carla_res_x}' --res-y '{carla_res_y}' --quality-level '{carla_quality_level}' --extra-args '{carla_extra_args}' --display '{carla_display}' --xauthority '{carla_xauthority}' {execute_flag}"
   - name: start-autoware-bridge
     runner: bash
     background: true
@@ -21,11 +21,11 @@ start:
   - name: start-autoware-stack
     runner: bash
     background: true
-    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_ws}' --map-path '{autoware_map_path}' --vehicle-model '{autoware_vehicle_model}' --sensor-model '{autoware_sensor_model}' --lidar-type '{autoware_lidar_type}' --rviz '{autoware_rviz}' {execute_flag}"
 stop:
   - name: stop-autoware-stack
     runner: bash
-    command: "bash '{repo_root}/stack/stable/stop_stable_stack.sh' --run-dir '{run_dir}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/stop_stable_stack.sh' --run-dir '{run_dir}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' {execute_flag}"
 replay:
   - name: replay-rosbag
     runner: bash

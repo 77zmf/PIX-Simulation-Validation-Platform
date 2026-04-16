@@ -39,6 +39,20 @@ def build_context(
     execute: bool = False,
 ) -> dict[str, str]:
     scenario_path = scenario.scenario_path if scenario else None
+    execution = scenario.execution if scenario else {}
+    stable_runtime = execution.get("stable_runtime", {}) if isinstance(execution, dict) else {}
+    if not isinstance(stable_runtime, dict):
+        stable_runtime = {}
+
+    def runtime_option(key: str, default: str = "") -> str:
+        env_key = f"SIMCTL_{key.upper()}"
+        if env_key in os.environ:
+            return os.environ[env_key]
+        value = stable_runtime.get(key, execution.get(key, default) if isinstance(execution, dict) else default)
+        if value is None:
+            return ""
+        return str(value)
+
     context = {
         "repo_root": str(repo_root),
         "repo_root_wsl": to_wsl_path(repo_root),
@@ -49,6 +63,7 @@ def build_context(
         "scenario_id": scenario.scenario_id if scenario else "",
         "scenario_path": str(scenario_path) if scenario_path else "",
         "scenario_path_wsl": to_wsl_path(scenario_path) if scenario_path else "",
+        "map_id": scenario.map_id if scenario else "",
         "asset_bundle_id": asset_bundle_id,
         "sensor_profile_id": sensor_profile.profile_id if sensor_profile else (scenario.sensor_profile if scenario else ""),
         "sensor_truth_mode": (sensor_profile.truth_mode or "") if sensor_profile else "",
@@ -62,6 +77,20 @@ def build_context(
         "gpu_id": slot.gpu_id if slot else "",
         "cpu_affinity": slot.cpu_affinity or "" if slot else "",
         "execute_flag": "-Execute" if execute else "",
+        "autoware_ws": runtime_option("autoware_ws"),
+        "autoware_map_path": runtime_option("autoware_map_path"),
+        "autoware_vehicle_model": runtime_option("autoware_vehicle_model"),
+        "autoware_sensor_model": runtime_option("autoware_sensor_model"),
+        "autoware_lidar_type": runtime_option("autoware_lidar_type"),
+        "autoware_rviz": runtime_option("autoware_rviz"),
+        "carla_map": runtime_option("carla_map", scenario.map_id if scenario else ""),
+        "carla_render_mode": runtime_option("carla_render_mode"),
+        "carla_res_x": runtime_option("carla_res_x"),
+        "carla_res_y": runtime_option("carla_res_y"),
+        "carla_quality_level": runtime_option("carla_quality_level"),
+        "carla_extra_args": runtime_option("carla_extra_args"),
+        "carla_display": runtime_option("carla_display"),
+        "carla_xauthority": runtime_option("carla_xauthority"),
     }
     return context
 
@@ -130,6 +159,7 @@ def execute_plan(plan: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
                     stderr=subprocess.STDOUT,
                     text=True,
                     env=step_env,
+                    start_new_session=True,
                 )
                 try:
                     returncode = process.wait(timeout=BACKGROUND_STARTUP_TIMEOUT_SEC)

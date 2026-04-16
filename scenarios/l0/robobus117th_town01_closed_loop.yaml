@@ -1,0 +1,56 @@
+scenario_id: robobus117th_town01_closed_loop
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 20.0
+    y: -2.0
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 120.0
+    y: -2.0
+    z: 0.0
+    yaw_deg: 0.0
+traffic_profile:
+  mode: empty_smoke
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: ClearNoon
+sensor_profile: ground_truth_control_baseline
+algorithm_profile: planning_control_baseline
+seed: 117
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/robobus117th_town01
+  carla_recorder:
+    enabled: true
+    path: carla/robobus117th_town01.log
+kpi_gate: planning_control_smoke
+labels:
+  - L0
+  - smoke
+  - robobus117th
+metadata:
+  owner: zmf
+  source_assets:
+    - assets/manifests/carla_town01.yaml
+    - github.com/pixmoving-moveit/parameter:PixRover1.2-1.5/117th
+  validation_method: CARLA 0.9.15 + Autoware planning simulator closed-loop smoke
+  rollback_impact: Disable this scenario or switch execution.mode back to stub; it does not modify runtime assets.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_map: Town01
+    carla_render_mode: offscreen
+    carla_quality_level: Low

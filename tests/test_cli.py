@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -61,6 +62,76 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result["resolved_profiles"]["algorithm"]["profile_id"], "planning_control_baseline")
             self.assertTrue(Path(result["artifacts"]["sensor_profile_snapshot"]).exists())
             self.assertTrue(Path(result["artifacts"]["algorithm_profile_snapshot"]).exists())
+
+    def test_up_renders_private_host_runtime_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "up",
+                        "--stack",
+                        "stable",
+                        "--scenario",
+                        "scenarios/l0/robobus117th_town01_closed_loop.yaml",
+                        "--run-dir",
+                        tempdir,
+                        "--slot",
+                        "stable-slot-01",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            plan_path = Path(stream.getvalue().strip())
+            plan = json.loads(plan_path.read_text(encoding="utf-8"))
+            carla_command = plan["steps"][0]["command"]
+            autoware_command = plan["steps"][2]["command"]
+            self.assertIn("--carla-map 'Town01'", carla_command)
+            self.assertIn("--render-mode 'offscreen'", carla_command)
+            self.assertIn(
+                "--autoware-ws '/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware'",
+                autoware_command,
+            )
+            self.assertIn("--map-path '/home/pixmoving/autoware_map/Town01'", autoware_command)
+            self.assertIn("--vehicle-model 'robobus'", autoware_command)
+            self.assertIn("--sensor-model 'robobus_sensor_kit'", autoware_command)
+            self.assertIn("--lidar-type 'robosense'", autoware_command)
+
+    def test_up_allows_explicit_runtime_env_override(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with patch.dict(
+                os.environ,
+                {
+                    "SIMCTL_CARLA_RENDER_MODE": "visual",
+                    "SIMCTL_CARLA_DISPLAY": ":0",
+                    "SIMCTL_CARLA_XAUTHORITY": "/run/user/1000/gdm/Xauthority",
+                },
+                clear=False,
+            ):
+                with redirect_stdout(stream):
+                    rc = main(
+                        [
+                            "--repo-root",
+                            str(REPO_ROOT),
+                            "up",
+                            "--stack",
+                            "stable",
+                            "--scenario",
+                            "scenarios/l0/robobus117th_town01_closed_loop.yaml",
+                            "--run-dir",
+                            tempdir,
+                            "--slot",
+                            "stable-slot-01",
+                        ]
+                    )
+            self.assertEqual(rc, 0)
+            plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
+            carla_command = plan["steps"][0]["command"]
+            self.assertIn("--render-mode 'visual'", carla_command)
+            self.assertIn("--display ':0'", carla_command)
+            self.assertIn("--xauthority '/run/user/1000/gdm/Xauthority'", carla_command)
 
     def test_run_fails_fast_for_missing_algorithm_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

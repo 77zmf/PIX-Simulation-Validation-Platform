@@ -91,6 +91,49 @@ ros2 pkg prefix autoware_carla_interface
 - `sensor_model=carla_sensor_kit`
 - `rviz=true`
 
+当前 `117th` 私有 install 验证请优先走已版本化场景：
+
+```bash
+cd /home/pixmoving/PIX-Simulation-Validation-Platform
+source .venv/bin/activate
+simctl up --stack stable \
+  --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml \
+  --run-dir runs/manual_robobus117th_town01 \
+  --slot stable-slot-01
+```
+
+它会渲染以下运行参数：
+
+- `AUTOWARE_WS=/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware`
+- `map_path=/home/pixmoving/autoware_map/Town01`
+- `vehicle_model=robobus`
+- `sensor_model=robobus_sensor_kit`
+- `LIDAR_TYPE=robosense`
+
+如果需要 NoMachine 可视化：
+
+```bash
+bash infra/ubuntu/bootstrap_host.sh --with-visual-tools --execute
+bash infra/ubuntu/check_host_readiness.sh --visual
+export DISPLAY=:0
+export XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority
+CARLA_RENDER_MODE=visual CARLA_RES_X=1280 CARLA_RES_Y=720 CARLA_QUALITY_LEVEL=Low \
+  bash stack/stable/start_carla_host.sh --carla-map Town01 --execute
+```
+
+走 `simctl up` 时也可以临时覆盖场景里的 offscreen 默认：
+
+```bash
+SIMCTL_CARLA_RENDER_MODE=visual \
+SIMCTL_CARLA_DISPLAY=:0 \
+SIMCTL_CARLA_XAUTHORITY="/run/user/$(id -u)/gdm/Xauthority" \
+simctl up --stack stable \
+  --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml \
+  --run-dir runs/manual_robobus117th_town01_visual \
+  --slot stable-slot-01 \
+  --execute
+```
+
 ## 继续编译时建议
 
 先看之前的编译日志：
