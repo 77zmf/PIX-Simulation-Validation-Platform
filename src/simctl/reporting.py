@@ -16,6 +16,21 @@ def discover_run_results(run_root: Path) -> list[Path]:
     return sorted(run_root.rglob("run_result.json"))
 
 
+def attach_run_result_metadata(result: dict[str, Any], path: Path) -> dict[str, Any]:
+    enriched = dict(result)
+    replay = enriched.get("replay", {})
+    rosbag2 = replay.get("rosbag2") or enriched.get("artifacts", {}).get("rosbag2")
+    carla_recorder = replay.get("carla_recorder") or enriched.get("artifacts", {}).get("carla_recorder")
+    enriched["run_result_path"] = str(path)
+    enriched["replay_entry"] = {
+        "has_inputs": bool(rosbag2 or carla_recorder),
+        "rosbag2": rosbag2,
+        "carla_recorder": carla_recorder,
+        "command": f'simctl replay --run-result "{path}"',
+    }
+    return enriched
+
+
 def aggregate_run_results(run_results: list[dict[str, Any]]) -> dict[str, Any]:
     stack_summary: dict[str, dict[str, int]] = {}
     for result in run_results:
@@ -25,11 +40,17 @@ def aggregate_run_results(run_results: list[dict[str, Any]]) -> dict[str, Any]:
         )
         bucket["total"] += 1
         bucket[result["status"]] = bucket.get(result["status"], 0) + 1
+    replay_summary = {
+        "entries": len(run_results),
+        "with_inputs": sum(1 for result in run_results if result.get("replay_entry", {}).get("has_inputs", False)),
+        "without_inputs": sum(1 for result in run_results if not result.get("replay_entry", {}).get("has_inputs", False)),
+    }
     return {
         "generated_at": utc_now(),
         "total_runs": len(run_results),
         "statuses": summarize_statuses(run_results),
         "stacks": stack_summary,
+        "replay": replay_summary,
         "failure_clusters": cluster_failures(run_results),
         "runs": run_results,
     }
@@ -67,6 +88,28 @@ def render_markdown(summary: dict[str, Any]) -> str:
         for cluster in summary["failure_clusters"]:
             labels = ", ".join(f"`{label}`" for label in cluster["labels"])
             lines.append(f"- {labels}: {cluster['count']} run(s)")
+    lines.extend(
+        [
+            "",
+            "## Replay Entries",
+            "",
+            f"- Entries: `{summary['replay']['entries']}`",
+            f"- With inputs: `{summary['replay']['with_inputs']}`",
+            f"- Without inputs: `{summary['replay']['without_inputs']}`",
+            "",
+            "| Run ID | Replay Inputs | Replay Command |",
+            "| --- | --- | --- |",
+        ]
+    )
+    for result in summary["runs"]:
+        replay_entry = result.get("replay_entry", {})
+        input_labels: list[str] = []
+        if replay_entry.get("rosbag2"):
+            input_labels.append("rosbag2")
+        if replay_entry.get("carla_recorder"):
+            input_labels.append("carla_recorder")
+        replay_inputs = ", ".join(f"`{label}`" for label in input_labels) if input_labels else "`none`"
+        lines.append(f"| `{result['run_id']}` | {replay_inputs} | `{replay_entry.get('command', '')}` |")
     lines.extend(["", "## Runs", "", "| Run ID | Scenario | Stack | Status | Gate Passed |", "| --- | --- | --- | --- | --- |"])
     for result in summary["runs"]:
         gate_passed = result.get("gate", {}).get("passed")
@@ -92,6 +135,21 @@ def render_html(summary: dict[str, Any]) -> str:
     cluster_items = "".join(
         f"<li><code>{', '.join(cluster['labels'])}</code>: {cluster['count']} run(s)</li>" for cluster in summary["failure_clusters"]
     ) or "<li>None</li>"
+    replay_rows = []
+    for result in summary["runs"]:
+        replay_entry = result.get("replay_entry", {})
+        inputs: list[str] = []
+        if replay_entry.get("rosbag2"):
+            inputs.append("rosbag2")
+        if replay_entry.get("carla_recorder"):
+            inputs.append("carla_recorder")
+        replay_rows.append(
+            "<tr>"
+            f"<td><code>{result['run_id']}</code></td>"
+            f"<td><code>{', '.join(inputs) if inputs else 'none'}</code></td>"
+            f"<td><code>{replay_entry.get('command', '')}</code></td>"
+            "</tr>"
+        )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -110,8 +168,18 @@ def render_html(summary: dict[str, Any]) -> str:
   <h1>Simulation Report</h1>
   <p>Generated at <code>{summary['generated_at']}</code></p>
   <p>Total runs: <code>{summary['total_runs']}</code></p>
+  <p>Replay entries: <code>{summary['replay']['entries']}</code> total, <code>{summary['replay']['with_inputs']}</code> with inputs</p>
   <h2>Failure Clusters</h2>
   <ul>{cluster_items}</ul>
+  <h2>Replay Entries</h2>
+  <table>
+    <thead>
+      <tr><th>Run ID</th><th>Replay Inputs</th><th>Replay Command</th></tr>
+    </thead>
+    <tbody>
+      {''.join(replay_rows)}
+    </tbody>
+  </table>
   <h2>Runs</h2>
   <table>
     <thead>
