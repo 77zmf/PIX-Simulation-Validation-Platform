@@ -1,20 +1,32 @@
 {
-  "bundle_name": "pix_codex_automation_overlay",
+  "bundle_name": "pix_codex_automation_import_bundle",
   "version": "2026-04-16",
   "target_repo": "77zmf/PIX-Simulation-Validation-Platform",
   "install_mode": "extract_to_repo_root",
   "files": [
     ".agents/skills/project-digest-triage/SKILL.md",
     ".agents/skills/project-digest-triage/scripts/build_digest.sh",
+    ".agents/skills/pix-host-readiness/SKILL.md",
+    ".agents/skills/pix-host-readiness/agents/openai.yaml",
+    ".agents/skills/pix-project-digest/SKILL.md",
+    ".agents/skills/pix-project-digest/agents/openai.yaml",
+    ".agents/skills/pix-public-road-case-builder/SKILL.md",
+    ".agents/skills/pix-public-road-case-builder/agents/openai.yaml",
+    ".agents/skills/pix-run-result-triage/SKILL.md",
+    ".agents/skills/pix-run-result-triage/agents/openai.yaml",
     ".agents/skills/repo-verification/SKILL.md",
     ".agents/skills/repo-verification/scripts/run_checks.sh",
     ".agents/skills/runtime-closure-audit/SKILL.md",
     ".agents/skills/runtime-closure-audit/scripts/audit_stub_run.sh",
     ".codex/config.toml",
+    ".github/codex/prompts/ci_failure_triage.md",
     ".github/codex/prompts/digest_triage.md",
+    ".github/codex/prompts/digest_narration.md",
     ".github/codex/prompts/pr_review.md",
     ".github/codex/prompts/runtime_closure_audit.md",
+    ".github/workflows/codex_ci_triage.yml",
     ".github/workflows/codex_digest_triage.yml",
+    ".github/workflows/codex_digest_narration.yml",
     ".github/workflows/codex_pr_review.yml",
     ".github/workflows/codex_runtime_closure_audit.yml",
     "AGENTS.override.md",
@@ -32,11 +44,17 @@
   "primary_workflows": [
     ".github/workflows/codex_pr_review.yml",
     ".github/workflows/codex_digest_triage.yml",
-    ".github/workflows/codex_runtime_closure_audit.yml"
+    ".github/workflows/codex_runtime_closure_audit.yml",
+    ".github/workflows/codex_ci_triage.yml",
+    ".github/workflows/codex_digest_narration.yml"
   ],
   "primary_skills": [
     ".agents/skills/repo-verification",
     ".agents/skills/project-digest-triage",
-    ".agents/skills/runtime-closure-audit"
+    ".agents/skills/runtime-closure-audit",
+    ".agents/skills/pix-run-result-triage",
+    ".agents/skills/pix-host-readiness",
+    ".agents/skills/pix-project-digest",
+    ".agents/skills/pix-public-road-case-builder"
   ]
 }

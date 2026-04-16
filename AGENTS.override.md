@@ -26,6 +26,7 @@ In the current quarter, Codex should optimize for four outcomes:
 - If a task changes `src/`, `tests/`, `scenarios/`, `evaluation/`, `stack/`, `infra/`, `assets/`, `ops/`, or `.github/workflows/`, use the `repo-verification` skill before declaring the work done.
 - If a task asks for digest, blocker summary, weekly review, GitHub Project triage, or owner next actions, use the `project-digest-triage` skill.
 - If a task asks whether validation is truly closed loop, why a run is stuck, or how to connect `run_result -> KPI gate -> report -> replay`, use the `runtime-closure-audit` skill.
+- If a task asks for run artifact interpretation, Ubuntu host readiness, project digest narration, or public-road case intake, prefer the corresponding `pix-*` skill under `.agents/skills/`.
 
 ## Definition of done
 Prefer work that tightens the validation chain:
