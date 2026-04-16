@@ -12,7 +12,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .adapters import AdapterContext, load_reconstruction_adapter
-from .assets import asset_snapshot, load_asset_bundle
+from .assets import asset_snapshot, inspect_asset_bundle, load_asset_bundle
 from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, make_run_id, to_wsl_path, utc_now
 from .evaluation import evaluate_metrics, load_kpi_gate, synthetic_metrics
 from .health import probe_runtime_health
@@ -31,7 +31,7 @@ from .project_ops import (
     summarize_items,
     write_digest_outputs,
 )
-from .reporting import aggregate_run_results, discover_run_results, load_run_result, write_report
+from .reporting import aggregate_run_results, attach_run_result_metadata, discover_run_results, load_run_result, write_report
 from .runtime import build_context, execute_plan, load_stack_profile, persist_plan, render_action
 from .scenarios import load_scenario
 from .slots import acquire_slot_lock, get_slot_by_id, list_available_slots, load_slot_catalog, release_slot_lock
@@ -99,6 +99,14 @@ def handle_bootstrap(args: argparse.Namespace) -> int:
         logs = execute_plan(plan, output_dir)
         dump_json(output_dir / "bootstrap_logs.json", logs)
     _print_json(plan)
+    return 0
+
+
+def handle_asset_check(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    asset_root = _asset_root(repo_root, args.asset_root)
+    bundle = load_asset_bundle(args.bundle, repo_root, asset_root)
+    _print_json(inspect_asset_bundle(bundle))
     return 0
 
 
@@ -626,11 +634,17 @@ def handle_replay(args: argparse.Namespace) -> int:
     fake_scenario = type(
         "ReplayScenario",
         (),
-        {"scenario_path": Path(result["scenario_path"]), "scenario_id": result["scenario_id"]},
+        {
+            "scenario_path": Path(result["scenario_path"]),
+            "scenario_id": result["scenario_id"],
+            "sensor_profile": result.get("scenario_params", {}).get("sensor_profile", ""),
+            "algorithm_profile": result.get("scenario_params", {}).get("algorithm_profile", ""),
+        },
     )()
     context = build_context(repo_root, Path(result["artifacts"]["run_dir"]), fake_scenario, asset_root, execute=False)
     context.update(
         {
+            "rosbag_path": result["artifacts"].get("rosbag2", ""),
             "rosbag_path_wsl": to_wsl_path(result["artifacts"]["rosbag2"]) if result["artifacts"].get("rosbag2") else "",
             "carla_recorder_path": result["artifacts"].get("carla_recorder", ""),
         }
@@ -648,7 +662,7 @@ def handle_report(args: argparse.Namespace) -> int:
         run_result_paths = [Path(item["run_result"]).resolve() for item in batch["records"]]
     else:
         run_result_paths = discover_run_results(run_root)
-    results = [load_run_result(path) for path in run_result_paths]
+    results = [attach_run_result_metadata(load_run_result(path), path) for path in run_result_paths]
     summary = aggregate_run_results(results)
     output_dir = Path(args.output_dir).resolve() if args.output_dir else (run_root / "report")
     outputs = write_report(output_dir, summary)
@@ -779,6 +793,10 @@ def build_parser() -> argparse.ArgumentParser:
     bootstrap.add_argument("--stack", choices=["stable"], required=True)
     bootstrap.add_argument("--execute", action="store_true")
     bootstrap.set_defaults(func=handle_bootstrap)
+
+    asset_check = subparsers.add_parser("asset-check", help="Validate one asset manifest and resolved map paths")
+    asset_check.add_argument("--bundle", required=True, help="Asset bundle id or manifest path")
+    asset_check.set_defaults(func=handle_asset_check)
 
     up = subparsers.add_parser("up", help="Render or execute stack startup plan")
     up.add_argument("--stack", choices=["stable"], required=True)
