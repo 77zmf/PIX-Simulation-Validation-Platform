@@ -1,0 +1,62 @@
+{
+  "bundle_name": "pix-codex-import-overlay",
+  "generated_on": "2026-04-16",
+  "source_repo": "77zmf/PIX-Simulation-Validation-Platform",
+  "source_project_doc": "ai_project_plan_autonomous_sim_updated.docx",
+  "entrypoint": "AGENTS.override.md",
+  "docs": [
+    {
+      "path": "AGENTS.override.md",
+      "role": "repo-level Codex override",
+      "priority": 1
+    },
+    {
+      "path": "docs/CODEX_PROJECT_SNAPSHOT_CN.md",
+      "role": "compact quarter/project summary",
+      "priority": 2
+    },
+    {
+      "path": "docs/CODEX_TASK_ROUTING_CN.md",
+      "role": "task routing and output contract",
+      "priority": 3
+    },
+    {
+      "path": "docs/PROJECT_PLAN_CODEX_READY_CN.md",
+      "role": "project plan converted to Markdown for Codex",
+      "priority": 4
+    },
+    {
+      "path": "docs/CODEX_IMPORT_README_CN.md",
+      "role": "import guide and first prompts",
+      "priority": 5
+    }
+  ],
+  "key_commands": [
+    "simctl bootstrap --stack stable",
+    "simctl up --stack stable --scenario scenarios/l0/smoke_stub.yaml",
+    "simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root runs",
+    "simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-result passed",
+    "simctl report --run-root runs",
+    "simctl digest"
+  ],
+  "subagents": [
+    "execution_runtime_explorer",
+    "algorithm_research_explorer",
+    "project_automation_explorer",
+    "gaussian_reconstruction_explorer",
+    "public_road_e2e_shadow_explorer",
+    "stable_stack_host_readiness_explorer"
+  ],
+  "skills": [
+    "autoware-bug-report",
+    "autoware-release-check",
+    "carla-case-builder",
+    "simctl-run-analysis",
+    "ai-superbody-pmo"
+  ],
+  "notes": [
+    "Formal runtime host remains the company Ubuntu 22.04 machine.",
+    "AI/Codex is not part of the real-time control loop in this phase.",
+    "GitHub-only project management is the current repository operating mode."
+  ]
+}

@@ -1,0 +1,5 @@
+# Project-scoped Codex configuration for PIX Simulation Validation Platform
+# Codex discovers this file by walking from the repo root (.git) to the current working directory.
+project_root_markers = [".git"]
+project_doc_max_bytes = 65536
+project_doc_fallback_filenames = ["AGENTS.override.md", "TEAM_GUIDE.md", ".agents.md"]
