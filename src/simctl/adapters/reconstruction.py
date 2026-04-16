@@ -7,7 +7,7 @@ from typing import Any
 from .base import AdapterContext
 
 
-@dataclass(slots=True)
+@dataclass
 class ReconstructionOutput:
     source: str
     family: str

@@ -45,7 +45,7 @@ bash infra/ubuntu/bootstrap_remote_access_tailscale.sh --execute --tailscale-hos
 这个脚本会做：
 
 - 安装并启动 `openssh-server`
-- 用 `uv` 准备本仓库 `Python 3.11` 的 `.venv`
+- 用 `uv` 准备本仓库 `Python 3.9+` 的 `.venv`
 - 安装并启动 `Tailscale`
 - 让公司 Ubuntu 主机加入你的 tailnet
 - 最后再跑一遍 `infra/ubuntu/preflight_and_next_steps.sh`

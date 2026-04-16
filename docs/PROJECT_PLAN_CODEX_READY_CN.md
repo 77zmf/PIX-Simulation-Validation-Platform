@@ -95,7 +95,7 @@
 
 ### 3.2 技术选型
 - 前端/展示：GitHub Pages + Markdown 报告（计划书中曾提 Notion，但当前仓库已收敛到 GitHub-only 管理）
-- 后端：Python 3.11 + `simctl`
+- 后端：Python 3.9+ + `simctl`
 - 数据：YAML / JSON / Markdown / artifacts
 - AI：OpenAI API / Codex / 自定义脚本
 - 部署与运维：Ubuntu 22.04 主机 + Windows/WSL 管理端 + GitHub Actions

@@ -7,23 +7,29 @@ SCENARIOS_JSON="${3:-}"
 
 choose_python() {
   local candidate
-  for candidate in "${PYTHON:-}" python3.12 python3.11 python3 python; do
+  for candidate in "${PYTHON:-}" python3.9 python3 python3.10 python3.11 python3.12 python; do
     [[ -n "$candidate" ]] || continue
     command -v "$candidate" >/dev/null 2>&1 || continue
-    if "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)'; then
+    if "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 1)'; then
       printf '%s\n' "$candidate"
       return 0
     fi
   done
-  echo "Python 3.11+ is required for simctl automation." >&2
+  echo "Python 3.9+ is required for simctl automation." >&2
   return 1
 }
 
 PYTHON_BIN="$(choose_python)"
 
-"$PYTHON_BIN" -m pip install --upgrade pip
-"$PYTHON_BIN" -m pip install -e .
+ensure_python_deps() {
+  if "$PYTHON_BIN" -c 'import yaml' >/dev/null 2>&1; then
+    return 0
+  fi
+  "$PYTHON_BIN" -m pip install --user "PyYAML>=6.0"
+}
 
+ensure_python_deps
+export PYTHONPATH=src
 mkdir -p "$OUT_DIR"
 
 if [[ -n "$TASKS_JSON" && -n "$SCENARIOS_JSON" ]]; then
