@@ -129,6 +129,13 @@ simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-res
 simctl report --run-root runs
 ```
 
+Asset manifest integrity:
+
+```bash
+simctl asset-check --bundle carla_town01
+simctl asset-check --bundle site_gy_qyhx_gsh20260302
+```
+
 Stable slot catalog:
 
 ```text
@@ -163,6 +170,7 @@ Reference documents:
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)
+- [Current Draft PR Queue](./docs/CURRENT_DRAFT_PR_QUEUE_CN.md)
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
@@ -212,6 +220,7 @@ The repo-side planning documents live in:
 - `docs/TEAM_AGENT_USAGE_CN.md`
 - `docs/TEAM_SKILL_USAGE_CN.md`
 - `docs/MAC_CODEX_WORKFLOW_CN.md`
+- `docs/CURRENT_DRAFT_PR_QUEUE_CN.md`
 - `docs/PAPER_READING_MAP_CN.md`
 - `docs/PAPER_LANDSCAPE_CN.md`
 - `docs/LOCAL_PDF_INDEX_CN.md`
