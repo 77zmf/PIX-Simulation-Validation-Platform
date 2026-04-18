@@ -204,6 +204,7 @@ Subagent catalog:
 The repo-side planning documents live in:
 
 - `docs/TEAM_90_DAY_PLAN.md`
+- `docs/AI_SUPERBODY_PERCEPTION_SUPPLEMENT_CN.md`
 - `docs/TEAM_OPERATING_RHYTHM.md`
 - `docs/PROJECT_OPERATING_TEAM_CN.md`
 - `docs/QUARTER_ACCEPTANCE.md`
