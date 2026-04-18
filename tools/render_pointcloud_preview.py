@@ -116,6 +116,19 @@ def render_preview(run_dir: Path, output_dir: Path | None = None) -> dict[str, A
         nonground_points, _ = _load_cloud(nonground_path)
         z_series.append(("nonground", nonground_points))
 
+    clean_ground_path = run_dir / "site_proxy_ground_clean.ply"
+    if clean_ground_path.is_file():
+        clean_ground_points, clean_ground_colors = _load_cloud(clean_ground_path)
+        clean_ground_topdown = output_dir / "site_proxy_ground_clean_topdown.png"
+        _scatter_topdown(
+            clean_ground_points,
+            clean_ground_colors,
+            clean_ground_topdown,
+            f"Clean ground site proxy top-down: {len(clean_ground_points):,} pts",
+        )
+        outputs["site_proxy_ground_clean_topdown"] = str(clean_ground_topdown)
+        z_series.append(("ground_clean", clean_ground_points))
+
     z_histogram = output_dir / "z_histogram.png"
     _histogram_z(z_series, z_histogram)
     outputs["z_histogram"] = str(z_histogram)
@@ -128,6 +141,7 @@ def render_preview(run_dir: Path, output_dir: Path | None = None) -> dict[str, A
             "selected_tiles": metadata.get("selected_tiles"),
             "sampled_points": metadata.get("sampled_points"),
             "ground_split": metadata.get("ground_split"),
+            "ground_cleanup": metadata.get("ground_cleanup"),
         },
         "outputs": outputs,
     }

@@ -140,12 +140,19 @@ python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 -
 python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --selection center --max-tiles 64 --max-points 200000 --split-ground --ground-cell-size 5 --ground-height-threshold 0.5 --run-name center_tiles64_split_ground
 ```
 
+如果要生成可作为 `site proxy` 候选的清理版地面：
+
+```powershell
+python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --selection center --max-tiles 64 --max-points 200000 --split-ground --clean-ground --clean-voxel-size 0.5 --clean-neighbor-radius 1.5 --clean-min-neighbors 2 --run-name center_tiles64_ground_clean
+```
+
 分层输出：
 
 ```text
 outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/ground_points.ply
 outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/nonground_points.ply
 outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/classified_ground_nonground.ply
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/site_proxy_ground_clean.ply
 ```
 
 生成预览图：
@@ -159,6 +166,7 @@ outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/classified
 ```text
 outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/sample_topdown.png
 outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/classified_topdown.png
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/site_proxy_ground_clean_topdown.png
 outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/z_histogram.png
 ```
 

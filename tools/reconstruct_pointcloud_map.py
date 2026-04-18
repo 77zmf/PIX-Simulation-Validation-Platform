@@ -237,6 +237,101 @@ def recolor_points(
     return [(x, y, z, red, green, blue) for x, y, z, *_ in points]
 
 
+def voxel_downsample_points(
+    points: list[tuple[float, float, float, int, int, int]],
+    voxel_size: float,
+) -> list[tuple[float, float, float, int, int, int]]:
+    if not points:
+        return []
+    voxel_size = max(voxel_size, 0.01)
+    cells: dict[tuple[int, int, int], list[tuple[float, float, float, int, int, int]]] = {}
+    for point in points:
+        x, y, z, *_ = point
+        key = (math.floor(x / voxel_size), math.floor(y / voxel_size), math.floor(z / voxel_size))
+        cells.setdefault(key, []).append(point)
+
+    downsampled: list[tuple[float, float, float, int, int, int]] = []
+    for cell_points in cells.values():
+        count = len(cell_points)
+        sx = sum(point[0] for point in cell_points)
+        sy = sum(point[1] for point in cell_points)
+        sz = sum(point[2] for point in cell_points)
+        sr = sum(point[3] for point in cell_points)
+        sg = sum(point[4] for point in cell_points)
+        sb = sum(point[5] for point in cell_points)
+        downsampled.append(
+            (
+                sx / count,
+                sy / count,
+                sz / count,
+                int(round(sr / count)),
+                int(round(sg / count)),
+                int(round(sb / count)),
+            )
+        )
+    return downsampled
+
+
+def filter_isolated_points(
+    points: list[tuple[float, float, float, int, int, int]],
+    radius: float,
+    min_neighbors: int,
+) -> list[tuple[float, float, float, int, int, int]]:
+    if not points or min_neighbors <= 0:
+        return points
+    radius = max(radius, 0.01)
+    radius_sq = radius * radius
+    grid: dict[tuple[int, int, int], list[int]] = {}
+    for index, (x, y, z, *_rest) in enumerate(points):
+        key = (math.floor(x / radius), math.floor(y / radius), math.floor(z / radius))
+        grid.setdefault(key, []).append(index)
+
+    kept: list[tuple[float, float, float, int, int, int]] = []
+    for index, point in enumerate(points):
+        x, y, z, *_rest = point
+        cx, cy, cz = math.floor(x / radius), math.floor(y / radius), math.floor(z / radius)
+        neighbors = 0
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for dz in (-1, 0, 1):
+                    for other_index in grid.get((cx + dx, cy + dy, cz + dz), []):
+                        if other_index == index:
+                            continue
+                        ox, oy, oz, *_ = points[other_index]
+                        if (x - ox) ** 2 + (y - oy) ** 2 + (z - oz) ** 2 <= radius_sq:
+                            neighbors += 1
+                            if neighbors >= min_neighbors:
+                                kept.append(point)
+                                break
+                    if neighbors >= min_neighbors:
+                        break
+                if neighbors >= min_neighbors:
+                    break
+            if neighbors >= min_neighbors:
+                break
+    return kept
+
+
+def clean_ground_proxy_points(
+    points: list[tuple[float, float, float, int, int, int]],
+    voxel_size: float,
+    neighbor_radius: float,
+    min_neighbors: int,
+) -> tuple[list[tuple[float, float, float, int, int, int]], dict[str, Any]]:
+    downsampled = voxel_downsample_points(points, voxel_size)
+    filtered = filter_isolated_points(downsampled, neighbor_radius, min_neighbors)
+    diagnostics = {
+        "input_points": len(points),
+        "voxel_size": max(voxel_size, 0.01),
+        "after_voxel_downsample": len(downsampled),
+        "neighbor_radius": max(neighbor_radius, 0.01),
+        "min_neighbors": min_neighbors,
+        "after_isolated_filter": len(filtered),
+        "retention_ratio": (len(filtered) / len(points)) if points else 0.0,
+    }
+    return filtered, diagnostics
+
+
 def write_ascii_ply(path: Path, points: list[tuple[float, float, float, int, int, int]]) -> None:
     ensure_dir(path.parent)
     with path.open("w", encoding="utf-8", newline="\n") as fh:
@@ -336,6 +431,10 @@ def build_pointcloud_smoke_report(
     ground_cell_size: float = 5.0,
     ground_height_threshold: float = 0.5,
     ground_percentile: float = 0.10,
+    clean_ground: bool = False,
+    clean_voxel_size: float = 0.25,
+    clean_neighbor_radius: float = 1.0,
+    clean_min_neighbors: int = 2,
 ) -> dict[str, Any]:
     bundle = load_asset_bundle(bundle_id, asset_root=asset_root)
     inspection = inspect_asset_bundle(bundle)
@@ -383,6 +482,7 @@ def build_pointcloud_smoke_report(
     }
 
     ground_report = None
+    cleanup_report = None
     if split_ground:
         ground_points, nonground_points, ground_report = split_ground_points(
             sampled_points,
@@ -406,6 +506,16 @@ def build_pointcloud_smoke_report(
                 "classified_ply": str(classified_path),
             }
         )
+        if clean_ground:
+            clean_points, cleanup_report = clean_ground_proxy_points(
+                ground_points,
+                voxel_size=clean_voxel_size,
+                neighbor_radius=clean_neighbor_radius,
+                min_neighbors=clean_min_neighbors,
+            )
+            clean_path = output_dir / "site_proxy_ground_clean.ply"
+            write_ascii_ply(clean_path, recolor_points(clean_points, (65, 130, 220)))
+            outputs["site_proxy_ground_clean_ply"] = str(clean_path)
 
     report = {
         "generated_at": _utc_now(),
@@ -424,6 +534,7 @@ def build_pointcloud_smoke_report(
         "global_bounds": _bounds(sampled_points),
         "outputs": outputs,
         "ground_split": ground_report,
+        "ground_cleanup": cleanup_report,
         "tiles": tile_reports,
         "passed": bool(selected and sampled_points),
         "next_action": (
@@ -477,8 +588,28 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(["- enabled: `False`", ""])
     lines.extend(
         [
-        "## Tile Samples",
-        "",
+            "## Ground Cleanup",
+            "",
+        ]
+    )
+    ground_cleanup = report.get("ground_cleanup")
+    if ground_cleanup:
+        lines.extend(
+            [
+                f"- input_points: `{ground_cleanup['input_points']}`",
+                f"- after_voxel_downsample: `{ground_cleanup['after_voxel_downsample']}`",
+                f"- after_isolated_filter: `{ground_cleanup['after_isolated_filter']}`",
+                f"- retention_ratio: `{ground_cleanup['retention_ratio']:.4f}`",
+                f"- site_proxy_ground_clean_ply: `{report['outputs'].get('site_proxy_ground_clean_ply')}`",
+                "",
+            ]
+        )
+    else:
+        lines.extend(["- enabled: `False`", ""])
+    lines.extend(
+        [
+            "## Tile Samples",
+            "",
         ]
     )
     for tile in report["tiles"][:20]:
@@ -521,6 +652,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--ground-cell-size", type=float, default=5.0)
     parser.add_argument("--ground-height-threshold", type=float, default=0.5)
     parser.add_argument("--ground-percentile", type=float, default=0.10)
+    parser.add_argument("--clean-ground", action="store_true", help="Clean ground candidates into site_proxy_ground_clean.ply")
+    parser.add_argument("--clean-voxel-size", type=float, default=0.25)
+    parser.add_argument("--clean-neighbor-radius", type=float, default=1.0)
+    parser.add_argument("--clean-min-neighbors", type=int, default=2)
     args = parser.parse_args(argv)
 
     report = build_pointcloud_smoke_report(
@@ -536,6 +671,10 @@ def main(argv: list[str] | None = None) -> int:
         ground_cell_size=args.ground_cell_size,
         ground_height_threshold=args.ground_height_threshold,
         ground_percentile=args.ground_percentile,
+        clean_ground=args.clean_ground,
+        clean_voxel_size=args.clean_voxel_size,
+        clean_neighbor_radius=args.clean_neighbor_radius,
+        clean_min_neighbors=args.clean_min_neighbors,
     )
     print(json.dumps({"passed": report["passed"], **report["outputs"]}, ensure_ascii=False, indent=2))
     return 0 if report["passed"] else 1

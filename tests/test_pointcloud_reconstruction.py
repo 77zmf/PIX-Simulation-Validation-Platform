@@ -101,6 +101,50 @@ class PointcloudReconstructionToolTests(unittest.TestCase):
         self.assertEqual(len(nonground), 2)
         self.assertEqual(diagnostics["cell_count"], 2)
 
+    def test_voxel_downsample_points_averages_points_and_color(self) -> None:
+        points = [
+            (0.0, 0.0, 0.0, 10, 20, 30),
+            (0.2, 0.1, 0.1, 30, 40, 50),
+            (2.0, 0.0, 0.0, 100, 110, 120),
+        ]
+
+        downsampled = reconstruct_pointcloud_map.voxel_downsample_points(points, voxel_size=1.0)
+
+        self.assertEqual(len(downsampled), 2)
+        self.assertIn((0.1, 0.05, 0.05, 20, 30, 40), downsampled)
+
+    def test_filter_isolated_points_removes_sparse_outlier(self) -> None:
+        points = [
+            (0.0, 0.0, 0.0, 1, 2, 3),
+            (0.2, 0.0, 0.0, 1, 2, 3),
+            (0.0, 0.2, 0.0, 1, 2, 3),
+            (10.0, 10.0, 10.0, 1, 2, 3),
+        ]
+
+        kept = reconstruct_pointcloud_map.filter_isolated_points(points, radius=0.5, min_neighbors=2)
+
+        self.assertEqual(len(kept), 3)
+        self.assertNotIn((10.0, 10.0, 10.0, 1, 2, 3), kept)
+
+    def test_clean_ground_proxy_points_reports_reduction(self) -> None:
+        points = [
+            (0.0, 0.0, 0.0, 1, 2, 3),
+            (0.2, 0.0, 0.0, 1, 2, 3),
+            (0.0, 0.2, 0.0, 1, 2, 3),
+            (10.0, 10.0, 10.0, 1, 2, 3),
+        ]
+
+        cleaned, diagnostics = reconstruct_pointcloud_map.clean_ground_proxy_points(
+            points,
+            voxel_size=0.1,
+            neighbor_radius=0.5,
+            min_neighbors=2,
+        )
+
+        self.assertEqual(len(cleaned), 3)
+        self.assertEqual(diagnostics["input_points"], 4)
+        self.assertEqual(diagnostics["after_isolated_filter"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()
