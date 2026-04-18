@@ -70,6 +70,16 @@ class PointcloudReconstructionToolTests(unittest.TestCase):
         self.assertIn("element vertex 2", text)
         self.assertIn("1.000000 2.000000 3.000000 10 20 30", text)
 
+    def test_default_run_name_is_traceable_and_safe(self) -> None:
+        run_name = reconstruct_pointcloud_map.default_run_name(
+            selection="center",
+            max_tiles=32,
+            max_points=100000,
+            region=(-100.0, 100.0, -100.0, 100.0),
+        )
+
+        self.assertEqual(run_name, "center_region_-100_100_-100_100_tiles32_points100000")
+
 
 if __name__ == "__main__":
     unittest.main()

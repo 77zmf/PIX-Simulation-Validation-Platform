@@ -205,6 +205,30 @@ def write_ascii_ply(path: Path, points: list[tuple[float, float, float, int, int
             fh.write(f"{x:.6f} {y:.6f} {z:.6f} {red} {green} {blue}\n")
 
 
+def _safe_name(value: str) -> str:
+    safe = []
+    for char in value:
+        if char.isalnum() or char in ("-", "_"):
+            safe.append(char)
+        else:
+            safe.append("_")
+    return "".join(safe).strip("_") or "default"
+
+
+def default_run_name(
+    selection: str,
+    max_tiles: int,
+    max_points: int,
+    region: tuple[float, float, float, float] | None,
+) -> str:
+    tile_part = "all_tiles" if max_tiles == 0 else f"tiles{max_tiles}"
+    point_part = f"points{max_points}"
+    if region:
+        region_part = "region_" + "_".join(str(int(value)) if value.is_integer() else str(value) for value in region)
+        return _safe_name(f"{selection}_{region_part}_{tile_part}_{point_part}")
+    return _safe_name(f"{selection}_{tile_part}_{point_part}")
+
+
 def _metadata_tiles(metadata_path: Path) -> dict[str, list[float]]:
     payload = load_yaml(metadata_path)
     return {
@@ -258,6 +282,7 @@ def build_pointcloud_smoke_report(
     max_points: int,
     region: tuple[float, float, float, float] | None,
     selection: str,
+    run_name: str | None = None,
 ) -> dict[str, Any]:
     bundle = load_asset_bundle(bundle_id, asset_root=asset_root)
     inspection = inspect_asset_bundle(bundle)
@@ -292,7 +317,8 @@ def build_pointcloud_smoke_report(
         stride = math.ceil(len(sampled_points) / max_points)
         sampled_points = sampled_points[::stride]
 
-    output_dir = ensure_dir(output_dir / bundle_id)
+    resolved_run_name = _safe_name(run_name) if run_name else default_run_name(selection, max_tiles, max_points, region)
+    output_dir = ensure_dir(output_dir / bundle_id / resolved_run_name)
     ply_path = output_dir / "pointcloud_smoke_sample.ply"
     json_path = output_dir / "pointcloud_smoke.json"
     md_path = output_dir / "pointcloud_smoke.md"
@@ -307,6 +333,7 @@ def build_pointcloud_smoke_report(
         "pointcloud_dir": str(pointcloud_dir),
         "metadata_path": str(metadata_path),
         "selection": selection,
+        "run_name": resolved_run_name,
         "region": region,
         "selected_tiles": len(selected),
         "total_source_points_in_selected_tiles": total_source_points,
@@ -334,6 +361,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- generated_at: `{report['generated_at']}`",
         f"- passed: `{report['passed']}`",
         f"- mode: `{report['mode']}`",
+        f"- run_name: `{report['run_name']}`",
         f"- selected_tiles: `{report['selected_tiles']}`",
         f"- total_source_points_in_selected_tiles: `{report['total_source_points_in_selected_tiles']}`",
         f"- sampled_points: `{report['sampled_points']}`",
@@ -386,6 +414,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-points", type=int, default=200_000)
     parser.add_argument("--region", default=None, help="Optional tile coordinate filter: min_x,max_x,min_y,max_y")
     parser.add_argument("--selection", choices=("largest", "center", "metadata"), default="largest")
+    parser.add_argument("--run-name", default=None, help="Output subdirectory name under the selected bundle")
     args = parser.parse_args(argv)
 
     report = build_pointcloud_smoke_report(
@@ -396,6 +425,7 @@ def main(argv: list[str] | None = None) -> int:
         max_points=args.max_points,
         region=_parse_region(args.region),
         selection=args.selection,
+        run_name=args.run_name,
     )
     print(json.dumps({"passed": report["passed"], **report["outputs"]}, ensure_ascii=False, indent=2))
     return 0 if report["passed"] else 1

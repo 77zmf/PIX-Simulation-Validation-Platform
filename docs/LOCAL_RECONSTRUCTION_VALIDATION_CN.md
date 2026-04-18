@@ -117,27 +117,27 @@ python -m simctl run --scenario scenarios/l2/reconstruction_public_road_map_refr
 运行小样本：
 
 ```powershell
-python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --max-tiles 16 --max-points 50000 --selection largest
+python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --max-tiles 16 --max-points 50000 --selection largest --run-name largest_tiles16_points50000
 ```
 
 输出：
 
 ```text
-outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/pointcloud_smoke_sample.ply
-outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/pointcloud_smoke.json
-outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/pointcloud_smoke.md
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/pointcloud_smoke_sample.ply
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/pointcloud_smoke.json
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/pointcloud_smoke.md
 ```
 
 如果只看地图中心附近：
 
 ```powershell
-python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --selection center --max-tiles 32 --max-points 100000
+python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --selection center --max-tiles 32 --max-points 100000 --run-name center_tiles32_points100000
 ```
 
 如果只看指定 tile 坐标范围：
 
 ```powershell
-python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --region -100,100,-100,100 --max-tiles 0 --max-points 150000
+python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --region -100,100,-100,100 --max-tiles 0 --max-points 150000 --run-name center_region_200m
 ```
 
 验收重点：
