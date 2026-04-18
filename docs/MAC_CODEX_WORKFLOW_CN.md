@@ -30,6 +30,7 @@ Mac 不负责：
 建议先安装这些基础工具：
 
 - `git`
+- `git-lfs`
 - `python3`
 - `pip`
 - 可选：`gh`
@@ -37,7 +38,8 @@ Mac 不负责：
 如果你用 Homebrew，可以参考：
 
 ```bash
-brew install git python gh
+brew install git git-lfs python gh
+git lfs install
 ```
 
 ## 3. 拉取仓库
@@ -55,6 +57,7 @@ cd zmf_ws
 ```bash
 cd ~/work/zmf_ws
 git pull --ff-only
+git lfs pull
 ```
 
 ## 4. 准备 Python 环境
@@ -124,6 +127,7 @@ simctl subagent-spec --list
 ```bash
 cd ~/work/zmf_ws
 git pull --ff-only
+git lfs pull --include="pix_codex_solution_bundle.zip"
 ls -lh pix_codex_solution_bundle.zip
 unzip -l pix_codex_solution_bundle.zip
 ```
