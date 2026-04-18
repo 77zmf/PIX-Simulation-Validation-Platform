@@ -2,16 +2,14 @@
 
 ## 结论
 
-当前这台电脑先承担 `reconstruction asset validation` 和小规模 smoke test，不直接作为大规模 3DGS / NeRF 训练主机。
+这台 Windows 主机当前先承担 `3D reconstruction line` 的本机验证，不承担大规模训练主机职责。
 
-第一阶段目标是确认完整地图资产束可用：
+当前优先级：
 
-- lanelet2 地图可读
-- projector 信息可读
-- pointcloud tile 数量和 metadata 一致
-- PCD 文件头可读
-- 本机工具链状态明确
-- `simctl run` 能生成 reconstruction 场景的 `run_result.json`
+1. 确认奇遇环线地图资产可被识别、统计和追踪。
+2. 补齐本机工具链：FFmpeg、COLMAP CUDA、Open3D、OpenCV、trimesh、pycolmap。
+3. 先做小规模 COLMAP sparse smoke，再决定是否进入 Gaussian / NeRF。
+4. 重建输出只进入 `outputs/` 或 `artifacts/`，不进入 Git。
 
 ## 1. 当前资产入口
 
@@ -27,24 +25,54 @@ site_gy_qyhx_gsh20260310
 assets/manifests/site_gy_qyhx_gsh20260310.yaml
 ```
 
-本地大文件，不进入 Git：
+本地大文件和解压目录：
 
 ```text
 gy_qyhx_gsh20260310_map(2).zip
 artifacts/assets/site_gy_qyhx_gsh20260310/
 ```
 
-## 2. 资产级验证
+这些内容由 `.gitignore` 排除，仓库只保存 manifest、脚本、场景和报告模板。
 
-先运行：
+## 2. 本机工具自检
+
+先刷新当前 PowerShell 的 PATH：
+
+```powershell
+$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+```
+
+运行统一自检：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\check_local_env.ps1
+```
+
+输出：
+
+```text
+outputs/env/reconstruction_tool_check.json
+outputs/env/reconstruction_tool_check.md
+```
+
+当前本机已验证的工具版本：
+
+```text
+GPU: NVIDIA GeForce RTX 5060 Ti, 8 GB VRAM
+FFmpeg: 8.1 essentials build
+COLMAP: 4.0.3 CUDA build
+Python venv: .venv
+Python modules: numpy, open3d, opencv-python, trimesh, pycolmap
+```
+
+如果换机器后缺依赖，按脚本输出的 `install_hint` 补齐。
+
+## 3. 资产级验证
+
+运行：
 
 ```powershell
 python -m simctl asset-check --bundle site_gy_qyhx_gsh20260310
-```
-
-再运行本机三维重建资产验证：
-
-```powershell
 python .\tools\validate_reconstruction_assets.py --bundle site_gy_qyhx_gsh20260310
 ```
 
@@ -55,58 +83,82 @@ outputs/reconstruction_validation/site_gy_qyhx_gsh20260310/asset_validation.json
 outputs/reconstruction_validation/site_gy_qyhx_gsh20260310/asset_validation.md
 ```
 
-## 3. 场景级 smoke
+验收重点：
 
-先用 mock result 验证控制面是否能识别完整资产束：
+- `lanelet2_map.osm` 可读
+- `map_projector_info.yaml` 可读
+- `pointcloud_map.pcd/` tile 数量与 metadata 一致
+- PCD sample header 可读
+- projector origin 可追踪
+
+## 4. 场景级 Smoke
+
+先用 mock result 验证控制平面是否能识别重建相关场景：
 
 ```powershell
-python -m simctl run --scenario scenarios/l2/reconstruction_site_proxy_refresh.yaml --run-root outputs/reconstruction_runs --mock-result passed
-python -m simctl run --scenario scenarios/l2/reconstruction_public_road_map_refresh.yaml --run-root outputs/reconstruction_runs --mock-result passed
+python -m simctl run --scenario scenarios/l2/reconstruction_site_proxy_refresh.yaml --run-root outputs\reconstruction_runs --mock-result passed
+python -m simctl run --scenario scenarios/l2/reconstruction_public_road_map_refresh.yaml --run-root outputs\reconstruction_runs --mock-result passed
 ```
 
-这一步不代表真实重建已经完成，只代表：
+这一步只说明：
 
 - scenario YAML 可加载
 - asset bundle 可解析
-- sensor profile 可解析
 - reconstruction adapter 可解析
-- run_result / KPI gate / replay 入口可生成
+- `run_result.json` / KPI gate / replay 入口可生成
 
-## 4. 真正重建前的工具要求
+这一步不代表真实三维重建已经完成。
 
-资产级验证通过后，再准备真实重建工具：
+## 5. COLMAP Sparse Smoke
 
-- `ffmpeg`：视频抽帧
-- `colmap`：SfM / camera pose / sparse point cloud
-- `open3d`：点云可视化和基本统计
-- 可选：Gaussian Splatting / Nerfstudio-style 工具
+真实 COLMAP 需要图像序列或视频。当前地图资产是 lanelet2 + pointcloud，不等价于相机重建数据。
 
-当前建议顺序：
+准备输入：
 
-1. 资产级验证
-2. COLMAP sparse smoke
-3. Open3D 点云抽样检查
-4. 小片段 Gaussian / NeRF 对比
-5. 形成可服务 CARLA / site proxy 的重建资产候选
+```powershell
+New-Item -ItemType Directory -Force -Path data\raw\qiyu_loop\video | Out-Null
+New-Item -ItemType Directory -Force -Path data\raw\qiyu_loop\images | Out-Null
+```
 
-## 5. 验收标准
+如果有视频，先抽帧：
 
-第一阶段通过条件：
+```powershell
+ffmpeg -i data\raw\qiyu_loop\video\input.mp4 -vf "fps=2,scale=-1:1080" data\raw\qiyu_loop\images\frame_%06d.jpg
+```
 
-- `asset-check` 的 `all_required_present=true`
-- pointcloud tile count 和 metadata 均为 `3624`
-- PCD sample headers 可读
-- projector 有 map origin
-- reconstruction 场景能生成 `run_result.json`
+跑 sparse reconstruction：
 
-第二阶段通过条件：
+```powershell
+$workspace = "outputs\colmap_smoke\qiyu_loop"
+New-Item -ItemType Directory -Force -Path "$workspace\sparse" | Out-Null
 
-- COLMAP 可以从采集图片或视频抽帧中注册相机
-- sparse model 可视化可打开
-- 能记录注册率、稀疏点数量、运行时间和失败分类
+colmap feature_extractor --database_path "$workspace\database.db" --image_path "data\raw\qiyu_loop\images" --ImageReader.single_camera 1
+colmap exhaustive_matcher --database_path "$workspace\database.db"
+colmap mapper --database_path "$workspace\database.db" --image_path "data\raw\qiyu_loop\images" --output_path "$workspace\sparse"
+colmap model_analyzer --path "$workspace\sparse\0"
+```
 
-## 6. 边界
+验收指标：
 
-这条线属于 `reconstruction line`。
+- registered images 数量
+- sparse points 数量
+- 平均重投影误差
+- 运行时间
+- 是否能用 COLMAP GUI 或后续脚本打开模型
 
-不要把本机三维重建 smoke test 和公司 Ubuntu 主机上的 stable closed-loop 验收混在一起。重建资产可以服务仿真验证，但不能阻塞 stable 主线。
+## 6. 后续 Gaussian / NeRF 入口
+
+只有当 COLMAP sparse smoke 通过后，再进入 Gaussian / NeRF。
+
+建议顺序：
+
+1. 小片段静态场景 Gaussian Splatting。
+2. 对比 COLMAP sparse、原始 pointcloud、Gaussian 输出的一致性。
+3. 记录视觉缺陷：漂浮物、尺度错误、路面破碎、动态物体残影。
+4. 再考虑服务 CARLA site proxy 或 corner case 场景资产。
+
+## 7. 边界
+
+这条线是 `3D reconstruction line`，不要和公司 Ubuntu 主机上的 `stable local validation line` 混在一起。
+
+重建资产可以服务仿真验证，但不能阻塞 Autoware + CARLA 0.9.15 的稳定闭环主线。

@@ -3,19 +3,16 @@
 Display name: `PIX Simulation Validation Platform`  
 Current GitHub URL: `77zmf/PIX-Simulation-Validation-Platform`
 
-This repository is the control plane for a simulation validation platform built around:
+This repository is the control plane for PIX simulation validation and public-road reconstruction validation.
+
+The current runtime baseline is:
 
 - `Autoware Universe main`
 - `ROS 2 Humble`
 - `CARLA 0.9.15`
 - `UE4.26`
 
-The current delivery is not a generic environment-setup effort. It is a reusable validation baseline for:
-
-- stable closed-loop verification on the company Ubuntu host
-- automated `bootstrap / up / run / batch / replay / report` workflows
-- public-road asset reuse, `site proxy`, and corner-case accumulation
-- BEV / VAD / UniAD-style / E2E shadow research on the same CARLA 0.9.15 runtime baseline
+The repository stores scripts, configs, scenarios, lightweight manifests, reports, and project automation. It does not store large maps, point clouds, reconstruction outputs, model weights, checkpoints, or generated artifacts.
 
 ## Current Focus
 
@@ -23,13 +20,15 @@ The active quarter is organized around four priorities:
 
 1. Make the `stable` stack usable in closed loop on the company Ubuntu host.
 2. Make `simctl` usable for daily validation and reporting.
-3. Turn `gy_qyhx_gsh20260302` into reusable public-road map and scenario inputs.
-4. Keep E2E shadow research on `CARLA 0.9.15 / UE4.26` without destabilizing the main line.
+3. Turn `site_gy_qyhx_gsh20260310` into reusable public-road map, reconstruction, and scenario inputs.
+4. Keep BEV / VAD / UniAD-style / E2E shadow research on `CARLA 0.9.15 / UE4.26` without destabilizing the main line.
 
 Near-term gate:
 
-- by `2026-04-05`, finish Ubuntu host bring-up and close the first automation data loop:
+- finish Ubuntu host bring-up and close the first automation data loop:
   `simctl run -> run_result.json -> report -> replay`
+- finish local reconstruction readiness:
+  `asset manifest -> tool check -> COLMAP sparse smoke -> reconstruction report`
 
 ## Public Entry Points
 
@@ -40,7 +39,7 @@ Near-term gate:
 
 ## Team Ownership
 
-- `Zhu Minfeng`: stable stack, Ubuntu host, control plane, automation, KPI gates
+- `Zhu Minfeng / 朱民峰`: stable stack, Ubuntu host, control plane, automation, KPI gates
 - `Luo Shunxiong / lsx`: public-road map and pointcloud assets, reconstruction inputs, corner-case replay
 - `Yang Zhipeng / 杨志朋`: `BEVFusion` perception baseline, public-road perception, and E2E shadow research
 - `Codex PMO support`: digest generation, weekly review preparation, blocker aggregation, and repo-side management support
@@ -51,7 +50,7 @@ Near-term gate:
 
 - the company `Ubuntu 22.04` host is the primary runtime environment
 - the same host runs `ROS 2 Humble`, `Autoware Universe`, `autoware_carla_interface`, and `CARLA 0.9.15`
-- the local machine is only for code management, remote access, and artifact review
+- this Windows machine is for code management, asset validation, reconstruction smoke tests, remote access, and artifact review
 - primary success signal is a repeatable closed loop:
   `startup -> localization -> planning -> control -> goal reached -> report`
 
@@ -69,6 +68,13 @@ Near-term gate:
   - `map refresh` for asset and localization support
   - `static Gaussian` reconstruction for future geometry-rich replay assets
   - `dynamic Gaussian` reconstruction for future actor-aware replay and high-fidelity simulation
+
+### Local 3D Reconstruction Line
+
+- local validation starts with asset inspection and tool readiness
+- COLMAP sparse reconstruction is the first real smoke test
+- Gaussian / NeRF experiments only start after sparse reconstruction has usable camera poses
+- reconstruction outputs stay under `outputs/` or `artifacts/` and are ignored by Git
 
 ### Future E2E Route
 
@@ -96,7 +102,7 @@ references/  Curated local paper PDFs and reading materials
 src/         simctl CLI and supporting library code
 tests/       Control-plane, digest, and scenario regression tests
 ops/         Project automation configuration
-tools/       Maintenance and publishing helpers
+tools/       Maintenance, publishing, and local validation helpers
 ```
 
 ## Runtime Assumptions
@@ -105,6 +111,7 @@ tools/       Maintenance and publishing helpers
 - `CARLA 0.9.15` is the only official simulator runtime in this repository.
 - no secondary simulator runtime is part of the current repository strategy or execution path.
 - E2E shadow research stays on the `stable` stack and reuses the same CARLA 0.9.15 baseline.
+- local reconstruction validation is separate from stable closed-loop acceptance and must not block it.
 
 ## Main Commands
 
@@ -138,13 +145,32 @@ simctl asset-check --bundle site_gy_qyhx_gsh20260310
 python tools/validate_reconstruction_assets.py --bundle site_gy_qyhx_gsh20260310
 ```
 
+Local reconstruction tool check on Windows:
+
+```powershell
+$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+powershell -ExecutionPolicy Bypass -File .\tools\check_local_env.ps1
+```
+
+COLMAP sparse smoke after adding image data:
+
+```powershell
+New-Item -ItemType Directory -Force -Path data\raw\qiyu_loop\images | Out-Null
+$workspace = "outputs\colmap_smoke\qiyu_loop"
+New-Item -ItemType Directory -Force -Path "$workspace\sparse" | Out-Null
+colmap feature_extractor --database_path "$workspace\database.db" --image_path "data\raw\qiyu_loop\images" --ImageReader.single_camera 1
+colmap exhaustive_matcher --database_path "$workspace\database.db"
+colmap mapper --database_path "$workspace\database.db" --image_path "data\raw\qiyu_loop\images" --output_path "$workspace\sparse"
+colmap model_analyzer --path "$workspace\sparse\0"
+```
+
 Stable slot catalog:
 
 ```text
 stack/slots/stable_slots.yaml
 ```
 
-Use `--parallel 2` as the default operating mode. The repository now defines 4 slots, but 4-way execution should only be enabled after host-level pressure testing.
+Use `--parallel 2` as the default operating mode. The repository defines 4 slots, but 4-way execution should only be enabled after host-level pressure testing.
 
 Digest and replay:
 
@@ -169,7 +195,6 @@ bash infra/ubuntu/prepare_autoware_workspace.sh
 Reference documents:
 
 - [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
-- [Windows Local Setup](./docs/WINDOWS_LOCAL_SETUP_CN.md)
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)
@@ -245,6 +270,7 @@ This repository includes a repo-side Git collaboration guide and commit template
 - `site proxy` and corner cases must accumulate as reusable assets, not one-off scripts.
 - E2E shadow remains a research path under `CARLA 0.9.15 / UE4.26`.
 - Digest automation now uses GitHub Projects and GitHub issues only.
+- Local reconstruction must always start with small smoke tests and traceable outputs.
 
 ## Current Gaps
 
@@ -252,7 +278,7 @@ The project-management and control-plane layers are in place, but three delivery
 
 - the real `Autoware + CARLA` runtime path still needs to be brought up on the company Ubuntu host
 - the first reusable public-road scenario still needs to move from asset structure into repeatable validation input
-- GitHub Project hygiene and digest quality still depend on board field discipline and assignee maintenance
+- local reconstruction still needs real camera images or video before COLMAP / Gaussian validation can start
 
 ## Current Asset Note
 
