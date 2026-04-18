@@ -1,6 +1,7 @@
 gy_qyhx_gsh20260302_map.zip
 gy_qyhx_gsh*_map*.zip
 .venv/
+.tmp/
 __pycache__/
 *.pyc
 build/

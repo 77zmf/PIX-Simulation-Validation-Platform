@@ -114,7 +114,31 @@ simctl subagent-spec --list
 - `project_automation_explorer`
 - `public_road_e2e_shadow_explorer`
 
-## 7. Mac 与公司 Ubuntu 主机如何分工
+## 7. 拉取后如何使用 Codex 方案压缩包
+
+仓库根目录的 `pix_codex_solution_bundle.zip` 是一份便携 Codex 上下文导入包。
+如果你只是在这份仓库里继续工作，Mac 拉取最新 `main` 后直接用 Codex 打开仓库根目录即可，不需要解压这个包；仓库里已经保留了解压后的 `AGENTS.override.md`、`.codex/`、`docs/` 和 `codex_import_manifest.json`。
+
+如果你想确认 Mac 已经拿到这份压缩包：
+
+```bash
+cd ~/work/zmf_ws
+git pull --ff-only
+ls -lh pix_codex_solution_bundle.zip
+unzip -l pix_codex_solution_bundle.zip
+```
+
+如果你想把这套 Codex 上下文导入到另一个仓库，建议先解压到临时目录检查，再复制需要的文件：
+
+```bash
+mkdir -p /tmp/pix_codex_solution_bundle
+unzip -o pix_codex_solution_bundle.zip -d /tmp/pix_codex_solution_bundle
+find /tmp/pix_codex_solution_bundle -maxdepth 3 -type f | sort
+```
+
+导入后，在 Mac 的 Codex 中打开目标仓库根目录，先让 Codex 总结 `README.md`、`AGENTS.md`、`AGENTS.override.md` 和 `docs/CODEX_TASK_ROUTING_CN.md`，确认它能识别 stable 主线、Ubuntu runtime 边界、`simctl` workflow 和 public-road asset reuse。
+
+## 8. Mac 与公司 Ubuntu 主机如何分工
 
 推荐固定分工：
 
@@ -123,7 +147,7 @@ simctl subagent-spec --list
 
 这样可以避免把开发终端和正式运行主机混在一起。
 
-## 8. 推荐日常同步流程
+## 9. 推荐日常同步流程
 
 每天开始：
 
@@ -149,7 +173,7 @@ git push
 # 然后在公司 Ubuntu 主机上 pull 最新 main
 ```
 
-## 9. 你在 Mac 上最应该看的文件
+## 10. 你在 Mac 上最应该看的文件
 
 - `README.md`
 - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
@@ -158,7 +182,7 @@ git push
 - `ops/subagents/`
 - `src/simctl/`
 
-## 10. 当前结论
+## 11. 当前结论
 
 结论就是：
 
