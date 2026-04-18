@@ -38,8 +38,12 @@ def build_context(
     slot: RuntimeSlot | None = None,
     execute: bool = False,
 ) -> dict[str, str]:
-    scenario_path = scenario.scenario_path if scenario else None
-    execution = scenario.execution if scenario else {}
+    scenario_path = getattr(scenario, "scenario_path", None) if scenario else None
+    scenario_id = getattr(scenario, "scenario_id", "") if scenario else ""
+    map_id = getattr(scenario, "map_id", "") if scenario else ""
+    scenario_sensor_profile = getattr(scenario, "sensor_profile", "") if scenario else ""
+    scenario_algorithm_profile = getattr(scenario, "algorithm_profile", "") if scenario else ""
+    execution = getattr(scenario, "execution", {}) if scenario else {}
     stable_runtime = execution.get("stable_runtime", {}) if isinstance(execution, dict) else {}
     if not isinstance(stable_runtime, dict):
         stable_runtime = {}
@@ -63,14 +67,14 @@ def build_context(
         "asset_root_wsl": to_wsl_path(asset_root),
         "run_dir": str(run_dir) if run_dir else "",
         "run_dir_wsl": to_wsl_path(run_dir) if run_dir else "",
-        "scenario_id": scenario.scenario_id if scenario else "",
+        "scenario_id": scenario_id,
         "scenario_path": str(scenario_path) if scenario_path else "",
         "scenario_path_wsl": to_wsl_path(scenario_path) if scenario_path else "",
-        "map_id": scenario.map_id if scenario else "",
+        "map_id": map_id,
         "asset_bundle_id": asset_bundle_id,
-        "sensor_profile_id": sensor_profile.profile_id if sensor_profile else (scenario.sensor_profile if scenario else ""),
+        "sensor_profile_id": sensor_profile.profile_id if sensor_profile else scenario_sensor_profile,
         "sensor_truth_mode": (sensor_profile.truth_mode or "") if sensor_profile else "",
-        "algorithm_profile_id": algorithm_profile.profile_id if algorithm_profile else (scenario.algorithm_profile if scenario else ""),
+        "algorithm_profile_id": algorithm_profile.profile_id if algorithm_profile else scenario_algorithm_profile,
         "algorithm_profile_type": algorithm_profile.profile_type if algorithm_profile else "",
         "slot_id": slot.slot_id if slot else "",
         "carla_rpc_port": str(slot.carla_rpc_port) if slot else "",
@@ -89,7 +93,7 @@ def build_context(
         "autoware_sensor_model": runtime_option("autoware_sensor_model"),
         "autoware_lidar_type": runtime_option("autoware_lidar_type"),
         "autoware_rviz": runtime_option("autoware_rviz"),
-        "carla_map": runtime_option("carla_map", scenario.map_id if scenario else ""),
+        "carla_map": runtime_option("carla_map", map_id),
         "carla_vehicle_type": runtime_option("carla_vehicle_type", "vehicle.toyota.prius"),
         "carla_spawn_point": runtime_option("carla_spawn_point"),
         "carla_ego_vehicle_role_name": runtime_option("carla_ego_vehicle_role_name", "ego_vehicle"),

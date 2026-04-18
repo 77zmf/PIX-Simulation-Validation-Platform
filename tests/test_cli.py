@@ -98,7 +98,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(len(payload["steps"]), 2)
         self.assertIn("ros2 bag play", payload["steps"][0]["command"])
         self.assertNotIn("{rosbag_path}", payload["steps"][0]["command"])
-        self.assertIn("/mnt/g/", payload["steps"][0]["command"].lower())
+        self.assertIn("rosbags/capture", payload["steps"][0]["command"])
         self.assertIn("capture.log", payload["steps"][1]["command"])
 
     def test_run_creates_passed_stub_result(self) -> None:
