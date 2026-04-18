@@ -134,6 +134,8 @@ Asset validation:
 
 ```bash
 simctl asset-check --bundle site_gy_qyhx_gsh20260302
+simctl asset-check --bundle site_gy_qyhx_gsh20260310
+python tools/validate_reconstruction_assets.py --bundle site_gy_qyhx_gsh20260310
 ```
 
 Stable slot catalog:
@@ -175,6 +177,7 @@ Reference documents:
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
 - [Weekly Repo Sync 2026-04-18](./docs/WEEKLY_REPO_SYNC_2026_04_18_CN.md)
+- [Local Reconstruction Validation](./docs/LOCAL_RECONSTRUCTION_VALIDATION_CN.md)
 
 ## Subagent Catalog
 
