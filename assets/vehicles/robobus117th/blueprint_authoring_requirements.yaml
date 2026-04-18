@@ -1,0 +1,130 @@
+asset_id: robobus117th_carla_vehicle_authoring_requirements
+target_blueprint_id: vehicle.pixmoving.robobus
+target_runtime:
+  carla_version: 0.9.15
+  unreal_engine: 4.26
+authoring_goal:
+  stable_line_goal: Spawn a CARLA ego actor visually and physically aligned with the Autoware robobus model.
+  first_acceptable_step: Visual placeholder vehicle that still uses the verified robobus117th external sensor bridge.
+  full_driveable_step: Native CARLA vehicle blueprint with mesh, wheels, collision, physics asset, movement tuning, and cooked Linux assets.
+source_inputs:
+  required:
+    - artifacts/carla_blueprints/robobus117th_source/source/install/robobus_description/mesh/robobus.dae
+    - artifacts/carla_blueprints/robobus117th_source/source/install/robobus_description/config/vehicle_info.param.yaml
+    - artifacts/carla_blueprints/robobus117th_source/source/install/robobus_description/urdf/vehicle.xacro
+    - artifacts/carla_blueprints/robobus117th_source/source/parameter/sensor_kit/robobus_sensor_kit_description/extrinsic_parameters/sensors_calibration.yaml
+    - assets/sensors/carla/robobus117th_sensor_mapping.yaml
+  generated_optional:
+    - artifacts/carla_blueprints/robobus117th_source/unreal_import/robobus.fbx
+    - artifacts/carla_blueprints/robobus117th_source/unreal_import/robobus.obj
+carla_asset_requirements:
+  content_root: /Game/Carla/Blueprints/Vehicles/PixMoving/Robobus117th
+  parent_blueprint: /Game/Carla/Blueprints/Vehicles/BaseVehiclePawn
+  blueprint_asset_name: BP_Robobus117th
+  wheel_blueprints:
+    front_left: BP_Robobus117th_FLW
+    front_right: BP_Robobus117th_FRW
+    rear_left: BP_Robobus117th_RLW
+    rear_right: BP_Robobus117th_RRW
+  required_cooked_files:
+    - BP_Robobus117th.uasset
+    - BP_Robobus117th.uexp
+    - BP_Robobus117th_FLW.uasset
+    - BP_Robobus117th_FRW.uasset
+    - BP_Robobus117th_RLW.uasset
+    - BP_Robobus117th_RRW.uasset
+  optional_cooked_files:
+    - BP_Robobus117th.ubulk
+    - SM_Robobus117th.uasset
+    - SK_Robobus117th.uasset
+    - PA_Robobus117th.uasset
+geometry_reference:
+  base_link_assumption: Autoware rear-axle-centered base_link until verified otherwise in UE4.
+  ros_frame_m:
+    front_left_wheel_center:
+      x: 3.02
+      y: 0.805
+      z: 0.323
+    front_right_wheel_center:
+      x: 3.02
+      y: -0.805
+      z: 0.323
+    rear_left_wheel_center:
+      x: 0.0
+      y: 0.805
+      z: 0.323
+    rear_right_wheel_center:
+      x: 0.0
+      y: -0.805
+      z: 0.323
+  unreal_frame_cm:
+    note: Unreal/CARLA uses X forward, Y right, Z up; ROS base_link uses X forward, Y left, Z up.
+    front_left_wheel_center:
+      x: 302.0
+      y: -80.5
+      z: 32.3
+    front_right_wheel_center:
+      x: 302.0
+      y: 80.5
+      z: 32.3
+    rear_left_wheel_center:
+      x: 0.0
+      y: -80.5
+      z: 32.3
+    rear_right_wheel_center:
+      x: 0.0
+      y: 80.5
+      z: 32.3
+  collision_reference_cm:
+    length: 382.0
+    width: 191.0
+    height: 220.9
+  visual_mesh_pose_from_urdf_m:
+    xyz:
+      - 1.46
+      - 0.14
+      - -0.4
+    rpy:
+      - 0.0
+      - 0.0
+      - 0.0
+toolchain_gates:
+  can_collect_source_package:
+    required_tools:
+      - bash
+      - python3
+  can_prepare_unreal_mesh_inputs:
+    preferred_tools:
+      - blender
+    fallback_tools:
+      - assimp
+  can_create_or_edit_uassets:
+    required_tools:
+      - UE4Editor
+      - UE4Editor-Cmd
+  can_cook_package:
+    required_tools:
+      - RunUAT.sh
+      - UnrealPak
+  can_runtime_verify:
+    required_tools:
+      - python3
+      - carla Python module
+      - running CARLA server
+validation_gates:
+  source_package_gate:
+    command: bash assets/vehicles/robobus117th/scripts/check_blueprint_readiness.sh --strict-source
+    expected: Source package, mesh, vehicle info, sensor calibration, and CARLA runtime are present.
+  unreal_input_gate:
+    command: bash assets/vehicles/robobus117th/scripts/prepare_unreal_mesh_inputs.sh
+    expected: FBX or OBJ import input exists under artifacts/carla_blueprints/robobus117th_source/unreal_import.
+  runtime_blueprint_gate:
+    command: python3 assets/vehicles/robobus117th/scripts/verify_carla_blueprint.py --blueprint-id vehicle.pixmoving.robobus
+    expected: CARLA blueprint library contains vehicle.pixmoving.robobus.
+  closed_loop_gate:
+    command: simctl run --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml --run-root runs/robobus117th_bridge --slot stable-slot-01 --execute
+    expected: planning_control_smoke passes with the robobus blueprint selected.
+rollback:
+  scenario_field: execution.stable_runtime.carla_vehicle_type
+  fallback_value: vehicle.toyota.prius
+  command_hint: Revert carla_vehicle_type and rerun the same L0 smoke scenario.

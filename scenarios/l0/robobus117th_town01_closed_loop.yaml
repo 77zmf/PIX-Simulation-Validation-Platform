@@ -39,6 +39,7 @@ metadata:
   owner: zmf
   source_assets:
     - assets/manifests/carla_town01.yaml
+    - assets/vehicles/robobus117th/blueprint_source_manifest.yaml
     - github.com/pixmoving-moveit/parameter:PixRover1.2-1.5/117th
   validation_method: CARLA 0.9.15 + Autoware planning simulator closed-loop smoke
   rollback_impact: Disable this scenario or switch execution.mode back to stub; it does not modify runtime assets.
@@ -46,11 +47,36 @@ execution:
   mode: external
   stable_runtime:
     autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
     autoware_map_path: /home/pixmoving/autoware_map/Town01
     autoware_vehicle_model: robobus
     autoware_sensor_model: robobus_sensor_kit
     autoware_lidar_type: robosense
     autoware_rviz: "false"
     carla_map: Town01
+    carla_vehicle_type: vehicle.toyota.prius
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: ""
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_prius_fallback_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
     carla_render_mode: offscreen
     carla_quality_level: Low
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info
+      - /localization/kinematic_state
+      - /localization/acceleration
+      - /vehicle/status/control_mode
+      - /vehicle/status/velocity_status

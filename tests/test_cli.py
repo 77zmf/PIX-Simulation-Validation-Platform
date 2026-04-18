@@ -86,17 +86,45 @@ class CliTests(unittest.TestCase):
             plan_path = Path(stream.getvalue().strip())
             plan = json.loads(plan_path.read_text(encoding="utf-8"))
             carla_command = plan["steps"][0]["command"]
+            bridge_command = plan["steps"][1]["command"]
             autoware_command = plan["steps"][2]["command"]
+            localization_bridge_command = plan["steps"][3]["command"]
+            screenshot_command = plan["steps"][4]["command"]
             self.assertIn("--carla-map 'Town01'", carla_command)
             self.assertIn("--render-mode 'offscreen'", carla_command)
+            self.assertIn(
+                "--autoware-ws '/home/pixmoving/zmf_ws/projects/autoware_universe/autoware'",
+                bridge_command,
+            )
+            self.assertIn(
+                "--autoware-underlay-ws '/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware'",
+                bridge_command,
+            )
+            self.assertIn("--vehicle-type 'vehicle.toyota.prius'", bridge_command)
+            self.assertIn("--rmw-implementation 'rmw_cyclonedds_cpp'", bridge_command)
+            self.assertIn("--sensor-kit-name 'robobus_sensor_kit_description'", bridge_command)
+            self.assertIn(
+                "--sensor-mapping-file '/home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml'",
+                bridge_command,
+            )
             self.assertIn(
                 "--autoware-ws '/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware'",
                 autoware_command,
             )
             self.assertIn("--map-path '/home/pixmoving/autoware_map/Town01'", autoware_command)
             self.assertIn("--vehicle-model 'robobus'", autoware_command)
+            self.assertIn("--rmw-implementation 'rmw_cyclonedds_cpp'", autoware_command)
             self.assertIn("--sensor-model 'robobus_sensor_kit'", autoware_command)
             self.assertIn("--lidar-type 'robosense'", autoware_command)
+            self.assertIn("start_carla_localization_bridge_host.sh", localization_bridge_command)
+            self.assertIn(
+                "--autoware-ws '/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware'",
+                localization_bridge_command,
+            )
+            self.assertIn("--kill-simple-sim 'true'", localization_bridge_command)
+            self.assertIn("capture_visual_screenshot_host.sh", screenshot_command)
+            self.assertIn("--render-mode 'offscreen'", screenshot_command)
+            self.assertIn("--rviz 'false'", screenshot_command)
 
     def test_up_allows_explicit_runtime_env_override(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -129,9 +157,13 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
             carla_command = plan["steps"][0]["command"]
+            screenshot_command = plan["steps"][4]["command"]
             self.assertIn("--render-mode 'visual'", carla_command)
             self.assertIn("--display ':0'", carla_command)
             self.assertIn("--xauthority '/run/user/1000/gdm/Xauthority'", carla_command)
+            self.assertIn("--render-mode 'visual'", screenshot_command)
+            self.assertIn("--display ':0'", screenshot_command)
+            self.assertIn("--xauthority '/run/user/1000/gdm/Xauthority'", screenshot_command)
 
     def test_run_fails_fast_for_missing_algorithm_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -430,6 +462,16 @@ class CliTests(unittest.TestCase):
                     "passed",
                 ]
             )
+            first_result_path = next(Path(tempdir).rglob("run_result.json"))
+            first_result = json.loads(first_result_path.read_text(encoding="utf-8"))
+            first_result["runtime_health"] = {"passed": True, "failed_checks": []}
+            first_result["artifacts"]["visual_screenshot"] = str(
+                first_result_path.parent / "screenshots" / "visual_startup.png"
+            )
+            first_result["artifacts"]["operator_action_log"] = str(
+                first_result_path.parent / "operator_actions" / "route_reset.log"
+            )
+            first_result_path.write_text(json.dumps(first_result, indent=2), encoding="utf-8")
             report_dir = Path(tempdir) / "report"
             rc = main(
                 [
@@ -445,6 +487,14 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertTrue((report_dir / "report.md").exists())
             self.assertTrue((report_dir / "report.html").exists())
+            report_md = (report_dir / "report.md").read_text(encoding="utf-8")
+            report_html = (report_dir / "report.html").read_text(encoding="utf-8")
+            self.assertIn("runtime_health:passed", report_md)
+            self.assertIn("visual_screenshot", report_md)
+            self.assertIn("operator_action_log", report_md)
+            self.assertIn("runtime_health:passed", report_html)
+            self.assertIn("visual_screenshot", report_html)
+            self.assertIn("operator_action_log", report_html)
 
     def test_batch_parallel_uses_two_slots_and_reuses_one_for_third_run(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

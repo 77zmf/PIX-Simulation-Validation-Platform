@@ -10,6 +10,11 @@
   - `sensor_model=robobus_sensor_kit`
   - `LIDAR_TYPE=robosense`
   - `map_path=/home/pixmoving/autoware_map/Town01`
+- CARLA bridge 已显式接入 117th sensor mapping：
+  - bridge workspace 使用 `/home/pixmoving/zmf_ws/projects/autoware_universe/autoware`
+  - private install 作为 underlay 暴露 `robobus_sensor_kit_description`
+  - sensor mapping / calibration 位于 `assets/sensors/carla/`
+  - 117th 场景显式使用 `rmw_cyclonedds_cpp`，避免 FastDDS shared-memory lock 干扰 CLI topic 验证。
 - 新增 L0 场景：
   - `scenarios/l0/robobus117th_town01_closed_loop.yaml`
 - `simctl up/run/down/report` 已经能渲染并执行 117th 稳定线参数。
@@ -132,6 +137,12 @@ simctl up \
 ## 4. 当前边界
 
 今天完成的是稳定栈自动化启动与健康验证，不是完整规控闭环 KPI 结论。
+
+车辆模型边界：
+
+- Autoware 侧已经使用 `vehicle_model=robobus`。
+- CARLA runtime 当前没有可驾驶的 robobus blueprint，因此 CARLA ego actor 暂时使用 `vehicle.toyota.prius` 占位。
+- 真正导入 robobus 到 CARLA 需要 UE4.26/CARLA 0.9.15 可用的 vehicle blueprint 或 cooked asset package；仅有 `robobus.dae` 不能直接完成可驾驶车辆导入。
 
 当前真实 run 的状态是：
 

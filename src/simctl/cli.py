@@ -88,6 +88,32 @@ def _slot_payload(slot: Any | None) -> dict[str, Any]:
     }
 
 
+def _scenario_stable_runtime_value(scenario: Any, key: str) -> Any:
+    execution = scenario.execution if scenario else {}
+    stable_runtime = execution.get("stable_runtime", {}) if isinstance(execution, dict) else {}
+    if not isinstance(stable_runtime, dict):
+        stable_runtime = {}
+    return stable_runtime.get(key, execution.get(key))
+
+
+def _scenario_expected_ros_topics(scenario: Any) -> list[str] | None:
+    value = _scenario_stable_runtime_value(scenario, "ros_expected_topics")
+    if value is None:
+        return None
+    if isinstance(value, str):
+        topics = [item.strip() for item in value.split(",")]
+    elif isinstance(value, list):
+        topics = [str(item).strip() for item in value]
+    else:
+        topics = [str(value).strip()]
+    return [topic for topic in topics if topic]
+
+
+def _scenario_rmw_implementation(scenario: Any) -> str:
+    value = _scenario_stable_runtime_value(scenario, "ros_rmw_implementation")
+    return "" if value is None else str(value)
+
+
 def handle_bootstrap(args: argparse.Namespace) -> int:
     repo_root = _repo_root(args.repo_root)
     asset_root = _asset_root(repo_root, args.asset_root)
@@ -136,6 +162,12 @@ def _artifact_paths(run_dir: Path, recording: dict[str, Any]) -> dict[str, str]:
     if carla_cfg.get("enabled", False):
         carla_rel = carla_cfg.get("path", "carla/latest.log")
         artifacts["carla_recorder"] = str(run_dir / Path(carla_rel))
+    visual_screenshot = run_dir / "screenshots" / "visual_startup.png"
+    visual_screenshot_metadata = run_dir / "screenshots" / "visual_startup.json"
+    if visual_screenshot.exists():
+        artifacts["visual_screenshot"] = str(visual_screenshot)
+    if visual_screenshot_metadata.exists():
+        artifacts["visual_screenshot_metadata"] = str(visual_screenshot_metadata)
     return artifacts
 
 
@@ -482,6 +514,8 @@ def handle_run(args: argparse.Namespace) -> int:
                     slot=slot,
                     logs=logs,
                     runtime_namespace=slot.runtime_namespace,
+                    expected_ros_topics=_scenario_expected_ros_topics(scenario),
+                    rmw_implementation=_scenario_rmw_implementation(scenario),
                 )
             status, gate_eval = _launch_gate_eval(logs, runtime_health)
             if status == "launch_failed":

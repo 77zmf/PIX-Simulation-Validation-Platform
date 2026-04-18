@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -14,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from simctl.health import probe_runtime_health
+from simctl.health import _probe_ros_graph
 from simctl.models import RuntimeSlot
 
 
@@ -42,6 +44,7 @@ class RuntimeHealthTests(unittest.TestCase):
                 {"step": "start-carla-server", "status": "started", "pid": os.getpid()},
                 {"step": "start-autoware-bridge", "status": "started", "pid": os.getpid()},
                 {"step": "start-autoware-stack", "status": "started", "pid": os.getpid()},
+                {"step": "start-carla-localization-bridge", "status": "started", "pid": os.getpid()},
             ]
             with (
                 patch("simctl.health._probe_ros_graph", return_value={"available": False, "passed": None}),
@@ -64,6 +67,7 @@ class RuntimeHealthTests(unittest.TestCase):
                 {"step": "start-carla-server", "status": "started", "pid": os.getpid()},
                 {"step": "start-autoware-bridge", "status": "started", "pid": os.getpid()},
                 {"step": "start-autoware-stack", "status": "started", "pid": os.getpid()},
+                {"step": "start-carla-localization-bridge", "status": "started", "pid": os.getpid()},
             ]
             with (
                 patch("simctl.health._probe_ros_graph", return_value={"available": False, "passed": None}),
@@ -82,3 +86,28 @@ class RuntimeHealthTests(unittest.TestCase):
 
             self.assertFalse(report["passed"])
             self.assertIn("carla_rpc_port", report["failed_checks"])
+
+    def test_probe_ros_graph_accepts_scenario_expected_topics(self) -> None:
+        completed = SimpleNamespace(
+            returncode=0,
+            stdout="/clock\n/tf\n/sensing/lidar/top/pointcloud_before_sync\n",
+            stderr="",
+        )
+        with (
+            patch("simctl.health._ros2_available", return_value=True),
+            patch("simctl.health._ros_topic_command", return_value=["ros2", "topic", "list"]),
+            patch("simctl.health.subprocess.run", return_value=completed),
+        ):
+            report = _probe_ros_graph(
+                21,
+                expected_topics=[
+                    "/clock",
+                    "/sensing/lidar/top/pointcloud_before_sync",
+                ],
+            )
+
+        self.assertTrue(report["passed"])
+        self.assertEqual(
+            report["expected_topics"],
+            ["/clock", "/sensing/lidar/top/pointcloud_before_sync"],
+        )

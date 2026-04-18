@@ -6,6 +6,7 @@ RUN_DIR=""
 ASSET_BUNDLE=""
 SLOT_ID=""
 ROS_DOMAIN_ID=""
+RMW_IMPLEMENTATION_ARG=""
 RUNTIME_NAMESPACE=""
 CPU_AFFINITY=""
 AUTOWARE_WS_ARG=""
@@ -23,6 +24,7 @@ while [[ $# -gt 0 ]]; do
     --asset-bundle) ASSET_BUNDLE="$2"; shift 2 ;;
     --slot-id) SLOT_ID="$2"; shift 2 ;;
     --ros-domain-id) ROS_DOMAIN_ID="$2"; shift 2 ;;
+    --rmw-implementation) RMW_IMPLEMENTATION_ARG="$2"; shift 2 ;;
     --runtime-namespace) RUNTIME_NAMESPACE="$2"; shift 2 ;;
     --cpu-affinity) CPU_AFFINITY="$2"; shift 2 ;;
     --autoware-ws) AUTOWARE_WS_ARG="$2"; shift 2 ;;
@@ -40,6 +42,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 AUTOWARE_WS="${AUTOWARE_WS_ARG:-${AUTOWARE_WS:-$HOME/zmf_ws/projects/autoware_universe/autoware}}"
 ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-21}"
+RMW_IMPLEMENTATION_VALUE="${RMW_IMPLEMENTATION_ARG:-${RMW_IMPLEMENTATION:-}}"
 MAP_PATH="${MAP_PATH:-${AUTOWARE_MAP_PATH:-${REPO_ROOT}}}"
 VEHICLE_MODEL="${VEHICLE_MODEL:-${AUTOWARE_VEHICLE_MODEL:-sample_vehicle}}"
 SENSOR_MODEL="${SENSOR_MODEL:-${AUTOWARE_SENSOR_MODEL:-carla_sensor_kit}}"
@@ -49,13 +52,18 @@ LIDAR_EXPORT=""
 if [[ -n "$LIDAR_TYPE" ]]; then
   LIDAR_EXPORT="export LIDAR_TYPE='${LIDAR_TYPE}' && "
 fi
-CMD="cd ${AUTOWARE_WS} && source install/setup.bash && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && export ROS_NAMESPACE='${RUNTIME_NAMESPACE}' && ${LIDAR_EXPORT}ros2 launch autoware_launch planning_simulator.launch.xml map_path:='${MAP_PATH}' vehicle_model:='${VEHICLE_MODEL}' sensor_model:='${SENSOR_MODEL}' rviz:='${RVIZ}'"
+RMW_EXPORT=""
+if [[ -n "$RMW_IMPLEMENTATION_VALUE" ]]; then
+  RMW_EXPORT="export RMW_IMPLEMENTATION='${RMW_IMPLEMENTATION_VALUE}' && "
+fi
+CMD="cd ${AUTOWARE_WS} && source install/setup.bash && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && ${RMW_EXPORT}export ROS_NAMESPACE='${RUNTIME_NAMESPACE}' && ${LIDAR_EXPORT}ros2 launch autoware_launch planning_simulator.launch.xml map_path:='${MAP_PATH}' vehicle_model:='${VEHICLE_MODEL}' sensor_model:='${SENSOR_MODEL}' rviz:='${RVIZ}'"
 echo "Scenario: ${SCENARIO}"
 echo "SlotId: ${SLOT_ID}"
 echo "RunDir: ${RUN_DIR}"
 echo "AssetBundle: ${ASSET_BUNDLE}"
 echo "Autoware workspace: ${AUTOWARE_WS}"
 echo "ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}"
+echo "RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION_VALUE}"
 echo "Runtime namespace: ${RUNTIME_NAMESPACE}"
 echo "CPU Affinity: ${CPU_AFFINITY}"
 echo "MapPath: ${MAP_PATH}"

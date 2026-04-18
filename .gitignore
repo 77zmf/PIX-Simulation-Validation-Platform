@@ -10,3 +10,7 @@ dist/
 runs/
 artifacts/
 reports/
+ci_runs/
+ci_digest/
+automation_outputs/
+src.zip

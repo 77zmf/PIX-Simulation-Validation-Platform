@@ -1,0 +1,88 @@
+# CARLA-native fallback sensor poses for the 117th smoke scenario when the CARLA
+# ego actor is still vehicle.toyota.prius. Keep this separate from the physical
+# Robobus 117th calibration so the imported Robobus blueprint can switch back to
+# a vehicle-specific calibration once its CARLA pose is fixed.
+#
+# autoware_carla_interface expects these values in CARLA vehicle coordinates:
+# X-forward, Y-right, Z-up, angles in radians. It then subtracts half of the
+# wheelbase from X when attaching sensors to the CARLA actor. With the default
+# 2.85 m bridge wheelbase, add 1.425 m to the desired vehicle-center X offset.
+
+sensor_kit_base_link:
+  lidar_ft_base_link:
+    x: 2.425
+    y: 0.0
+    z: 2.2
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+  lidar_fl_base_link:
+    x: 2.425
+    y: -0.8
+    z: 2.0
+    roll: 0.0
+    pitch: 0.0
+    yaw: -1.047198
+  lidar_fr_base_link:
+    x: 2.425
+    y: 0.8
+    z: 2.0
+    roll: 0.0
+    pitch: 0.0
+    yaw: 1.047198
+  gnss_link:
+    x: 1.425
+    y: 0.0
+    z: 1.6
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+  tamagawa/imu_link:
+    x: 1.425
+    y: 0.0
+    z: 1.6
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+  camera0/camera_link:
+    x: 3.225
+    y: 0.0
+    z: 1.7
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
+  camera1/camera_link:
+    x: -0.375
+    y: 0.0
+    z: 1.7
+    roll: 0.0
+    pitch: 0.0
+    yaw: 3.141593
+  camera2/camera_link:
+    x: 2.725
+    y: -0.55
+    z: 1.6
+    roll: 0.0
+    pitch: 0.0
+    yaw: -0.785398
+  camera3/camera_link:
+    x: 2.725
+    y: 0.55
+    z: 1.6
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.785398
+  camera4/camera_link:
+    x: 0.125
+    y: -0.55
+    z: 1.6
+    roll: 0.0
+    pitch: 0.0
+    yaw: -2.356194
+  camera5/camera_link:
+    x: 0.125
+    y: 0.55
+    z: 1.6
+    roll: 0.0
+    pitch: 0.0
+    yaw: 2.356194

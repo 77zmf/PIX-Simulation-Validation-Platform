@@ -4,6 +4,8 @@ set -euo pipefail
 RUN_DIR=""
 CARLA_PORT=""
 TRAFFIC_MANAGER_PORT=""
+ROS_DOMAIN_ID=""
+RMW_IMPLEMENTATION_ARG=""
 EXECUTE=0
 
 while [[ $# -gt 0 ]]; do
@@ -11,6 +13,8 @@ while [[ $# -gt 0 ]]; do
     --run-dir) RUN_DIR="$2"; shift 2 ;;
     --carla-port) CARLA_PORT="$2"; shift 2 ;;
     --traffic-manager-port) TRAFFIC_MANAGER_PORT="$2"; shift 2 ;;
+    --ros-domain-id) ROS_DOMAIN_ID="$2"; shift 2 ;;
+    --rmw-implementation) RMW_IMPLEMENTATION_ARG="$2"; shift 2 ;;
     -Execute|--execute) EXECUTE=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -26,6 +30,8 @@ echo "RunDir: ${RUN_DIR}"
 echo "PidDir: ${PID_DIR}"
 echo "CARLA RPC Port: ${CARLA_PORT}"
 echo "Traffic Manager Port: ${TRAFFIC_MANAGER_PORT}"
+echo "ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}"
+echo "RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION_ARG}"
 
 collect_process_tree() {
   local root_pid="$1"
@@ -80,6 +86,44 @@ stop_port_listeners() {
   done
 }
 
+cleanup_fastdds_shm() {
+  if [[ "${SIMCTL_CLEAN_FASTDDS_SHM:-1}" == "0" ]]; then
+    echo "Skipping FastDDS shared-memory cleanup because SIMCTL_CLEAN_FASTDDS_SHM=0"
+    return
+  fi
+  local removed_count
+  removed_count="$(
+    find /dev/shm -maxdepth 1 -user "$(id -u)" \( -name 'fastrtps_*' -o -name 'sem.fastrtps_*' -o -name 'fastdds*' \) -print -delete 2>/dev/null \
+      | wc -l
+  )"
+  echo "FastDDS shared-memory files removed: ${removed_count//[[:space:]]/}"
+}
+
+stop_ros2_daemon() {
+  if [[ "${SIMCTL_STOP_ROS2_DAEMON:-1}" == "0" ]]; then
+    echo "Skipping ROS 2 daemon stop because SIMCTL_STOP_ROS2_DAEMON=0"
+    return
+  fi
+  if [[ ! -f /opt/ros/humble/setup.bash ]] || ! command -v bash >/dev/null 2>&1; then
+    echo "Skipping ROS 2 daemon stop because ROS 2 setup is unavailable"
+    return
+  fi
+  local rmw_values=("${RMW_IMPLEMENTATION_ARG}" "rmw_cyclonedds_cpp" "rmw_fastrtps_cpp" "")
+  local rmw_value
+  for rmw_value in "${rmw_values[@]}"; do
+    local daemon_cmd="source /opt/ros/humble/setup.bash >/dev/null 2>&1 && "
+    if [[ -n "${ROS_DOMAIN_ID}" ]]; then
+      daemon_cmd+="export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && "
+    fi
+    if [[ -n "${rmw_value}" ]]; then
+      daemon_cmd+="export RMW_IMPLEMENTATION='${rmw_value}' && "
+    fi
+    daemon_cmd+="ros2 daemon stop >/dev/null 2>&1 || true"
+    bash -lc "${daemon_cmd}"
+  done
+  echo "ROS 2 daemon stop requested"
+}
+
 if [[ "$EXECUTE" -eq 1 ]]; then
   if [[ -z "$PID_DIR" || ! -d "$PID_DIR" ]]; then
     echo "No pid directory found for this run" >&2
@@ -125,4 +169,6 @@ if [[ "$EXECUTE" -eq 1 ]]; then
   for pid_file in "${PID_FILES[@]}"; do
     rm -f "$pid_file"
   done
+  stop_ros2_daemon
+  cleanup_fastdds_shm
 fi

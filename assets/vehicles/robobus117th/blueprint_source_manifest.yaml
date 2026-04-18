@@ -1,0 +1,102 @@
+asset_id: robobus117th_carla_blueprint_source
+display_name: PixMoving Robobus 117th CARLA Blueprint Source Package
+owner: zmf
+line: stable
+status: source_package_only
+target_runtime:
+  simulator: CARLA
+  carla_version: 0.9.15
+  unreal_engine: 4.26
+  ros_distribution: Humble
+desired_carla_blueprint:
+  id: vehicle.pixmoving.robobus
+  make: pixmoving
+  model: robobus117th
+  role_name: ego_vehicle
+  current_scenario_fallback: vehicle.toyota.prius
+source_install:
+  host_role: company_ubuntu_host
+  autoware_install_root: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install
+  vehicle_description_package: robobus_description
+  vehicle_visual_mesh: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/robobus_description/share/robobus_description/mesh/robobus.dae
+  sensor_kit_package: robobus_sensor_kit_description
+  sensor_kit_xacro_dir: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/robobus_sensor_kit_description/share/robobus_sensor_kit_description/urdf
+  parameter_root: /home/pixmoving/pix/parameter
+  vehicle_info_file: /home/pixmoving/pix/parameter/HMI/vehicle_info.yml
+  sensor_extrinsics:
+    - /home/pixmoving/pix/parameter/sensor_kit/robobus_sensor_kit_description/extrinsic_parameters/sensors_calibration.yaml
+    - /home/pixmoving/pix/parameter/sensor_kit/robobus_sensor_kit_description/extrinsic_parameters/sensor_kit_calibration.yaml
+vehicle_geometry:
+  source_file: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/robobus_description/share/robobus_description/config/vehicle_info.param.yaml
+  dimensions_m:
+    wheel_radius: 0.323
+    wheel_width: 0.25
+    wheel_base: 3.02
+    wheel_tread: 1.61
+    front_overhang: 0.4
+    rear_overhang: 0.4
+    left_overhang: 0.15
+    right_overhang: 0.15
+    vehicle_length_computed: 3.82
+    vehicle_width_computed: 1.91
+    vehicle_height: 2.209
+  steering:
+    max_steer_angle_rad: 0.506
+    to_4ws_k_threshold: 0.09
+    to_2ws_k_threshold: 0.01
+    coef_for_4ws: 0.5
+  visual_mesh_pose_in_urdf:
+    source_file: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/robobus_description/share/robobus_description/urdf/vehicle.xacro
+    origin_xyz_m:
+      - 1.46
+      - 0.14
+      - -0.4
+    rpy_rad:
+      - 0.0
+      - 0.0
+      - 0.0
+    scale:
+      - 1.0
+      - 1.0
+      - 1.0
+  dae_metadata:
+    unit: meter
+    up_axis: Z_UP
+    root_transform_note: The DAE root node applies an approximately 0.001 scale plus axis conversion; verify imported size and forward axis in UE4.26 before cooking.
+repo_inputs:
+  scenario: scenarios/l0/robobus117th_town01_closed_loop.yaml
+  authoring_requirements: assets/vehicles/robobus117th/blueprint_authoring_requirements.yaml
+  bridge_sensor_mapping: assets/sensors/carla/robobus117th_sensor_mapping.yaml
+  bridge_sensor_calibration: assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+  bridge_objects_definition: assets/sensors/carla/robobus117th_objects.json
+generated_package:
+  default_output_dir: artifacts/carla_blueprints/robobus117th_source
+  prepare_script: assets/vehicles/robobus117th/scripts/prepare_source_package.sh
+  mesh_import_script: assets/vehicles/robobus117th/scripts/prepare_unreal_mesh_inputs.sh
+  readiness_check: assets/vehicles/robobus117th/scripts/check_blueprint_readiness.sh
+  runtime_verify: assets/vehicles/robobus117th/scripts/verify_carla_blueprint.py
+  cooked_deploy: assets/vehicles/robobus117th/scripts/deploy_cooked_blueprint.sh
+unreal_authoring_requirements:
+  visual_mesh_import: required
+  material_assignment: required
+  collision_setup: required
+  physics_asset: required
+  wheel_blueprints: required_for_driveable_vehicle
+  vehicle_movement_tuning: required_for_driveable_vehicle
+  cooked_package: required_before_scenario_switch
+known_boundaries:
+  install_contains_visual_mesh: true
+  install_contains_sensor_and_vehicle_ros_description: true
+  install_contains_unreal_cooked_blueprint: false
+  install_contains_verified_wheel_rig: false
+  ubuntu_host_has_carla_runtime: true
+  ubuntu_host_has_unreal_editor_toolchain: false
+validation:
+  run_command: simctl run --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml --run-root runs/robobus117th_bridge --slot stable-slot-01 --execute
+  scenario_validates: CARLA 0.9.15 + Autoware robobus117th sensor bridge smoke
+  expected_observable_before_cooked_blueprint: CARLA ego actor uses vehicle.toyota.prius while Autoware and bridge use robobus sensor topics.
+  expected_observable_after_cooked_blueprint: CARLA ego actor spawns as vehicle.pixmoving.robobus and the same sensor topics stay healthy.
+  kpi_gate: planning_control_smoke
+rollback:
+  action: Keep or restore execution.stable_runtime.carla_vehicle_type to vehicle.toyota.prius.
+  impact: Returns to the already verified placeholder ego actor without changing Autoware robobus parameters.

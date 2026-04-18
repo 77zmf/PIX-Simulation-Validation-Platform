@@ -53,6 +53,9 @@ def build_context(
             return ""
         return str(value)
 
+    autoware_ws = runtime_option("autoware_ws")
+    autoware_bridge_ws = runtime_option("autoware_bridge_ws", autoware_ws)
+
     context = {
         "repo_root": str(repo_root),
         "repo_root_wsl": to_wsl_path(repo_root),
@@ -73,17 +76,28 @@ def build_context(
         "carla_rpc_port": str(slot.carla_rpc_port) if slot else "",
         "traffic_manager_port": str(slot.traffic_manager_port) if slot else "",
         "ros_domain_id": str(slot.ros_domain_id) if slot else "",
+        "ros_rmw_implementation": runtime_option("ros_rmw_implementation"),
         "runtime_namespace": slot.runtime_namespace if slot else "",
         "gpu_id": slot.gpu_id if slot else "",
         "cpu_affinity": slot.cpu_affinity or "" if slot else "",
         "execute_flag": "-Execute" if execute else "",
-        "autoware_ws": runtime_option("autoware_ws"),
+        "autoware_ws": autoware_ws,
+        "autoware_bridge_ws": autoware_bridge_ws,
+        "autoware_bridge_underlay_ws": runtime_option("autoware_bridge_underlay_ws"),
         "autoware_map_path": runtime_option("autoware_map_path"),
         "autoware_vehicle_model": runtime_option("autoware_vehicle_model"),
         "autoware_sensor_model": runtime_option("autoware_sensor_model"),
         "autoware_lidar_type": runtime_option("autoware_lidar_type"),
         "autoware_rviz": runtime_option("autoware_rviz"),
         "carla_map": runtime_option("carla_map", scenario.map_id if scenario else ""),
+        "carla_vehicle_type": runtime_option("carla_vehicle_type", "vehicle.toyota.prius"),
+        "carla_spawn_point": runtime_option("carla_spawn_point"),
+        "carla_ego_vehicle_role_name": runtime_option("carla_ego_vehicle_role_name", "ego_vehicle"),
+        "carla_sensor_kit_name": runtime_option("carla_sensor_kit_name"),
+        "carla_sensor_mapping_file": runtime_option("carla_sensor_mapping_file"),
+        "carla_sensor_kit_calibration_file": runtime_option("carla_sensor_kit_calibration_file"),
+        "carla_objects_definition_file": runtime_option("carla_objects_definition_file"),
+        "carla_use_traffic_manager": runtime_option("carla_use_traffic_manager", "False"),
         "carla_render_mode": runtime_option("carla_render_mode"),
         "carla_res_x": runtime_option("carla_res_x"),
         "carla_res_y": runtime_option("carla_res_y"),
@@ -91,6 +105,19 @@ def build_context(
         "carla_extra_args": runtime_option("carla_extra_args"),
         "carla_display": runtime_option("carla_display"),
         "carla_xauthority": runtime_option("carla_xauthority"),
+        "visual_screenshot_wait_sec": runtime_option("visual_screenshot_wait_sec", "8"),
+        "carla_localization_bridge_kill_simple_sim": runtime_option(
+            "carla_localization_bridge_kill_simple_sim",
+            "true",
+        ),
+        "carla_localization_bridge_wait_sec": runtime_option(
+            "carla_localization_bridge_wait_sec",
+            "60",
+        ),
+        "carla_localization_bridge_kill_monitor_sec": runtime_option(
+            "carla_localization_bridge_kill_monitor_sec",
+            "45",
+        ),
     }
     return context
 

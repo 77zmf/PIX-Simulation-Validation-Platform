@@ -1,0 +1,83 @@
+# CARLA-compatible sensor poses for PixRover1.2-1.5/117th.
+# Values are derived from the 117th parameter set by composing:
+# base_link -> sensor_kit_base_link and sensor_kit_base_link -> sensor.
+# Angles stay in radians; autoware_carla_interface converts them to CARLA degrees.
+
+sensor_kit_base_link:
+  lidar_ft_base_link:
+    x: 2.459244
+    y: -0.022552
+    z: 1.845668
+    roll: 0.013367
+    pitch: 0.009416
+    yaw: 0.011880
+  lidar_fl_base_link:
+    x: 2.700244
+    y: 0.905448
+    z: 1.420394
+    roll: -3.111087
+    pitch: 0.010704
+    yaw: 1.164140
+  lidar_fr_base_link:
+    x: 2.701244
+    y: -0.927552
+    z: 1.404461
+    roll: -0.016523
+    pitch: -3.124793
+    yaw: 2.011744
+  gnss_link:
+    x: 0.454244
+    y: 0.127448
+    z: 0.462928
+    roll: 0.008680
+    pitch: 0.002091
+    yaw: -0.013972
+  tamagawa/imu_link:
+    x: 0.454244
+    y: 0.127448
+    z: 0.462928
+    roll: 0.008680
+    pitch: 0.002091
+    yaw: -0.013972
+  camera0/camera_link:
+    x: 3.377043
+    y: 0.050462
+    z: 0.764907
+    roll: 1.600064
+    pitch: 3.156654
+    yaw: 1.590304
+  camera1/camera_link:
+    x: -0.281929
+    y: -0.017552
+    z: 0.836288
+    roll: -1.563665
+    pitch: 0.000351
+    yaw: 1.576898
+  camera2/camera_link:
+    x: 2.635982
+    y: 0.877948
+    z: 1.364288
+    roll: -1.857938
+    pitch: 0.019557
+    yaw: 0.923961
+  camera3/camera_link:
+    x: 2.619766
+    y: -0.960809
+    z: 1.379288
+    roll: -1.871564
+    pitch: 0.022118
+    yaw: 2.247216
+  camera4/camera_link:
+    x: 0.420909
+    y: 0.895191
+    z: 1.367440
+    roll: 1.304136
+    pitch: 3.159734
+    yaw: 2.169947
+  camera5/camera_link:
+    x: 0.479972
+    y: -0.985372
+    z: 1.350332
+    roll: 1.288835
+    pitch: -3.116849
+    yaw: 1.004079
