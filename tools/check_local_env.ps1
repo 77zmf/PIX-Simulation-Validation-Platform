@@ -82,7 +82,7 @@ import importlib
 import json
 import sys
 
-names = ["yaml", "numpy", "open3d", "cv2", "trimesh", "pycolmap"]
+names = ["yaml", "numpy", "open3d", "cv2", "trimesh", "pycolmap", "matplotlib"]
 rows = []
 ok = True
 for name in names:
@@ -230,7 +230,7 @@ $report = [ordered]@{
   python = $pythonModules
   versions = $versions
   install_hint = [ordered]@{
-    python_venv = "python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -U pip; .\.venv\Scripts\python.exe -m pip install PyYAML numpy open3d opencv-python trimesh pycolmap"
+    python_venv = "python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -U pip; .\.venv\Scripts\python.exe -m pip install PyYAML numpy open3d opencv-python trimesh pycolmap matplotlib"
     ffmpeg = "winget install --id Gyan.FFmpeg.Essentials -e --accept-package-agreements --accept-source-agreements --scope user"
     colmap = "Download colmap-x64-windows-cuda.zip from https://github.com/colmap/colmap/releases and add its bin directory to PATH"
   }

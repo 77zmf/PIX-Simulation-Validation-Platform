@@ -80,6 +80,27 @@ class PointcloudReconstructionToolTests(unittest.TestCase):
 
         self.assertEqual(run_name, "center_region_-100_100_-100_100_tiles32_points100000")
 
+    def test_split_ground_points_uses_local_cell_baseline(self) -> None:
+        points = [
+            (0.0, 0.0, 0.0, 1, 2, 3),
+            (1.0, 0.0, 0.2, 1, 2, 3),
+            (1.0, 1.0, 1.4, 1, 2, 3),
+            (10.0, 10.0, 5.0, 1, 2, 3),
+            (10.0, 11.0, 5.3, 1, 2, 3),
+            (10.0, 12.0, 7.0, 1, 2, 3),
+        ]
+
+        ground, nonground, diagnostics = reconstruct_pointcloud_map.split_ground_points(
+            points,
+            cell_size=5.0,
+            height_threshold=0.5,
+            ground_percentile=0.0,
+        )
+
+        self.assertEqual(len(ground), 4)
+        self.assertEqual(len(nonground), 2)
+        self.assertEqual(diagnostics["cell_count"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

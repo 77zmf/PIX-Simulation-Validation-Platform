@@ -188,6 +188,55 @@ def _bounds(points: list[tuple[float, float, float, int, int, int]]) -> dict[str
     }
 
 
+def split_ground_points(
+    points: list[tuple[float, float, float, int, int, int]],
+    cell_size: float,
+    height_threshold: float,
+    ground_percentile: float,
+) -> tuple[list[tuple[float, float, float, int, int, int]], list[tuple[float, float, float, int, int, int]], dict[str, Any]]:
+    if not points:
+        return [], [], {"cell_count": 0, "ground_ratio": 0.0}
+
+    cell_size = max(cell_size, 0.1)
+    height_threshold = max(height_threshold, 0.0)
+    ground_percentile = min(max(ground_percentile, 0.0), 1.0)
+    cells: dict[tuple[int, int], list[float]] = {}
+    for x, y, z, *_ in points:
+        key = (math.floor(x / cell_size), math.floor(y / cell_size))
+        cells.setdefault(key, []).append(z)
+
+    baselines = {key: _percentile(values, ground_percentile) for key, values in cells.items()}
+    ground: list[tuple[float, float, float, int, int, int]] = []
+    nonground: list[tuple[float, float, float, int, int, int]] = []
+    for point in points:
+        x, y, z, *_ = point
+        key = (math.floor(x / cell_size), math.floor(y / cell_size))
+        baseline = baselines.get(key)
+        if baseline is not None and z <= baseline + height_threshold:
+            ground.append(point)
+        else:
+            nonground.append(point)
+
+    diagnostics = {
+        "cell_size": cell_size,
+        "height_threshold": height_threshold,
+        "ground_percentile": ground_percentile,
+        "cell_count": len(cells),
+        "ground_points": len(ground),
+        "nonground_points": len(nonground),
+        "ground_ratio": len(ground) / len(points),
+    }
+    return ground, nonground, diagnostics
+
+
+def recolor_points(
+    points: list[tuple[float, float, float, int, int, int]],
+    color: tuple[int, int, int],
+) -> list[tuple[float, float, float, int, int, int]]:
+    red, green, blue = color
+    return [(x, y, z, red, green, blue) for x, y, z, *_ in points]
+
+
 def write_ascii_ply(path: Path, points: list[tuple[float, float, float, int, int, int]]) -> None:
     ensure_dir(path.parent)
     with path.open("w", encoding="utf-8", newline="\n") as fh:
@@ -283,6 +332,10 @@ def build_pointcloud_smoke_report(
     region: tuple[float, float, float, float] | None,
     selection: str,
     run_name: str | None = None,
+    split_ground: bool = False,
+    ground_cell_size: float = 5.0,
+    ground_height_threshold: float = 0.5,
+    ground_percentile: float = 0.10,
 ) -> dict[str, Any]:
     bundle = load_asset_bundle(bundle_id, asset_root=asset_root)
     inspection = inspect_asset_bundle(bundle)
@@ -323,6 +376,36 @@ def build_pointcloud_smoke_report(
     json_path = output_dir / "pointcloud_smoke.json"
     md_path = output_dir / "pointcloud_smoke.md"
     write_ascii_ply(ply_path, sampled_points)
+    outputs = {
+        "ply": str(ply_path),
+        "json": str(json_path),
+        "markdown": str(md_path),
+    }
+
+    ground_report = None
+    if split_ground:
+        ground_points, nonground_points, ground_report = split_ground_points(
+            sampled_points,
+            cell_size=ground_cell_size,
+            height_threshold=ground_height_threshold,
+            ground_percentile=ground_percentile,
+        )
+        ground_path = output_dir / "ground_points.ply"
+        nonground_path = output_dir / "nonground_points.ply"
+        classified_path = output_dir / "classified_ground_nonground.ply"
+        write_ascii_ply(ground_path, recolor_points(ground_points, (40, 160, 70)))
+        write_ascii_ply(nonground_path, recolor_points(nonground_points, (210, 60, 50)))
+        write_ascii_ply(
+            classified_path,
+            recolor_points(ground_points, (40, 160, 70)) + recolor_points(nonground_points, (210, 60, 50)),
+        )
+        outputs.update(
+            {
+                "ground_ply": str(ground_path),
+                "nonground_ply": str(nonground_path),
+                "classified_ply": str(classified_path),
+            }
+        )
 
     report = {
         "generated_at": _utc_now(),
@@ -339,14 +422,14 @@ def build_pointcloud_smoke_report(
         "total_source_points_in_selected_tiles": total_source_points,
         "sampled_points": len(sampled_points),
         "global_bounds": _bounds(sampled_points),
-        "outputs": {
-            "ply": str(ply_path),
-            "json": str(json_path),
-            "markdown": str(md_path),
-        },
+        "outputs": outputs,
+        "ground_split": ground_report,
         "tiles": tile_reports,
         "passed": bool(selected and sampled_points),
-        "next_action": "Open the PLY with Open3D or CloudCompare, then decide whether to run full-map merge, mesh, or Gaussian conversion.",
+        "next_action": (
+            "Inspect the sampled and classified PLY outputs, then decide whether to run a larger regional merge, "
+            "ground/non-ground cleanup, mesh, or Gaussian conversion."
+        ),
     }
     json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     md_path.write_text(render_markdown(report), encoding="utf-8")
@@ -376,9 +459,28 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- z_p50: `{bounds['z_p50']}`",
         f"- z_p95: `{bounds['z_p95']}`",
         "",
-        "## Tile Samples",
+        "## Ground Split",
         "",
     ]
+    ground_split = report.get("ground_split")
+    if ground_split:
+        lines.extend(
+            [
+                f"- ground_points: `{ground_split['ground_points']}`",
+                f"- nonground_points: `{ground_split['nonground_points']}`",
+                f"- ground_ratio: `{ground_split['ground_ratio']:.4f}`",
+                f"- classified_ply: `{report['outputs'].get('classified_ply')}`",
+                "",
+            ]
+        )
+    else:
+        lines.extend(["- enabled: `False`", ""])
+    lines.extend(
+        [
+        "## Tile Samples",
+        "",
+        ]
+    )
     for tile in report["tiles"][:20]:
         lines.append(
             f"- `{tile['name']}`: source=`{tile['source_points']}`, "
@@ -415,6 +517,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--region", default=None, help="Optional tile coordinate filter: min_x,max_x,min_y,max_y")
     parser.add_argument("--selection", choices=("largest", "center", "metadata"), default="largest")
     parser.add_argument("--run-name", default=None, help="Output subdirectory name under the selected bundle")
+    parser.add_argument("--split-ground", action="store_true", help="Write ground/non-ground PLY outputs")
+    parser.add_argument("--ground-cell-size", type=float, default=5.0)
+    parser.add_argument("--ground-height-threshold", type=float, default=0.5)
+    parser.add_argument("--ground-percentile", type=float, default=0.10)
     args = parser.parse_args(argv)
 
     report = build_pointcloud_smoke_report(
@@ -426,6 +532,10 @@ def main(argv: list[str] | None = None) -> int:
         region=_parse_region(args.region),
         selection=args.selection,
         run_name=args.run_name,
+        split_ground=args.split_ground,
+        ground_cell_size=args.ground_cell_size,
+        ground_height_threshold=args.ground_height_threshold,
+        ground_percentile=args.ground_percentile,
     )
     print(json.dumps({"passed": report["passed"], **report["outputs"]}, ensure_ascii=False, indent=2))
     return 0 if report["passed"] else 1

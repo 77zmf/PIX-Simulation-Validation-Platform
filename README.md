@@ -149,6 +149,8 @@ Pointcloud-map reconstruction smoke:
 
 ```powershell
 python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --max-tiles 16 --max-points 50000 --selection largest --run-name largest_tiles16_points50000
+python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --selection center --max-tiles 64 --max-points 200000 --split-ground --run-name center_tiles64_split_ground
+.\.venv\Scripts\python.exe .\tools\render_pointcloud_preview.py --run-dir outputs\pointcloud_reconstruction\site_gy_qyhx_gsh20260310\center_tiles64_split_ground
 ```
 
 Local reconstruction tool check on Windows:

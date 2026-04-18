@@ -134,6 +134,34 @@ outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/pointcloud
 python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --selection center --max-tiles 32 --max-points 100000 --run-name center_tiles32_points100000
 ```
 
+如果要生成地面/非地面分层：
+
+```powershell
+python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --selection center --max-tiles 64 --max-points 200000 --split-ground --ground-cell-size 5 --ground-height-threshold 0.5 --run-name center_tiles64_split_ground
+```
+
+分层输出：
+
+```text
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/ground_points.ply
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/nonground_points.ply
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/classified_ground_nonground.ply
+```
+
+生成预览图：
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\render_pointcloud_preview.py --run-dir outputs\pointcloud_reconstruction\site_gy_qyhx_gsh20260310\center_tiles64_split_ground
+```
+
+预览输出：
+
+```text
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/sample_topdown.png
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/classified_topdown.png
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/z_histogram.png
+```
+
 如果只看指定 tile 坐标范围：
 
 ```powershell
