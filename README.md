@@ -173,6 +173,7 @@ Reference documents:
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
+- [Weekly Repo Sync 2026-04-18](./docs/WEEKLY_REPO_SYNC_2026_04_18_CN.md)
 
 ## Subagent Catalog
 
