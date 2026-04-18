@@ -47,7 +47,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python tools/publish_digest_issue.py \
-            --repo pixmoving-moveit/zmf_ws \
+            --repo 77zmf/PIX-Simulation-Validation-Platform \
             --digest automation_outputs/project_digest/digest.md \
             --summary automation_outputs/project_digest/digest_summary.json
 

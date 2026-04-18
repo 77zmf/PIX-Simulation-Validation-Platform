@@ -65,6 +65,21 @@ class MapRefreshReconstructionAdapter(_BasePlaceholderReconstructionAdapter):
         return output
 
 
+class SiteProxyReconstructionAdapter(_BasePlaceholderReconstructionAdapter):
+    family = "site_proxy"
+    stage = "site_proxy_refresh"
+
+    def reconstruct(self, context: AdapterContext) -> ReconstructionOutput:
+        output = super().reconstruct(context)
+        output.notes.extend(
+            [
+                "focus=site_proxy_alignment_and_replay_readiness",
+                "deliverable=standard_asset_bundle_refresh",
+            ]
+        )
+        return output
+
+
 class StaticGaussianReconstructionAdapter(_BasePlaceholderReconstructionAdapter):
     family = "static_gaussians"
     stage = "geometry_base"
@@ -110,6 +125,8 @@ class DynamicGaussianReconstructionAdapter(_BasePlaceholderReconstructionAdapter
 def load_reconstruction_adapter(profile_id: str) -> ReconstructionAdapter:
     if profile_id == "reconstruction_public_road_map_refresh":
         return MapRefreshReconstructionAdapter()
+    if profile_id == "reconstruction_site_proxy":
+        return SiteProxyReconstructionAdapter()
     if profile_id == "reconstruction_static_public_road_gaussians":
         return StaticGaussianReconstructionAdapter()
     if profile_id == "reconstruction_dynamic_public_road_gaussians":

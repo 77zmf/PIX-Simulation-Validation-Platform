@@ -1,11 +1,11 @@
-# AGENTS.md for pixmoving-moveit/zmf_ws
+# AGENTS.md for 77zmf/PIX-Simulation-Validation-Platform
 
 ## Repository intent
 This repository is the control plane and delivery workspace for the PIX Simulation Validation Platform.
 
 Current GitHub URL:
 
-- `pixmoving-moveit/zmf_ws`
+- `77zmf/PIX-Simulation-Validation-Platform`
 
 Display name:
 

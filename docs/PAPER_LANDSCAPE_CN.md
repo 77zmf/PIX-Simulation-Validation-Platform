@@ -6,7 +6,7 @@
 
 - 精读入口：[PAPER_READING_MAP_CN.md](./PAPER_READING_MAP_CN.md)
 - 本地 PDF 索引：[LOCAL_PDF_INDEX_CN.md](./LOCAL_PDF_INDEX_CN.md)
-- 协同讨论入口：[issue #22](https://github.com/pixmoving-moveit/zmf_ws/issues/22)
+- 协同讨论入口：[issue #22](https://github.com/77zmf/PIX-Simulation-Validation-Platform/issues/22)
 
 当前文档不追求“收尽所有论文”，而是优先覆盖当前项目真正相关的主线：
 

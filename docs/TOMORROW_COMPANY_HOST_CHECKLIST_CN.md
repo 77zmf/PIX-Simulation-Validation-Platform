@@ -9,7 +9,7 @@
 
 ```bash
 cd ~/work
-git clone https://github.com/pixmoving-moveit/zmf_ws.git
+git clone https://github.com/77zmf/PIX-Simulation-Validation-Platform.git
 cd zmf_ws
 git pull --ff-only
 ```

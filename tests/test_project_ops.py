@@ -22,7 +22,7 @@ class ProjectOpsTests(unittest.TestCase):
                 "due Date": "2026-03-25",
                 "owner": "Yang Zhipeng",
                 "blocked": "Yes",
-                "item URL": "https://github.com/orgs/pixmoving-moveit/projects/2/views/1",
+                "item URL": "https://github.com/users/77zmf/projects/1/views/1",
                 "content": {"body": "Waiting for the UE4.26 shadow validation plan and scenario shortlist."},
             }
         )
@@ -30,7 +30,7 @@ class ProjectOpsTests(unittest.TestCase):
         self.assertEqual(item.owner, "Yang Zhipeng")
         self.assertEqual(item.blocked, "Yes")
         self.assertEqual(item.body, "Waiting for the UE4.26 shadow validation plan and scenario shortlist.")
-        self.assertEqual(item.item_url, "https://github.com/orgs/pixmoving-moveit/projects/2/views/1")
+        self.assertEqual(item.item_url, "https://github.com/users/77zmf/projects/1/views/1")
 
     def test_load_project_items_auto_uses_github_project(self) -> None:
         with patch("simctl.project_ops.fetch_project_items", return_value=["github"]) as github_fetch:
@@ -94,8 +94,8 @@ class ProjectOpsTests(unittest.TestCase):
         markdown = render_digest_markdown(
             config={
                 "projects": {
-                    "tasks": {"number": 2, "url": "https://github.com/orgs/pixmoving-moveit/projects/2"},
-                    "scenarios": {"number": 3, "url": "https://github.com/orgs/pixmoving-moveit/projects/3"},
+                    "tasks": {"number": 2, "url": "https://github.com/users/77zmf/projects/1"},
+                    "scenarios": {"number": 3, "url": "https://github.com/users/77zmf/projects/2"},
                 },
                 "reporting": {"due_soon_days": 3},
             },

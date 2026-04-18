@@ -43,7 +43,7 @@ git remote -v
 预期结果：
 
 - `origin` -> `git@github.com:77zmf/PIX-Simulation-Validation-Platform.git`
-- `company` -> `git@github.com:pixmoving-moveit/zmf_ws.git`
+- `company` -> `git@github.com:77zmf/PIX-Simulation-Validation-Platform.git`
 
 推荐推送顺序：
 

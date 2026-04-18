@@ -62,6 +62,8 @@ def to_wsl_path(path: str | Path) -> str:
         drive = raw[0].lower()
         tail = raw[2:].replace("\\", "/").lstrip("/")
         return f"/mnt/{drive}/{tail}"
+    if raw.startswith("/"):
+        return raw
     posix_path = Path(raw)
     if posix_path.is_absolute():
         return raw

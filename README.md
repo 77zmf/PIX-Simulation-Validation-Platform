@@ -1,7 +1,7 @@
 # PIX Simulation Validation Platform
 
 Display name: `PIX Simulation Validation Platform`  
-Current GitHub URL: `pixmoving-moveit/zmf_ws`
+Current GitHub URL: `77zmf/PIX-Simulation-Validation-Platform`
 
 This repository is the control plane for a simulation validation platform built around:
 
@@ -33,10 +33,10 @@ Near-term gate:
 
 ## Public Entry Points
 
-- GitHub URL: [pixmoving-moveit/zmf_ws](https://github.com/pixmoving-moveit/zmf_ws)
-- GitHub Task Board: [Project 2](https://github.com/orgs/pixmoving-moveit/projects/2)
-- GitHub Scenario Board: [Project 3](https://github.com/orgs/pixmoving-moveit/projects/3)
-- GitHub Digest Inbox: [project-digest issues](https://github.com/pixmoving-moveit/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
+- GitHub URL: [77zmf/PIX-Simulation-Validation-Platform](https://github.com/77zmf/PIX-Simulation-Validation-Platform)
+- GitHub Task Board: [Project 1](https://github.com/users/77zmf/projects/1)
+- GitHub Scenario Board: [Project 2](https://github.com/users/77zmf/projects/2)
+- GitHub Digest Inbox: [project-digest issues](https://github.com/77zmf/PIX-Simulation-Validation-Platform/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
 
 ## Team Ownership
 
@@ -57,7 +57,8 @@ Near-term gate:
 
 ### Public-Road Assets And Corner Cases
 
-- first public-road bundle: `site_gy_qyhx_gsh20260302`
+- current complete public-road bundle: `site_gy_qyhx_gsh20260310`
+- legacy public-road bundle manifest: `site_gy_qyhx_gsh20260302`
 - target asset bundle shape:
   - `lanelet2_map.osm`
   - `map_projector_info.yaml`
@@ -252,4 +253,4 @@ The project-management and control-plane layers are in place, but three delivery
 
 ## Current Asset Note
 
-The archive `gy_qyhx_gsh20260302_map.zip` remains outside Git tracking because of GitHub file-size constraints. The repository tracks manifests and normalized paths instead of the raw archive itself.
+The archives `gy_qyhx_gsh20260302_map.zip` and `gy_qyhx_gsh20260310_map(2).zip` remain outside Git tracking because of GitHub file-size constraints. The repository tracks manifests and normalized paths instead of the raw archives themselves.
