@@ -188,6 +188,12 @@ simctl digest
 simctl replay --run-result runs/<run_id>/run_result.json
 ```
 
+DingTalk robot notification dry-run:
+
+```bash
+simctl ding-notify --run-result runs/<run_id>/run_result.json
+```
+
 ## Ubuntu Host Workflow
 
 Operator-facing helpers:
@@ -206,6 +212,7 @@ Reference documents:
 - [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
+- [DingTalk Code Update Validation](./docs/DINGTALK_CODE_UPDATE_VALIDATION_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)

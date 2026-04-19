@@ -66,6 +66,15 @@ CARLA_MAP="${CARLA_MAP:-${SIMCTL_CARLA_MAP:-Town01}}"
 EGO_VEHICLE_ROLE_NAME="${EGO_VEHICLE_ROLE_NAME:-${CARLA_EGO_VEHICLE_ROLE_NAME:-ego_vehicle}}"
 USE_TRAFFIC_MANAGER="${USE_TRAFFIC_MANAGER:-${CARLA_USE_TRAFFIC_MANAGER:-False}}"
 BRIDGE_TIMEOUT="${BRIDGE_TIMEOUT:-${CARLA_BRIDGE_TIMEOUT:-${SIMCTL_CARLA_BRIDGE_TIMEOUT:-90}}}"
+PIX_SKIP_WHEEL_STEER_ANGLE="${PIX_CARLA_SKIP_WHEEL_STEER_ANGLE:-}"
+PIX_THROTTLE_GAIN="${PIX_CARLA_THROTTLE_GAIN:-}"
+PIX_MIN_THROTTLE="${PIX_CARLA_MIN_THROTTLE:-}"
+PIX_MAX_THROTTLE="${PIX_CARLA_MAX_THROTTLE:-}"
+if [[ "${VEHICLE_TYPE}" == vehicle.pixmoving.* ]]; then
+  PIX_THROTTLE_GAIN="${PIX_THROTTLE_GAIN:-3.5}"
+  PIX_MIN_THROTTLE="${PIX_MIN_THROTTLE:-0.32}"
+  PIX_MAX_THROTTLE="${PIX_MAX_THROTTLE:-0.85}"
+fi
 
 shell_quote() {
   printf "%q" "$1"
@@ -134,7 +143,20 @@ RMW_EXPORT_CMD=""
 if [[ -n "${RMW_IMPLEMENTATION_VALUE}" ]]; then
   RMW_EXPORT_CMD=" && export RMW_IMPLEMENTATION=$(shell_quote "${RMW_IMPLEMENTATION_VALUE}")"
 fi
-CMD="${SOURCE_CMD} && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID}${RMW_EXPORT_CMD} && export SIMCTL_RUNTIME_NAMESPACE=$(shell_quote "${RUNTIME_NAMESPACE}") && export SIMCTL_TRAFFIC_MANAGER_PORT=${TRAFFIC_MANAGER_PORT} && ${ROS_CMD_DISPLAY}"
+PIX_BRIDGE_EXPORT_CMD=""
+if [[ -n "${PIX_SKIP_WHEEL_STEER_ANGLE}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD=" && export PIX_CARLA_SKIP_WHEEL_STEER_ANGLE=$(shell_quote "${PIX_SKIP_WHEEL_STEER_ANGLE}")"
+fi
+if [[ -n "${PIX_THROTTLE_GAIN}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_THROTTLE_GAIN=$(shell_quote "${PIX_THROTTLE_GAIN}")"
+fi
+if [[ -n "${PIX_MIN_THROTTLE}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_MIN_THROTTLE=$(shell_quote "${PIX_MIN_THROTTLE}")"
+fi
+if [[ -n "${PIX_MAX_THROTTLE}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_MAX_THROTTLE=$(shell_quote "${PIX_MAX_THROTTLE}")"
+fi
+CMD="${SOURCE_CMD} && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID}${RMW_EXPORT_CMD} && export SIMCTL_RUNTIME_NAMESPACE=$(shell_quote "${RUNTIME_NAMESPACE}") && export SIMCTL_TRAFFIC_MANAGER_PORT=${TRAFFIC_MANAGER_PORT}${PIX_BRIDGE_EXPORT_CMD} && ${ROS_CMD_DISPLAY}"
 
 source_runtime_environment() {
   local nounset_was_enabled=0
@@ -206,6 +228,10 @@ echo "CARLA sensor kit calibration: ${SENSOR_KIT_CALIBRATION_FILE}"
 echo "CARLA objects definition: ${OBJECTS_DEFINITION_FILE}"
 echo "CARLA use traffic manager: ${USE_TRAFFIC_MANAGER}"
 echo "CARLA bridge timeout: ${BRIDGE_TIMEOUT}"
+echo "PIX skip wheel steer angle: ${PIX_SKIP_WHEEL_STEER_ANGLE}"
+echo "PIX throttle gain: ${PIX_THROTTLE_GAIN}"
+echo "PIX min throttle: ${PIX_MIN_THROTTLE}"
+echo "PIX max throttle: ${PIX_MAX_THROTTLE}"
 if [[ "${#SKIPPED_LAUNCH_ARGS[@]}" -gt 0 ]]; then
   echo "Skipped unsupported launch args: ${SKIPPED_LAUNCH_ARGS[*]}"
 fi
@@ -233,6 +259,18 @@ if [[ "$EXECUTE" -eq 1 ]]; then
   fi
   export SIMCTL_RUNTIME_NAMESPACE="${RUNTIME_NAMESPACE}"
   export SIMCTL_TRAFFIC_MANAGER_PORT="${TRAFFIC_MANAGER_PORT}"
+  if [[ -n "${PIX_SKIP_WHEEL_STEER_ANGLE}" ]]; then
+    export PIX_CARLA_SKIP_WHEEL_STEER_ANGLE="${PIX_SKIP_WHEEL_STEER_ANGLE}"
+  fi
+  if [[ -n "${PIX_THROTTLE_GAIN}" ]]; then
+    export PIX_CARLA_THROTTLE_GAIN="${PIX_THROTTLE_GAIN}"
+  fi
+  if [[ -n "${PIX_MIN_THROTTLE}" ]]; then
+    export PIX_CARLA_MIN_THROTTLE="${PIX_MIN_THROTTLE}"
+  fi
+  if [[ -n "${PIX_MAX_THROTTLE}" ]]; then
+    export PIX_CARLA_MAX_THROTTLE="${PIX_MAX_THROTTLE}"
+  fi
   if [[ -n "$CPU_AFFINITY" ]]; then
     exec taskset -c "$CPU_AFFINITY" "${ROS_CMD[@]}"
   fi

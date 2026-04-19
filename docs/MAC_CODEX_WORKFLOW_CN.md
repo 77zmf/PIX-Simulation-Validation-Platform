@@ -82,6 +82,7 @@ simctl subagent-spec --name execution_runtime_explorer --format spawn_json
 simctl digest
 simctl report --run-root runs
 simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-result passed
+simctl ding-notify --run-result runs/<run_id>/run_result.json
 ```
 
 这些命令不建议在 Mac 上作为正式主线执行：
@@ -104,6 +105,7 @@ simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --execute
    - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
    - `docs/TEAM_AGENT_USAGE_CN.md`
    - `docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md`
+   - `docs/DINGTALK_CODE_UPDATE_VALIDATION_CN.md`
 4. 需要 agent 时，先用：
 
 ```bash
@@ -183,6 +185,7 @@ git push
 - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
 - `docs/TEAM_AGENT_USAGE_CN.md`
 - `docs/MAC_CODEX_WORKFLOW_CN.md`
+- `docs/DINGTALK_CODE_UPDATE_VALIDATION_CN.md`
 - `ops/subagents/`
 - `src/simctl/`
 

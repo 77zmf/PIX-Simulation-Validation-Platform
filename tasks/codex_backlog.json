@@ -1,0 +1,214 @@
+{
+  "version": "2026-04-18",
+  "project": "PIX-Simulation-Validation-Platform",
+  "purpose": "Codex-ready engineering backlog focused on stable-loop closure first, then reusable public-road cases, then shadow comparison and PM alignment.",
+  "tasks": [
+    {
+      "id": "STABLE-001",
+      "priority": "P0",
+      "title": "Add finalize / collect stage to turn launch_submitted into final passed/failed",
+      "goal": "Close the real execution loop by collecting runtime evidence, evaluating KPI gates, and writing final status.",
+      "repo_areas": [
+        "src/simctl/",
+        "evaluation/",
+        "tests/"
+      ],
+      "likely_files": [
+        "src/simctl/cli.py",
+        "src/simctl/runtime.py",
+        "src/simctl/evaluation.py",
+        "src/simctl/finalize.py",
+        "tests/test_finalize.py"
+      ],
+      "commands": [
+        "simctl run --scenario scenarios/l1/regression_follow_lane.yaml --run-root runs --slot stable-slot-01",
+        "simctl finalize --run-dir runs/<run_id>"
+      ],
+      "acceptance": [
+        "A run can move beyond launch_submitted into passed/failed.",
+        "runtime_evidence.json is written or equivalent evidence fields are persisted.",
+        "KPI gate evaluation is traceable from the final run result.",
+        "Final status is compatible with report/replay/digest."
+      ],
+      "recommended_agent": "stable_runtime_explorer"
+    },
+    {
+      "id": "STABLE-002",
+      "priority": "P0",
+      "title": "Persist host BOM and preflight readiness into run artifacts",
+      "goal": "Make every formal run traceable to a concrete Ubuntu host baseline.",
+      "repo_areas": [
+        "infra/ubuntu/",
+        "src/simctl/",
+        "stack/"
+      ],
+      "likely_files": [
+        "infra/ubuntu/check_host_readiness.sh",
+        "infra/ubuntu/export_host_bom.sh",
+        "src/simctl/runtime.py",
+        "src/simctl/evidence.py"
+      ],
+      "commands": [
+        "bash infra/ubuntu/check_host_readiness.sh",
+        "bash infra/ubuntu/export_host_bom.sh"
+      ],
+      "acceptance": [
+        "host_bom.json and preflight_report.json are generated or equivalent data is persisted.",
+        "run_result includes references to the host readiness artifacts.",
+        "Operators can explain which software/hardware baseline a run used."
+      ],
+      "recommended_agent": "stable_host_readiness_explorer"
+    },
+    {
+      "id": "STABLE-003",
+      "priority": "P0",
+      "title": "Strengthen slot lease, cleanup, and abnormal-exit recovery",
+      "goal": "Prevent long-running external scenarios from occupying slots indefinitely or leaving orphaned processes.",
+      "repo_areas": [
+        "src/simctl/",
+        "stack/slots/",
+        "stack/stable/",
+        "tests/"
+      ],
+      "likely_files": [
+        "src/simctl/slots.py",
+        "src/simctl/runtime.py",
+        "stack/slots/stable_slots.yaml",
+        "tests/test_runtime.py"
+      ],
+      "commands": [
+        "simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --execute"
+      ],
+      "acceptance": [
+        "Slots are released on finalize/down/abort paths.",
+        "There is a clear lease or timeout policy.",
+        "Stale locks can be distinguished from active runs."
+      ],
+      "recommended_agent": "stable_runtime_explorer"
+    },
+    {
+      "id": "ASSET-001",
+      "priority": "P1",
+      "title": "Upgrade asset-check from file existence to semantic executability",
+      "goal": "Verify that public-road bundles are not only complete, but also meaningful as validation inputs.",
+      "repo_areas": [
+        "assets/",
+        "tools/",
+        "evaluation/"
+      ],
+      "likely_files": [
+        "src/simctl/assets.py",
+        "tools/validate_reconstruction_assets.py",
+        "evaluation/schemas/asset_bundle.schema.json"
+      ],
+      "commands": [
+        "simctl asset-check --bundle site_gy_qyhx_gsh20260310"
+      ],
+      "acceptance": [
+        "Semantic checks cover route reachability, projector consistency, metadata consistency, and localization plausibility.",
+        "Failures are reported with actionable labels."
+      ],
+      "recommended_agent": "public_road_case_promoter"
+    },
+    {
+      "id": "SCENARIO-001",
+      "priority": "P1",
+      "title": "Promote site_gy_qyhx_gsh20260310 into the first reusable public-road validation case",
+      "goal": "Turn the current bundle into a repeatable case with scenario YAML, profiles, KPI gate, and reporting path.",
+      "repo_areas": [
+        "assets/manifests/",
+        "scenarios/",
+        "adapters/profiles/",
+        "evaluation/kpi_gates/"
+      ],
+      "likely_files": [
+        "assets/manifests/*.yaml",
+        "scenarios/l2/*.yaml",
+        "scenarios/l3/*.yaml",
+        "adapters/profiles/*.yaml",
+        "evaluation/kpi_gates/*.yaml"
+      ],
+      "commands": [
+        "simctl batch --scenario-dir scenarios/l2 --run-root runs --mock-result passed"
+      ],
+      "acceptance": [
+        "At least one public-road case has a stable input contract.",
+        "The case can be explained as reusable rather than one-off.",
+        "KPI gates and report path are attached."
+      ],
+      "recommended_agent": "public_road_case_promoter"
+    },
+    {
+      "id": "REPORT-001",
+      "priority": "P1",
+      "title": "Split stable acceptance reporting from shadow comparison reporting",
+      "goal": "Prevent research outputs from being confused with stable delivery evidence.",
+      "repo_areas": [
+        "src/simctl/reporting.py",
+        "evaluation/",
+        "docs/"
+      ],
+      "likely_files": [
+        "src/simctl/reporting.py",
+        "evaluation/reports/",
+        "docs/*.md"
+      ],
+      "commands": [
+        "simctl report --run-root runs"
+      ],
+      "acceptance": [
+        "Reports contain separate stable_acceptance_summary and shadow_comparison_summary sections.",
+        "Stable delivery conclusions are not replaced by shadow outputs."
+      ],
+      "recommended_agent": "shadow_research_comparator"
+    },
+    {
+      "id": "RESEARCH-001",
+      "priority": "P2",
+      "title": "Define stable-vs-shadow comparison contract for UniAD-style / VADv2",
+      "goal": "Keep shadow evaluation measurable and non-blocking.",
+      "repo_areas": [
+        "adapters/profiles/",
+        "scenarios/e2e/",
+        "evaluation/kpi_gates/"
+      ],
+      "likely_files": [
+        "adapters/profiles/e2e_shadow.yaml",
+        "scenarios/e2e/*.yaml",
+        "evaluation/kpi_gates/*.yaml"
+      ],
+      "commands": [
+        "simctl batch --scenario-dir scenarios/e2e --run-root runs --mock-result passed"
+      ],
+      "acceptance": [
+        "Comparison metrics include at least route completion, collision, TTC, behavior quality, and fallback trigger conditions.",
+        "Shadow results are clearly marked as non-blocking."
+      ],
+      "recommended_agent": "shadow_research_comparator"
+    },
+    {
+      "id": "PMO-001",
+      "priority": "P2",
+      "title": "Align digest states with validation states and blockers",
+      "goal": "Make weekly review output reflect the true engineering bottlenecks.",
+      "repo_areas": [
+        "ops/",
+        "src/simctl/",
+        "docs/"
+      ],
+      "likely_files": [
+        "src/simctl/project_ops.py",
+        "docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md",
+        "ops/issues/README.md"
+      ],
+      "commands": [
+        "simctl digest"
+      ],
+      "acceptance": [
+        "Digest uses a stable mapping between board states and validation outcomes.",
+        "Owner next actions can be traced to code, assets, host, or planning work."
+      ],
+      "recommended_agent": "project_digest_explorer"
+    }
+  ]
+}

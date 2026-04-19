@@ -26,6 +26,13 @@ ROS_GRAPH_ATTEMPTS = int(os.environ.get("SIMCTL_HEALTH_ROS_ATTEMPTS", "20"))
 ROS_GRAPH_WAIT_SEC = float(os.environ.get("SIMCTL_HEALTH_ROS_WAIT_SEC", "1.0"))
 ROS_SETUP_SCRIPT = Path("/opt/ros/humble/setup.bash")
 EXPECTED_ROS_TOPICS = ("/clock", "/tf")
+CRASH_LOG_PATTERNS = (
+    "Signal 11 caught",
+    "Segmentation fault",
+    "LowLevelFatalError",
+    "Fatal error",
+    "Exception thrown:",
+)
 
 
 def _sleep_if_needed(wait_sec: float, *, attempt: int, attempts: int) -> None:
@@ -40,11 +47,46 @@ def _pid_is_alive(pid: int) -> bool:
         os.kill(pid, 0)
     except OSError:
         return False
+    if _pid_state(pid) == "Z":
+        return False
     return True
+
+
+def _pid_state(pid: int) -> str | None:
+    try:
+        stat_text = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    try:
+        return stat_text.rsplit(")", 1)[1].strip().split()[0]
+    except IndexError:
+        return None
+
+
+def _launch_log_crash_reason(log_path: str | None) -> str | None:
+    if not log_path:
+        return None
+    try:
+        text = Path(log_path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    for pattern in CRASH_LOG_PATTERNS:
+        if pattern in text:
+            return f"crash_log:{pattern}"
+    return None
 
 
 def _entry_by_step(logs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return {str(entry.get("step")): entry for entry in logs}
+
+
+def _process_steps_to_check(logs: list[dict[str, Any]]) -> tuple[str, ...]:
+    steps = list(EXPECTED_START_STEPS)
+    for entry in logs:
+        step = str(entry.get("step") or "")
+        if entry.get("status") == "started" and step and step not in steps:
+            steps.append(step)
+    return tuple(steps)
 
 
 def _probe_processes(logs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -52,7 +94,7 @@ def _probe_processes(logs: list[dict[str, Any]]) -> dict[str, Any]:
     failures: list[str] = []
     checks: list[dict[str, Any]] = []
 
-    for step_name in EXPECTED_START_STEPS:
+    for step_name in _process_steps_to_check(logs):
         entry = entries.get(step_name)
         if entry is None:
             failures.append(step_name)
@@ -75,13 +117,15 @@ def _probe_processes(logs: list[dict[str, Any]]) -> dict[str, Any]:
 
         pid = int(entry.get("pid", 0) or 0)
         pid_alive = _pid_is_alive(pid)
-        if not pid_alive:
+        crash_reason = _launch_log_crash_reason(entry.get("log_path"))
+        passed = pid_alive and crash_reason is None
+        if not passed:
             failures.append(step_name)
         checks.append(
             {
                 "step": step_name,
-                "passed": pid_alive,
-                "reason": None if pid_alive else "pid_not_alive",
+                "passed": passed,
+                "reason": crash_reason if crash_reason else (None if pid_alive else "pid_not_alive"),
                 "pid": pid,
                 "pid_file": entry.get("pid_file"),
                 "log_path": entry.get("log_path"),

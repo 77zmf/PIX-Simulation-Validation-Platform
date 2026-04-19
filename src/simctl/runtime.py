@@ -94,6 +94,7 @@ def build_context(
         "autoware_lidar_type": runtime_option("autoware_lidar_type"),
         "autoware_rviz": runtime_option("autoware_rviz"),
         "carla_map": runtime_option("carla_map", map_id),
+        "carla_root": runtime_option("carla_root"),
         "carla_vehicle_type": runtime_option("carla_vehicle_type", "vehicle.toyota.prius"),
         "carla_spawn_point": runtime_option("carla_spawn_point"),
         "carla_ego_vehicle_role_name": runtime_option("carla_ego_vehicle_role_name", "ego_vehicle"),
@@ -109,6 +110,7 @@ def build_context(
         "carla_extra_args": runtime_option("carla_extra_args"),
         "carla_display": runtime_option("carla_display"),
         "carla_xauthority": runtime_option("carla_xauthority"),
+        "carla_startup_timeout_sec": runtime_option("carla_startup_timeout_sec", "90"),
         "visual_screenshot_wait_sec": runtime_option("visual_screenshot_wait_sec", "8"),
         "carla_localization_bridge_kill_simple_sim": runtime_option(
             "carla_localization_bridge_kill_simple_sim",
@@ -121,6 +123,30 @@ def build_context(
         "carla_localization_bridge_kill_monitor_sec": runtime_option(
             "carla_localization_bridge_kill_monitor_sec",
             "45",
+        ),
+        "carla_actor_object_bridge_enabled": runtime_option(
+            "carla_actor_object_bridge_enabled",
+            "false",
+        ),
+        "carla_actor_object_bridge_poll_sec": runtime_option(
+            "carla_actor_object_bridge_poll_sec",
+            "0.2",
+        ),
+        "carla_actor_object_bridge_wait_sec": runtime_option(
+            "carla_actor_object_bridge_wait_sec",
+            "240",
+        ),
+        "carla_actor_object_bridge_include_walkers": runtime_option(
+            "carla_actor_object_bridge_include_walkers",
+            "true",
+        ),
+        "carla_actor_object_bridge_delete_all_on_start": runtime_option(
+            "carla_actor_object_bridge_delete_all_on_start",
+            "true",
+        ),
+        "carla_actor_object_bridge_delete_all_on_stop": runtime_option(
+            "carla_actor_object_bridge_delete_all_on_stop",
+            "true",
         ),
     }
     return context

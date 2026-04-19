@@ -1,6 +1,9 @@
 # CARLA bridge mapping for the PixRover1.2-1.5/117th robobus sensor kit.
 # The normal autoware_carla_interface consumes this file together with
 # robobus117th_sensor_kit_calibration.yaml copied into the sensor kit package.
+# Sensor catalog: assets/sensors/robobus_pixrover14_application_topology.yaml.
+# Runtime target from PixRover1.4 topology: camera0 08bc, camera1-5 AR0233,
+# two M1Plus lidars, two Airy lidars, and one E1R lidar.
 
 default_sensor_kit_name: robobus_sensor_kit_description
 
@@ -18,6 +21,42 @@ sensor_mappings:
       range: 100
       channels: 64
       points_per_second: 200000
+      upper_fov: 10.0
+      lower_fov: -30.0
+      rotation_frequency: 20
+      noise_stddev: 0.0
+
+  lidar_rt_base_link:
+    carla_type: sensor.lidar.ray_cast
+    id: rear_top
+    ros_config:
+      frame_id: lidar_rt_base_link
+      topic_base: /sensing/lidar/rear_top
+      topic_suffix: /pointcloud_before_sync
+      frequency_hz: 11
+      qos_profile: best_effort
+    parameters:
+      range: 100
+      channels: 64
+      points_per_second: 200000
+      upper_fov: 10.0
+      lower_fov: -30.0
+      rotation_frequency: 20
+      noise_stddev: 0.0
+
+  lidar_rear_base_link:
+    carla_type: sensor.lidar.ray_cast
+    id: rear
+    ros_config:
+      frame_id: lidar_rear_base_link
+      topic_base: /sensing/lidar/rear
+      topic_suffix: /pointcloud_before_sync
+      frequency_hz: 11
+      qos_profile: best_effort
+    parameters:
+      range: 80
+      channels: 32
+      points_per_second: 100000
       upper_fov: 10.0
       lower_fov: -30.0
       rotation_frequency: 20
@@ -71,7 +110,7 @@ sensor_mappings:
     parameters:
       image_size_x: 1280
       image_size_y: 720
-      fov: 70.0
+      fov: 118.0
 
   camera1/camera_link:
     carla_type: sensor.camera.rgb
@@ -85,7 +124,7 @@ sensor_mappings:
     parameters:
       image_size_x: 1280
       image_size_y: 720
-      fov: 100.0
+      fov: 118.0
 
   camera2/camera_link:
     carla_type: sensor.camera.rgb
@@ -99,7 +138,7 @@ sensor_mappings:
     parameters:
       image_size_x: 1280
       image_size_y: 720
-      fov: 90.0
+      fov: 118.0
 
   camera3/camera_link:
     carla_type: sensor.camera.rgb
@@ -113,7 +152,7 @@ sensor_mappings:
     parameters:
       image_size_x: 1280
       image_size_y: 720
-      fov: 90.0
+      fov: 118.0
 
   camera4/camera_link:
     carla_type: sensor.camera.rgb
@@ -127,7 +166,7 @@ sensor_mappings:
     parameters:
       image_size_x: 1280
       image_size_y: 720
-      fov: 90.0
+      fov: 118.0
 
   camera5/camera_link:
     carla_type: sensor.camera.rgb
@@ -141,7 +180,7 @@ sensor_mappings:
     parameters:
       image_size_x: 1280
       image_size_y: 720
-      fov: 90.0
+      fov: 118.0
 
   tamagawa/imu_link:
     carla_type: sensor.other.imu
@@ -186,6 +225,8 @@ normalization:
 
 enabled_sensors:
   - lidar_ft_base_link
+  - lidar_rt_base_link
+  - lidar_rear_base_link
   - lidar_fl_base_link
   - lidar_fr_base_link
   - camera0/camera_link

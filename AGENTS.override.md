@@ -1,102 +1,151 @@
-# Codex project override for PIX Simulation Validation Platform
+# AGENTS.override.md
 
-## Repository priority
-Optimize for a deterministic validation platform, not a free-form multi-agent runtime.
-The only formal stable runtime host is the company Ubuntu 22.04 machine.
-AI/Codex helps with code changes, verification, digest generation, review, and root-cause analysis.
-AI/Codex is not part of the real-time driving control loop in this phase.
+This override is for the PIX Simulation Validation Platform.
 
-## Current quarter intent
-This repository is the control plane and delivery workspace for the PIX Simulation Validation Platform.
-In the current quarter, Codex should optimize for four outcomes:
+Optimize for **deterministic validation closure** and **repeatable engineering evidence**.
+Do **not** optimize for free-form multi-agent experimentation or AI-driven real-time control.
 
-1. make the `stable` stack usable on the company Ubuntu 22.04 runtime host
-2. keep `simctl` usable for daily `bootstrap / up / run / batch / replay / report / digest`
-3. turn public-road assets into reusable scenario inputs instead of one-off artifacts
-4. prepare `BEVFusion + UniAD-style/VADv2 shadow` without destabilizing the stable mainline
+## 1. Mission
 
-## Hard boundaries
-- The only formal runtime host for stable closed-loop validation is the company Ubuntu 22.04 machine.
-- Mac / Windows hosts are for code sync, documentation, Codex collaboration, digest, tests, and light `simctl` operations.
-- AI/Codex may help with documentation, digest, root-cause analysis, code and config changes, and project coordination.
-- AI/Codex must not be treated as part of the real-time driving control loop in this phase.
-- Do not recommend one-off scripts when an existing `simctl` command, profile, scenario, or runbook can be extended instead.
+The current quarter has four priorities:
 
-## Mandatory workflow triggers
-- If a task changes `src/`, `tests/`, `scenarios/`, `evaluation/`, `stack/`, `infra/`, `assets/`, `ops/`, or `.github/workflows/`, use the `repo-verification` skill before declaring the work done.
-- If a task asks for digest, blocker summary, weekly review, GitHub Project triage, or owner next actions, use the `project-digest-triage` skill.
-- If a task asks whether validation is truly closed loop, why a run is stuck, or how to connect `run_result -> KPI gate -> report -> replay`, use the `runtime-closure-audit` skill.
-- If a task asks for run artifact interpretation, Ubuntu host readiness, project digest narration, or public-road case intake, prefer the corresponding `pix-*` skill under `.agents/skills/`.
+1. Close the `stable` validation loop on the company Ubuntu 22.04 host.
+2. Make `simctl` the single control-plane entry for bring-up, run, batch, finalize, replay, report, and digest.
+3. Promote one public-road asset bundle into a reusable validation case.
+4. Keep `BEVFusion` as the stable baseline while `UniAD-style / VADv2` remain shadow-only research lines.
 
-## Definition of done
-Prefer work that tightens the validation chain:
+## 2. Non-negotiable boundaries
 
-`assets/scenario -> simctl run/batch -> runtime evidence -> run_result -> KPI gate -> report/replay -> digest`
+- AI/Codex is **not** part of the real-time driving control loop.
+- Stable closed-loop delivery takes precedence over research expansion.
+- `launch_submitted` is **not** a final validation result.
+- Prefer extending `simctl`, stack profiles, scenario YAML, KPI gates, reports, and manifests over adding one-off scripts.
+- Do not introduce a new simulator runtime. `CARLA 0.9.15` on the stable stack remains the formal baseline.
+- Large maps, point clouds, reconstruction outputs, checkpoints, and generated artifacts stay outside Git history and are referenced by manifests.
 
-For any runtime-related change, state:
-- how to run it
-- which scenario validates it
-- which KPI or observable should change
-- whether it is stub or real
-- rollback impact
+## 3. Read order
 
-## What Codex should read first
+Read in this order unless the user task requires something more specific:
+
 1. `README.md`
 2. `AGENTS.md`
 3. `AGENTS.override.md`
 4. `docs/CODEX_PROJECT_SNAPSHOT_CN.md`
 5. `docs/CODEX_TASK_ROUTING_CN.md`
-6. `docs/TEAM_AGENT_USAGE_CN.md` and `docs/TEAM_SKILL_USAGE_CN.md` if the task needs delegation or templated outputs
-7. `docs/PROJECT_PLAN_CODEX_READY_CN.md` when quarter goals or scope are relevant
+6. `docs/PROJECT_PLAN_CODEX_READY_CN.md`
+7. task-specific files under `src/`, `stack/`, `infra/`, `assets/`, `scenarios/`, `evaluation/`, `ops/`, or `tests/`
 
-## Safe default commands
-These are usually safe on non-runtime machines:
-```bash
-python -m unittest discover -s tests -v
-python -m simctl digest --config ops/project_automation.yaml --tasks-json tests/fixtures/project_tasks.json --scenarios-json tests/fixtures/project_scenarios.json --output-dir ci_digest
-python -m simctl report --run-root runs
-python -m simctl subagent-spec --list
-simctl subagent-spec --list
-simctl subagent-spec --name execution_runtime_explorer
-simctl digest
-simctl report --run-root runs
-simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-result passed
-bash .agents/skills/repo-verification/scripts/run_checks.sh
-bash .agents/skills/project-digest-triage/scripts/build_digest.sh automation_outputs/project_digest tests/fixtures/project_tasks.json tests/fixtures/project_scenarios.json
-bash .agents/skills/runtime-closure-audit/scripts/audit_stub_run.sh automation_outputs/runtime_audit
-```
+## 4. Current project truth
 
-These belong to the company Ubuntu runtime host unless explicitly doing a dry run or stub-safe path:
-```bash
-python -m simctl bootstrap --stack stable
-python -m simctl up --stack stable --execute
-python -m simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root runs --execute
-python -m simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --execute
-bash infra/ubuntu/preflight_and_next_steps.sh
-bash infra/ubuntu/check_host_readiness.sh
-```
+Treat the following as the most important project truths:
 
-## Routing
-- Host readiness / bring-up / dependency state -> `stable_stack_host_readiness_explorer`
-- `simctl -> stack -> run_result -> report -> replay` -> `execution_runtime_explorer`
-- Public-road assets / replay case building -> `gaussian_reconstruction_explorer` or `public_road_e2e_shadow_explorer`
-- BEVFusion / UniAD-style / VADv2 / roadmap consistency -> `algorithm_research_explorer`
-- GitHub Project / digest / issue-pack / weekly review -> `project_automation_explorer`
+- The control plane is already taking shape.
+- The biggest remaining gap is real runtime closure on the Ubuntu host.
+- Public-road assets must become reusable scenario inputs rather than one-off demonstrations.
+- Shadow research must not destabilize the stable main line.
+- A useful result is not a startup log alone; it is a finalized validation artifact chain.
 
-## Output contract
-When producing a technical answer or patch plan, default to this structure:
-1. objective
-2. scope and assumptions
-3. evidence (exact files / commands / outputs)
-4. proposed change or decision
-5. validation steps
-6. risks and rollback
-7. next owner / next action
+## 5. Definition of done
 
-## Review rules
-- Prefer extending existing `simctl` commands, scenario YAML, profiles, or runbooks over adding one-off scripts.
-- Label clearly whether a command path is stub, dry-run, or real runtime.
-- Do not treat `launch_submitted` as a finished closed loop.
-- Keep stable-line advice separate from shadow-line advice.
-- Keep GitHub-only project automation as the source of truth in this repository baseline.
-- Do not assume GitHub Project hygiene is optional; owner / status / due date discipline matters for digest quality.
+A stable-line execution task is done only when all of the following are true:
+
+- the run has a concrete `run_result.json`
+- runtime evidence exists and is traceable
+- KPI gate evaluation has produced a final status
+- report and replay entry points exist
+- slot/process cleanup is known
+- the result can be explained as `passed` or `failed`, not only `launch_submitted`
+
+The preferred result chain is:
+
+`assets/scenario -> simctl run/up --execute -> runtime evidence -> finalized run_result -> KPI gate -> report/replay -> digest`
+
+## 6. How to reason about tasks
+
+### Stable runtime / host closure
+Focus on:
+- `src/simctl/`
+- `stack/profiles/`
+- `stack/slots/`
+- `stack/stable/`
+- `infra/ubuntu/`
+- `evaluation/`
+- `tests/`
+
+Look for:
+- stub vs real execute differences
+- runtime evidence gaps
+- host readiness gaps
+- slot lifecycle problems
+- finalization gaps
+- report / digest contract drift
+
+### Public-road asset and scenario promotion
+Focus on:
+- `assets/`
+- `scenarios/`
+- `adapters/profiles/`
+- `evaluation/kpi_gates/`
+- `tools/`
+
+Look for:
+- missing semantic asset checks
+- bundle-to-scenario promotion gaps
+- route / localization / projector consistency
+- reusable scenario templates rather than one-off case descriptions
+
+### Shadow research
+Focus on:
+- comparison contracts
+- output metrics
+- interface assumptions
+- non-blocking integration with the stable line
+
+Do not treat shadow outputs as production acceptance evidence.
+
+### Project automation / digest
+Focus on:
+- state semantics
+- blocker surfacing
+- owner next actions
+- alignment between board status and validation status
+
+## 7. Preferred output contract
+
+Default to this structure in answers:
+
+1. **objective**
+2. **scope / assumptions**
+3. **evidence**
+4. **analysis / decision**
+5. **changes / next steps**
+6. **validation**
+7. **risk / rollback**
+
+When analyzing runtime issues, always distinguish:
+- what is already deterministic
+- what is still placeholder / mocked
+- what requires the real Ubuntu runtime host
+
+## 8. What to recommend first
+
+Prefer the smallest changes that improve repeatability this week:
+
+- finalize / collect stage after execute
+- host BOM and preflight artifacts
+- slot lease / cleanup improvements
+- semantic asset checks
+- stable vs shadow report separation
+- test coverage for schemas and result finalization
+
+## 9. First commands to keep in mind
+
+- `simctl bootstrap --stack stable`
+- `simctl up --stack stable --scenario scenarios/l0/smoke_stub.yaml`
+- `simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root runs`
+- `simctl run --scenario scenarios/l1/regression_follow_lane.yaml --run-root runs --slot stable-slot-01`
+- `simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-result passed`
+- `simctl report --run-root runs`
+- `simctl digest`
+
+If the user asks for design changes, prefer repository-local changes that reinforce this command chain.

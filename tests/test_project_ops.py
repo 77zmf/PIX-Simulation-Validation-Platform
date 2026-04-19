@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from datetime import date
@@ -13,6 +14,20 @@ from simctl.project_ops import item_from_payload, load_project_items, render_dig
 
 
 class ProjectOpsTests(unittest.TestCase):
+    def test_codex_import_manifest_references_existing_overlay_files(self) -> None:
+        manifest = json.loads((REPO_ROOT / "codex_import_manifest.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["entrypoint"], "AGENTS.override.md")
+        for doc in manifest["docs"]:
+            self.assertTrue((REPO_ROOT / doc["path"]).exists(), doc["path"])
+        self.assertTrue((REPO_ROOT / manifest["project_config"]).exists())
+        for agent_path in manifest["custom_agents"]:
+            self.assertTrue((REPO_ROOT / agent_path).exists(), agent_path)
+
+        backlog = json.loads((REPO_ROOT / "tasks" / "codex_backlog.json").read_text(encoding="utf-8"))
+        self.assertEqual(backlog["version"], "2026-04-18")
+        self.assertIn("STABLE-001", {task["id"] for task in backlog["tasks"]})
+
     def test_item_from_payload_maps_generic_project_fields(self) -> None:
         item = item_from_payload(
             {

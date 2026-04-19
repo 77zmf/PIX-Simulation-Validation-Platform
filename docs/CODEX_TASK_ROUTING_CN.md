@@ -1,51 +1,72 @@
-# Codex 任务路由表
+# CODEX_TASK_ROUTING_CN.md
 
-> 目的：让 Codex 看到任务时，先知道该看哪里、跑什么、交给哪个子 agent、产出什么
+> 目的：让 Codex 在看到任务时，先知道读哪里、看什么、产出什么
+> 默认原则：优先强化稳定主线，再补研究线和项目运营
 
 ## 1. 推荐读取顺序
+
 1. `README.md`
-2. `AGENTS.md` 或当前目录的 `AGENTS.override.md`
-3. `docs/CODEX_PROJECT_SNAPSHOT_CN.md`
-4. `docs/CODEX_TASK_ROUTING_CN.md`
-5. 具体任务对应的专题文档 / 配置 / 脚本
+2. `AGENTS.md`
+3. `AGENTS.override.md`
+4. `docs/CODEX_PROJECT_SNAPSHOT_CN.md`
+5. `docs/CODEX_TASK_ROUTING_CN.md`
+6. `tasks/codex_backlog.json`
+7. 任务相关目录与最近工件
 
-## 2. 问题类型 -> 文件 -> 命令 -> agent/skill
+## 2. 问题类型 -> 文件 -> 命令 -> agent -> 输出
 
-| 问题类型 | 优先文件 | 常用命令 | 推荐 subagent | 推荐 skill | 默认输出 |
-|---|---|---|---|---|---|
-| Ubuntu 主机准备 / bring-up / 依赖问题 | `infra/ubuntu/`、`stack/profiles/stable.yaml`、`docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md` | `bash infra/ubuntu/preflight_and_next_steps.sh`、`bash infra/ubuntu/check_host_readiness.sh`、`simctl bootstrap --stack stable` | `stable_stack_host_readiness_explorer` | `autoware-release-check`（如需 readiness 结论） | 缺项清单、补齐命令、风险、下一步 |
-| `simctl run / batch / report / replay` 执行链问题 | `src/simctl/`、`stack/`、`evaluation/kpi_gates/`、`runs/` | `simctl run`、`simctl batch`、`simctl report`、`simctl replay` | `execution_runtime_explorer` | `simctl-run-analysis` | 根因、KPI 摘要、回放锚点、owner next action |
-| 场景与资产标准化 | `assets/`、`scenarios/`、`adapters/profiles/` | `simctl batch --scenario-dir ... --mock-result passed` | `gaussian_reconstruction_explorer` 或 `public_road_e2e_shadow_explorer` | `carla-case-builder` | case 定义、输入资产、成功标准、验证方法 |
-| BEVFusion / UniAD-style / VADv2 / 研究路线 | `adapters/profiles/`、`docs/ALGORITHM_RESEARCH_ROADMAP_CN.md` | 以配置梳理和接口审查为主，不默认要求真实 execute | `algorithm_research_explorer` 或 `public_road_e2e_shadow_explorer` | `simctl-run-analysis` 或 `carla-case-builder` | 接口契约、指标、差距、研究 next step |
-| 项目管理 / digest / 周会材料 / board hygiene | `ops/project_automation.yaml`、`ops/issues/README.md`、`docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md` | `simctl digest` | `project_automation_explorer` | `ai-superbody-pmo` | milestone 状态、阻塞、风险、owner next actions |
+| 问题类型 | 优先文件 | 常用命令 | 推荐 agent | 默认输出 |
+|---|---|---|---|---|
+| 稳定栈 bring-up / 运行闭环 | `src/simctl/`、`stack/`、`infra/ubuntu/`、`evaluation/` | `simctl bootstrap`、`simctl up`、`simctl run`、`simctl report` | `stable_runtime_explorer` | 闭环缺口、最小代码改动、验证步骤 |
+| 主机 readiness / 环境依赖 | `infra/ubuntu/`、`stack/profiles/stable.yaml`、`docs/*host*` | `bash infra/ubuntu/check_host_readiness.sh`、`simctl bootstrap --stack stable` | `stable_host_readiness_explorer` | 缺项清单、主机基线、preflight 建议 |
+| run_result / KPI / 报告状态问题 | `src/simctl/`、`evaluation/`、`runs/` | `simctl run`、`simctl report`、`simctl digest` | `run_result_triage_explorer` | 状态语义、缺失证据、gate 解释 |
+| 公开道路资产标准化 | `assets/`、`tools/`、`evaluation/` | `simctl asset-check --bundle ...` | `public_road_case_promoter` | 资产缺口、语义检查、case 晋升路径 |
+| 场景晋升 / case 模板化 | `scenarios/`、`adapters/profiles/`、`assets/manifests/` | `simctl batch --mock-result passed` | `public_road_case_promoter` | scenario 模板、输入契约、验收标准 |
+| Shadow 研究线对比 | `adapters/profiles/`、`scenarios/e2e/`、`evaluation/` | 以配置与指标梳理为主，不默认要求 execute | `shadow_research_comparator` | 比较口径、指标、风险、next step |
+| 项目 digest / board / 周会材料 | `ops/`、`docs/*PROJECT*`、`tasks/codex_backlog.json` | `simctl digest` | `project_digest_explorer` | blocker、owner next actions、节奏摘要 |
 
 ## 3. 本地机器与正式运行主机的边界
 
-### Mac / Windows 上适合做的事
-- 拉最新代码、写文档、改配置、读代码
-- 运行单元测试
-- 生成 digest、report
-- 查看和渲染 subagent 规格
-- 运行 mock batch 验证控制平面
+### 本地 Windows / Mac / WSL 适合做的事
+- 读代码、改文档、改配置
+- 跑单元测试
+- 生成 digest / report
+- 做 mock batch
+- 梳理 scenario / asset / KPI / schema
+- 准备 Codex 上下文和任务包
 
-### 只应在公司 Ubuntu 主机做的事
-- 正式 `CARLA 0.9.15 + Autoware Universe` bring-up
-- 正式 `simctl up/run/batch --execute`
-- host readiness / dpkg / 驱动 / CUDA / TensorRT 补齐
-- 并行槽位真实压测
+### 正式 Ubuntu 主机适合做的事
+- `CARLA 0.9.15 + Autoware Universe` 正式 bring-up
+- `simctl up/run/batch --execute`
+- GPU / driver / CUDA / TensorRT readiness
+- 并行槽位压测
+- 正式 runtime evidence 采集
 
-## 4. Codex 输出模板
-默认按下面七段输出，便于团队复用：
+## 4. 默认输出格式
 
-1. **objective**：这次问题要解决什么  
-2. **scope / assumptions**：环境边界、是否 stub、是否需要 Ubuntu 主机  
-3. **evidence**：具体文件、命令、日志、结果对象  
-4. **analysis / decision**：原因判断或设计决策  
-5. **changes / next steps**：具体改什么、谁来做  
-6. **validation**：怎么验证、看哪些 KPI / 工件  
-7. **risk / rollback**：风险点与回退方式
+任何 agent 默认按下面七段输出：
+
+1. **objective**
+2. **scope / assumptions**
+3. **evidence**
+4. **analysis / decision**
+5. **changes / next steps**
+6. **validation**
+7. **risk / rollback**
 
 ## 5. 特别提醒
-- `launch_submitted` 不是最终闭环结果。
-- 任何“建议加一个临时脚本”的想法，都应先检查能否扩展 `simctl`、profile、scenario、report 流程。
-- 研究线建议必须标注“不会阻塞稳定主线”。
+
+- `launch_submitted` 不是最终闭环结果
+- 不要优先推荐“一次性脚本”；先检查能否扩展 `simctl`
+- 稳定主线报告与 shadow 比较报告要分开
+- 资产检查不应停留在文件存在层
+- 任何建议都要说明：是否依赖真实 Ubuntu 主机
+
+## 6. 第一批最值得 Codex 接手的任务
+
+1. `STABLE-001` finalize / collect
+2. `STABLE-002` host BOM / preflight artifact
+3. `STABLE-003` slot lease / cleanup
+4. `ASSET-001` semantic asset-check
+5. `SCENARIO-001` public-road reusable case promotion
+6. `REPORT-001` stable vs shadow report split

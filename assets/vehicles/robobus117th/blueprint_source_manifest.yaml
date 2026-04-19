@@ -65,6 +65,8 @@ vehicle_geometry:
     root_transform_note: The DAE root node applies an approximately 0.001 scale plus axis conversion; verify imported size and forward axis in UE4.26 before cooking.
 repo_inputs:
   scenario: scenarios/l0/robobus117th_town01_closed_loop.yaml
+  sensor_catalog: assets/sensors/robobus_pixrover14_application_topology.yaml
+  application_topology_pdf: assets/vehicles/robobus117th/topology/robobus_application_topology_v4.3.0_pixrover1.4.pdf
   authoring_requirements: assets/vehicles/robobus117th/blueprint_authoring_requirements.yaml
   bridge_sensor_mapping: assets/sensors/carla/robobus117th_sensor_mapping.yaml
   bridge_sensor_calibration: assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml

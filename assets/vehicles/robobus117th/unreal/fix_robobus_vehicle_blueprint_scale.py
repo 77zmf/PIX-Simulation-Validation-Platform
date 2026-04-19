@@ -25,6 +25,17 @@ TARGET_OFFSET_Z = float(os.environ.get("ROBOBUS_COMPONENT_OFFSET_Z", "220.72"))
 TARGET_ROTATION_PITCH = float(os.environ.get("ROBOBUS_COMPONENT_ROTATION_PITCH", "0.0"))
 TARGET_ROTATION_YAW = float(os.environ.get("ROBOBUS_COMPONENT_ROTATION_YAW", "0.0"))
 TARGET_ROTATION_ROLL = float(os.environ.get("ROBOBUS_COMPONENT_ROTATION_ROLL", "90.0"))
+TARGET_SKELETAL_MESH = os.environ.get("ROBOBUS_SKELETAL_MESH", "").strip()
+TARGET_PHYSICS_ASSET_OVERRIDE = os.environ.get("ROBOBUS_PHYSICS_ASSET_OVERRIDE")
+TUNE_BODY_INSTANCE = os.environ.get("ROBOBUS_TUNE_BODY_INSTANCE", "0") in {"1", "true", "True"}
+TARGET_BODY_MASS_KG = float(os.environ.get("ROBOBUS_BODY_MASS_KG", "1800.0"))
+TARGET_BODY_LINEAR_DAMPING = float(os.environ.get("ROBOBUS_BODY_LINEAR_DAMPING", "0.2"))
+TARGET_BODY_ANGULAR_DAMPING = float(os.environ.get("ROBOBUS_BODY_ANGULAR_DAMPING", "4.0"))
+TARGET_BODY_COM_X = float(os.environ.get("ROBOBUS_BODY_COM_X", "0.0"))
+TARGET_BODY_COM_Y = float(os.environ.get("ROBOBUS_BODY_COM_Y", "0.0"))
+TARGET_BODY_COM_Z = float(os.environ.get("ROBOBUS_BODY_COM_Z", "-80.0"))
+TARGET_BODY_INERTIA_SCALE = float(os.environ.get("ROBOBUS_BODY_INERTIA_SCALE", "3.0"))
+TARGET_BODY_MAX_ANGULAR_VELOCITY = float(os.environ.get("ROBOBUS_BODY_MAX_ANGULAR_VELOCITY", "720.0"))
 
 
 def log(message: object) -> None:
@@ -36,6 +47,13 @@ def load_required_object(path: str):
     if not obj:
         raise RuntimeError(f"Could not load object: {path}")
     return obj
+
+
+def load_optional_override(path: str):
+    value = path.strip()
+    if value.lower() in {"", "none", "null"}:
+        return None
+    return load_required_object(value)
 
 
 def save_asset(path: str) -> None:
@@ -54,6 +72,28 @@ def main() -> None:
     mesh = cdo.get_editor_property("mesh")
     movement = cdo.get_editor_property("vehicle_movement")
 
+    old_skeletal_mesh = None
+    try:
+        old_skeletal_mesh = mesh.get_editor_property("skeletal_mesh")
+    except Exception as exc:
+        log(f"SKELETAL_MESH_READ_SKIP {exc}")
+
+    if TARGET_SKELETAL_MESH:
+        new_skeletal_mesh = load_required_object(TARGET_SKELETAL_MESH)
+        mesh.set_editor_property("skeletal_mesh", new_skeletal_mesh)
+        log(f"SKELETAL_MESH_SET {TARGET_SKELETAL_MESH}")
+
+    old_physics_asset_override = None
+    try:
+        old_physics_asset_override = mesh.get_editor_property("physics_asset_override")
+    except Exception as exc:
+        log(f"PHYSICS_ASSET_OVERRIDE_READ_SKIP {exc}")
+
+    if TARGET_PHYSICS_ASSET_OVERRIDE is not None:
+        override_asset = load_optional_override(TARGET_PHYSICS_ASSET_OVERRIDE)
+        mesh.set_editor_property("physics_asset_override", override_asset)
+        log(f"PHYSICS_ASSET_OVERRIDE_SET {override_asset}")
+
     old_scale = mesh.get_editor_property("relative_scale3d")
     old_location = mesh.get_editor_property("relative_location")
     old_rotation = mesh.get_editor_property("relative_rotation")
@@ -67,12 +107,42 @@ def main() -> None:
     mesh.set_editor_property("relative_location", unreal.Vector(TARGET_OFFSET_X, TARGET_OFFSET_Y, TARGET_OFFSET_Z))
     mesh.set_editor_property(
         "relative_rotation",
-        unreal.Rotator(TARGET_ROTATION_PITCH, TARGET_ROTATION_YAW, TARGET_ROTATION_ROLL),
+        unreal.Rotator(
+            pitch=TARGET_ROTATION_PITCH,
+            yaw=TARGET_ROTATION_YAW,
+            roll=TARGET_ROTATION_ROLL,
+        ),
     )
     try:
         mesh.set_editor_property("bounds_scale", 1.0)
     except Exception as exc:
         log(f"BOUNDS_SCALE_SKIP {exc}")
+
+    if TUNE_BODY_INSTANCE:
+        body_instance = mesh.get_editor_property("body_instance")
+        for prop, value in [
+            ("override_mass", True),
+            ("mass_in_kg_override", TARGET_BODY_MASS_KG),
+            ("linear_damping", TARGET_BODY_LINEAR_DAMPING),
+            ("angular_damping", TARGET_BODY_ANGULAR_DAMPING),
+            ("com_nudge", unreal.Vector(TARGET_BODY_COM_X, TARGET_BODY_COM_Y, TARGET_BODY_COM_Z)),
+            (
+                "inertia_tensor_scale",
+                unreal.Vector(TARGET_BODY_INERTIA_SCALE, TARGET_BODY_INERTIA_SCALE, TARGET_BODY_INERTIA_SCALE),
+            ),
+            ("max_angular_velocity", TARGET_BODY_MAX_ANGULAR_VELOCITY),
+        ]:
+            body_instance.set_editor_property(prop, value)
+        mesh.set_editor_property("body_instance", body_instance)
+        log(
+            "BODY_INSTANCE "
+            f"mass={TARGET_BODY_MASS_KG} linear_damping={TARGET_BODY_LINEAR_DAMPING} "
+            f"angular_damping={TARGET_BODY_ANGULAR_DAMPING} "
+            f"com=({TARGET_BODY_COM_X},{TARGET_BODY_COM_Y},{TARGET_BODY_COM_Z}) "
+            f"inertia_scale={TARGET_BODY_INERTIA_SCALE}"
+        )
+    else:
+        log("BODY_INSTANCE_SKIP disabled")
 
     # Keep movement dimensions aligned with the 117th vehicle spec in cm.
     for prop, value in [
@@ -89,6 +159,16 @@ def main() -> None:
     new_scale = mesh.get_editor_property("relative_scale3d")
     new_location = mesh.get_editor_property("relative_location")
     new_rotation = mesh.get_editor_property("relative_rotation")
+    new_skeletal_mesh = None
+    try:
+        new_skeletal_mesh = mesh.get_editor_property("skeletal_mesh")
+    except Exception as exc:
+        log(f"SKELETAL_MESH_AFTER_READ_SKIP {exc}")
+    new_physics_asset_override = None
+    try:
+        new_physics_asset_override = mesh.get_editor_property("physics_asset_override")
+    except Exception as exc:
+        log(f"PHYSICS_ASSET_OVERRIDE_AFTER_READ_SKIP {exc}")
     new_bounds_scale = None
     try:
         new_bounds_scale = mesh.get_editor_property("bounds_scale")
@@ -102,6 +182,10 @@ def main() -> None:
     log(f"MESH_LOCATION_AFTER={new_location}")
     log(f"MESH_ROTATION_BEFORE={old_rotation}")
     log(f"MESH_ROTATION_AFTER={new_rotation}")
+    log(f"SKELETAL_MESH_BEFORE={old_skeletal_mesh}")
+    log(f"SKELETAL_MESH_AFTER={new_skeletal_mesh}")
+    log(f"PHYSICS_ASSET_OVERRIDE_BEFORE={old_physics_asset_override}")
+    log(f"PHYSICS_ASSET_OVERRIDE_AFTER={new_physics_asset_override}")
     log(f"BOUNDS_SCALE_BEFORE={old_bounds_scale}")
     log(f"BOUNDS_SCALE_AFTER={new_bounds_scale}")
     log(f"MOVEMENT mass={movement.get_editor_property('mass')} chassis_width={movement.get_editor_property('chassis_width')} chassis_height={movement.get_editor_property('chassis_height')}")

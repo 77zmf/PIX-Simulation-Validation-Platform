@@ -5,8 +5,32 @@ target_runtime:
   unreal_engine: 4.26
 authoring_goal:
   stable_line_goal: Spawn a CARLA ego actor visually and physically aligned with the Autoware robobus model.
-  first_acceptable_step: Visual placeholder vehicle that still uses the verified robobus117th external sensor bridge.
+  first_acceptable_step: Direct CARLA actor vehicle.pixmoving.robobus with PIX visual mesh and stable carrier physics.
   full_driveable_step: Native CARLA vehicle blueprint with mesh, wheels, collision, physics asset, movement tuning, and cooked Linux assets.
+current_runtime_state:
+  date: "2026-04-19"
+  status: direct_actor_drive_validated
+  method: single_carla_actor_with_pix_visual_child_and_stable_carrier_physics
+  runtime: /home/pixmoving/CARLA_0.9.15
+  source_toolchain: /home/pixmoving/zmf_ws/source_toolchain/carla-0.9.15
+  validation_run_dir: /home/pixmoving/PIX-Simulation-Validation-Platform/runs/robobus_single_actor_visual_20260419T080120Z/direct_single_actor_visual_validation_20260419T081239Z
+  observed:
+    actor_id: vehicle.pixmoving.robobus
+    map: Carla/Maps/Town10HD_Opt
+    passed: true
+    distance_m: 29.318075
+    max_speed_mps: 5.150921
+    max_abs_pitch_deg: 0.119542
+    max_abs_roll_deg: 0.810883
+    evidence:
+      - pix_robobus_direct_start.png
+      - pix_robobus_direct_after_drive.png
+      - vehicle_pixmoving_robobus_direct_drive.mp4
+      - direct_pix_actor_summary.json
+  limits:
+    - The PIX visual is inside the same CARLA actor, not an external follower or overlay actor.
+    - The current physics and collision path still uses the stable carrier baseline.
+    - Native PIX PhysicsAsset, wheel visual animation, and two-wheel/four-wheel steering mode validation remain follow-up work.
 source_inputs:
   required:
     - artifacts/carla_blueprints/robobus117th_source/source/install/robobus_description/mesh/robobus.dae
@@ -121,6 +145,9 @@ validation_gates:
   runtime_blueprint_gate:
     command: python3 assets/vehicles/robobus117th/scripts/verify_carla_blueprint.py --blueprint-id vehicle.pixmoving.robobus
     expected: CARLA blueprint library contains vehicle.pixmoving.robobus.
+  direct_actor_drive_gate:
+    command: python3 assets/vehicles/robobus117th/scripts/validate_carla_direct_pix_actor.py --host 127.0.0.1 --port 2000 --run-dir runs/robobus_direct_actor_validation --actor-id vehicle.pixmoving.robobus --record-video
+    expected: vehicle.pixmoving.robobus spawns as one CARLA actor, drives more than 5 m, reaches more than 1.5 m/s, stays below 12 deg pitch/roll, and writes screenshots/video plus direct_pix_actor_summary.json.
   closed_loop_gate:
     command: simctl run --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml --run-root runs/robobus117th_bridge --slot stable-slot-01 --execute
     expected: planning_control_smoke passes with the robobus blueprint selected.

@@ -108,6 +108,8 @@ fi
 
 copy_file "${REPO_ROOT}/assets/vehicles/robobus117th/blueprint_source_manifest.yaml" "${REPO_INPUT_DIR}/blueprint_source_manifest.yaml"
 copy_file "${REPO_ROOT}/assets/vehicles/robobus117th/blueprint_authoring_requirements.yaml" "${REPO_INPUT_DIR}/blueprint_authoring_requirements.yaml"
+copy_file "${REPO_ROOT}/assets/sensors/robobus_pixrover14_application_topology.yaml" "${REPO_INPUT_DIR}/robobus_pixrover14_application_topology.yaml"
+copy_file "${REPO_ROOT}/assets/vehicles/robobus117th/topology/robobus_application_topology_v4.3.0_pixrover1.4.pdf" "${REPO_INPUT_DIR}/robobus_application_topology_v4.3.0_pixrover1.4.pdf"
 copy_file "${REPO_ROOT}/assets/sensors/carla/robobus117th_sensor_mapping.yaml" "${REPO_INPUT_DIR}/robobus117th_sensor_mapping.yaml"
 copy_file "${REPO_ROOT}/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml" "${REPO_INPUT_DIR}/robobus117th_sensor_kit_calibration.yaml"
 copy_file "${REPO_ROOT}/assets/sensors/carla/robobus117th_objects.json" "${REPO_INPUT_DIR}/robobus117th_objects.json"

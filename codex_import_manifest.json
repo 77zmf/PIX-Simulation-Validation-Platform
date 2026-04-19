@@ -1,8 +1,8 @@
 {
-  "bundle_name": "pix-codex-import-overlay",
-  "generated_on": "2026-04-16",
+  "bundle_name": "pix-codex-execution-closure-overlay",
+  "generated_on": "2026-04-18",
+  "manifest_kind": "repo-local overlay plus codex-project-config",
   "source_repo": "77zmf/PIX-Simulation-Validation-Platform",
-  "source_project_doc": "ai_project_plan_autonomous_sim_updated.docx",
   "entrypoint": "AGENTS.override.md",
   "docs": [
     {
@@ -12,7 +12,7 @@
     },
     {
       "path": "docs/CODEX_PROJECT_SNAPSHOT_CN.md",
-      "role": "compact quarter/project summary",
+      "role": "compact engineering snapshot",
       "priority": 2
     },
     {
@@ -22,41 +22,42 @@
     },
     {
       "path": "docs/PROJECT_PLAN_CODEX_READY_CN.md",
-      "role": "project plan converted to Markdown for Codex",
+      "role": "Codex-ready execution plan",
       "priority": 4
     },
     {
       "path": "docs/CODEX_IMPORT_README_CN.md",
-      "role": "import guide and first prompts",
+      "role": "import and verification guide",
       "priority": 5
+    },
+    {
+      "path": "tasks/codex_backlog.json",
+      "role": "actionable engineering backlog",
+      "priority": 6
     }
+  ],
+  "project_config": ".codex/config.toml",
+  "custom_agents": [
+    ".codex/agents/stable_runtime_explorer.toml",
+    ".codex/agents/stable_host_readiness_explorer.toml",
+    ".codex/agents/run_result_triage_explorer.toml",
+    ".codex/agents/public_road_case_promoter.toml",
+    ".codex/agents/shadow_research_comparator.toml",
+    ".codex/agents/project_digest_explorer.toml"
   ],
   "key_commands": [
     "simctl bootstrap --stack stable",
     "simctl up --stack stable --scenario scenarios/l0/smoke_stub.yaml",
     "simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root runs",
+    "simctl run --scenario scenarios/l1/regression_follow_lane.yaml --run-root runs --slot stable-slot-01",
     "simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-result passed",
     "simctl report --run-root runs",
     "simctl digest"
   ],
-  "subagents": [
-    "execution_runtime_explorer",
-    "algorithm_research_explorer",
-    "project_automation_explorer",
-    "gaussian_reconstruction_explorer",
-    "public_road_e2e_shadow_explorer",
-    "stable_stack_host_readiness_explorer"
-  ],
-  "skills": [
-    "autoware-bug-report",
-    "autoware-release-check",
-    "carla-case-builder",
-    "simctl-run-analysis",
-    "ai-superbody-pmo"
-  ],
   "notes": [
-    "Formal runtime host remains the company Ubuntu 22.04 machine.",
-    "AI/Codex is not part of the real-time control loop in this phase.",
-    "GitHub-only project management is the current repository operating mode."
+    "This bundle assumes the formal runtime host remains the company Ubuntu 22.04 machine.",
+    "AI/Codex is not part of the real-time control loop.",
+    "The top priority is turning launch_submitted into a finalized validation result with runtime evidence.",
+    "This manifest follows the repo's existing overlay convention and adds Codex-native project config/custom-agent files."
   ]
 }

@@ -71,10 +71,21 @@ class SiteProxyReconstructionAdapter(_BasePlaceholderReconstructionAdapter):
 
     def reconstruct(self, context: AdapterContext) -> ReconstructionOutput:
         output = super().reconstruct(context)
+        run_dir = context.metadata.get("run_dir", "")
+        output.artifacts["registered_pointcloud"] = (
+            f"{run_dir}/reconstruction/site_proxy_pointcloud.pcd"
+            if run_dir
+            else "reconstruction/site_proxy_pointcloud.pcd"
+        )
+        output.artifacts["lanelet_update"] = (
+            f"{run_dir}/reconstruction/lanelet2_candidate.osm"
+            if run_dir
+            else "reconstruction/lanelet2_candidate.osm"
+        )
         output.notes.extend(
             [
-                "focus=site_proxy_alignment_and_replay_readiness",
-                "deliverable=standard_asset_bundle_refresh",
+                "focus=site_proxy_map_alignment_and_replay_readiness",
+                "deliverable=registered_pointcloud_and_lanelet_update_candidate",
             ]
         )
         return output

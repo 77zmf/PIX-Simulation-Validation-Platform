@@ -46,6 +46,8 @@ def _evidence_items(result: dict[str, Any]) -> list[str]:
         items.append("visual_screenshot")
     if artifacts.get("operator_action_log"):
         items.append("operator_action_log")
+    if artifacts.get("runtime_evidence_summary"):
+        items.append("runtime_evidence")
     if artifacts.get("health_report"):
         items.append("health_report")
     if artifacts.get("rosbag2"):

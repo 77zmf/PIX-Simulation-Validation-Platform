@@ -86,9 +86,11 @@ def main() -> None:
 
     if not phys:
         raise RuntimeError(f"Could not load physics asset: {PHYSICS_ASSET}")
+    bodies = []
     for prop in ["skeletal_body_setups", "constraint_setup", "bounds_bodies"]:
-        safe_get(phys, prop)
-    bodies = list(phys.get_editor_property("skeletal_body_setups") or [])
+        value = safe_get(phys, prop)
+        if prop == "skeletal_body_setups" and value is not None:
+            bodies = list(value or [])
     log(f"BODY_COUNT {len(bodies)}")
     for idx, body in enumerate(bodies):
         log(f"BODY_INDEX {idx} name={body.get_name()} class={body.get_class().get_name()}")
