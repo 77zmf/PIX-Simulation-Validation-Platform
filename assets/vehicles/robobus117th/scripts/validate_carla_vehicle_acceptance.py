@@ -112,8 +112,16 @@ def wheel_local_position_cm(carla: Any, actor: Any, wheel: Any) -> dict[str, flo
     # keep a magnitude guard to support both representations.
     if max(abs(float(raw.x)), abs(float(raw.y)), abs(float(raw.z))) > 1000.0:
         world_location_m = carla.Location(x=float(raw.x) / 100.0, y=float(raw.y) / 100.0, z=float(raw.z) / 100.0)
-        local_m = actor.get_transform().inverse_transform(world_location_m)
-        return {"x": round_float(local_m.x * 100.0), "y": round_float(local_m.y * 100.0), "z": round_float(local_m.z * 100.0)}
+        transform = actor.get_transform()
+        dx = world_location_m.x - transform.location.x
+        dy = world_location_m.y - transform.location.y
+        dz = world_location_m.z - transform.location.z
+        yaw_rad = math.radians(transform.rotation.yaw)
+        cos_yaw = math.cos(yaw_rad)
+        sin_yaw = math.sin(yaw_rad)
+        local_x_m = cos_yaw * dx + sin_yaw * dy
+        local_y_m = -sin_yaw * dx + cos_yaw * dy
+        return {"x": round_float(local_x_m * 100.0), "y": round_float(local_y_m * 100.0), "z": round_float(dz * 100.0)}
 
     return {"x": round_float(raw.x), "y": round_float(raw.y), "z": round_float(raw.z)}
 

@@ -22,6 +22,8 @@ REAR_RADIUS_CM = float(os.environ.get("ROBOBUS_REAR_WHEEL_RADIUS_CM", "32.3"))
 FRONT_WIDTH_CM = float(os.environ.get("ROBOBUS_FRONT_WHEEL_WIDTH_CM", "25.0"))
 REAR_WIDTH_CM = float(os.environ.get("ROBOBUS_REAR_WHEEL_WIDTH_CM", "25.0"))
 FRONT_STEER_DEG = float(os.environ.get("ROBOBUS_FRONT_STEER_DEG", "28.991"))
+MAX_BRAKE_TORQUE = float(os.environ.get("ROBOBUS_WHEEL_MAX_BRAKE_TORQUE", "450.0"))
+MAX_HANDBRAKE_TORQUE = float(os.environ.get("ROBOBUS_WHEEL_MAX_HANDBRAKE_TORQUE", "900.0"))
 
 WHEELS = [
     {
@@ -32,6 +34,7 @@ WHEELS = [
         "width": FRONT_WIDTH_CM,
         "steer_angle": FRONT_STEER_DEG,
         "disable_steering": False,
+        "additional_offset": (0.5, 50.33, -47.52),
     },
     {
         "name": "FRW",
@@ -41,6 +44,7 @@ WHEELS = [
         "width": FRONT_WIDTH_CM,
         "steer_angle": FRONT_STEER_DEG,
         "disable_steering": False,
+        "additional_offset": (0.5, -50.33, -47.52),
     },
     {
         "name": "RLW",
@@ -50,6 +54,7 @@ WHEELS = [
         "width": REAR_WIDTH_CM,
         "steer_angle": 0.0,
         "disable_steering": True,
+        "additional_offset": (261.5, 31.47, -47.52),
     },
     {
         "name": "RRW",
@@ -59,6 +64,7 @@ WHEELS = [
         "width": REAR_WIDTH_CM,
         "steer_angle": 0.0,
         "disable_steering": True,
+        "additional_offset": (261.5, -31.47, -47.52),
     },
 ]
 
@@ -109,6 +115,8 @@ def ensure_wheel_asset(spec: dict[str, object]) -> str:
     set_if_present(cdo, "steer_angle", float(spec["steer_angle"]))
     set_if_present(cdo, "mass", 20.0)
     set_if_present(cdo, "damping_rate", 0.35)
+    set_if_present(cdo, "max_brake_torque", MAX_BRAKE_TORQUE)
+    set_if_present(cdo, "max_handbrake_torque", MAX_HANDBRAKE_TORQUE)
     set_if_present(cdo, "lat_stiff_max_load", 5.0)
     set_if_present(cdo, "lat_stiff_value", 20.0)
     set_if_present(cdo, "long_stiff_value", 3000.0)
@@ -131,12 +139,14 @@ def main() -> None:
         wheel_cls = load_required_object(class_path)
         setup.set_editor_property("wheel_class", wheel_cls)
         setup.set_editor_property("bone_name", spec["bone"])
-        set_if_present(setup, "additional_offset", unreal.Vector(0.0, 0.0, 0.0))
+        offset_x, offset_y, offset_z = spec["additional_offset"]
+        set_if_present(setup, "additional_offset", unreal.Vector(float(offset_x), float(offset_y), float(offset_z)))
         set_if_present(setup, "disable_steering", bool(spec["disable_steering"]))
         log(
             "WHEEL_SETUP "
             f"name={spec['name']} bone={spec['bone']} class={class_path} "
-            f"radius={spec['radius']} width={spec['width']}"
+            f"radius={spec['radius']} width={spec['width']} "
+            f"offset=({offset_x},{offset_y},{offset_z})"
         )
 
     movement.set_editor_property("wheel_setups", wheel_setups)
