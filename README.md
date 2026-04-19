@@ -226,6 +226,8 @@ Reference documents:
 
 - [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
+- [BEVFusion Shadow Ubuntu Execute Runbook](./docs/BEVFUSION_SHADOW_UBUNTU_EXECUTE_RUNBOOK_CN.md)
+- [Issue 18 Delivery Closure](./docs/ISSUE18_BEVFUSION_SHADOW_DELIVERY_CLOSURE_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
 - [DingTalk Code Update Validation](./docs/DINGTALK_CODE_UPDATE_VALIDATION_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)
@@ -234,6 +236,8 @@ Reference documents:
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
 - [Weekly Repo Sync 2026-04-18](./docs/WEEKLY_REPO_SYNC_2026_04_18_CN.md)
 - [Local Reconstruction Validation](./docs/LOCAL_RECONSTRUCTION_VALIDATION_CN.md)
+- [BEVFusion Shadow Interface Baseline](./docs/BEVFUSION_SHADOW_INTERFACE_BASELINE_CN.md)
+- [Yang Shadow E2E Reading Notes](./docs/YANG_SHADOW_E2E_READING_NOTES_CN.md)
 
 ## Subagent Catalog
 

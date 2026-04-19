@@ -4,7 +4,7 @@
 
 这份文档把当前仓库相关论文按项目主线做统一整理，方便团队和子 agent 沿同一套研究口径推进。
 
-- 对应协同 issue：[#22 论文整理：公开道路感知、Shadow E2E 与三维重建阅读清单](https://github.com/77zmf/PIX-Simulation-Validation-Platform/issues/22)
+- 对应协同 issue：[#22 论文整理：公开道路感知、Shadow E2E 与三维重建阅读清单](https://github.com/pixmoving-moveit/zmf_ws/issues/22)
 - 完整领域总览：[PAPER_LANDSCAPE_CN.md](./PAPER_LANDSCAPE_CN.md)
 - 当前项目主线：
   - `BEVFusion` 感知基线
@@ -57,6 +57,10 @@
 5. Hydra-MDP
 6. Hydra-NeXt
 7. MomAD
+
+首轮阅读输出：
+
+- [杨志朋 Shadow E2E 阅读纪要](./YANG_SHADOW_E2E_READING_NOTES_CN.md)
 
 ### 罗顺雄 / lsx
 
