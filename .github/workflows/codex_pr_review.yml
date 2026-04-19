@@ -21,8 +21,27 @@ jobs:
       - name: Pre-fetch base and head refs
         run: git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}" "+refs/pull/${{ github.event.pull_request.number }}/head"
 
+      - name: Check Codex secret availability
+        id: codex_secret
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "Codex PR review skipped."
+              echo
+              echo "Reason: OPENAI_API_KEY is unavailable to this workflow run."
+              echo "This is expected for fork-origin pull_request events or repositories without the secret configured."
+            } > codex-pr-review.md
+          fi
+
       - name: Run Codex PR review
         id: run_codex
+        if: steps.codex_secret.outputs.available == 'true'
+        continue-on-error: true
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -32,7 +51,20 @@ jobs:
           safety-strategy: drop-sudo
           sandbox: workspace-write
 
+      - name: Ensure Codex review artifact
+        if: always()
+        run: |
+          if [ ! -s codex-pr-review.md ]; then
+            {
+              echo "Codex PR review unavailable."
+              echo
+              echo "The optional Codex review action did not produce codex-pr-review.md."
+              echo "Treat this as CI hygiene only; use the regular test check for merge-blocking validation."
+            } > codex-pr-review.md
+          fi
+
       - name: Upload Codex review artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: codex-pr-review
