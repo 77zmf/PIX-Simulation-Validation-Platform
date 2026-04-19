@@ -1,0 +1,44 @@
+name: codex-runtime-closure-audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  runtime_closure_audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Build runtime audit inputs
+        run: |
+          bash .agents/skills/runtime-closure-audit/scripts/audit_stub_run.sh automation_outputs/runtime_audit
+
+      - name: Run Codex runtime closure audit
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/runtime_closure_audit.md
+          output-file: codex-runtime-closure-audit.md
+          model: gpt-5.4
+          safety-strategy: drop-sudo
+          sandbox: workspace-write
+
+      - name: Upload runtime audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-runtime-closure-audit
+          path: |
+            automation_outputs/runtime_audit
+            codex-runtime-closure-audit.md
+
+      - name: Publish step summary
+        run: |
+          cat codex-runtime-closure-audit.md >> "$GITHUB_STEP_SUMMARY"

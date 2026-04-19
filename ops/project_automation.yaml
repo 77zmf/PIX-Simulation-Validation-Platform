@@ -3,14 +3,14 @@ timezone: Asia/Shanghai
 projects:
   tasks:
     provider: github_project
-    owner: pixmoving-moveit
-    number: 2
-    url: https://github.com/orgs/pixmoving-moveit/projects/2
+    owner: 77zmf
+    number: 1
+    url: https://github.com/users/77zmf/projects/1
   scenarios:
     provider: github_project
-    owner: pixmoving-moveit
-    number: 3
-    url: https://github.com/orgs/pixmoving-moveit/projects/3
+    owner: 77zmf
+    number: 2
+    url: https://github.com/users/77zmf/projects/2
 
 reporting:
   due_soon_days: 3

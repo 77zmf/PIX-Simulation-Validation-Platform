@@ -270,6 +270,42 @@ def aggregate_run_results(run_results: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _evidence_items(result: dict[str, Any]) -> list[str]:
+    artifacts = result.get("artifacts", {})
+    items: list[str] = []
+    runtime_health = result.get("runtime_health")
+    if isinstance(runtime_health, dict):
+        health_label = "passed" if runtime_health.get("passed") else "failed"
+        items.append(f"runtime_health:{health_label}")
+    if artifacts.get("visual_screenshot"):
+        items.append("visual_screenshot")
+    if artifacts.get("operator_action_log"):
+        items.append("operator_action_log")
+    if artifacts.get("runtime_evidence_summary"):
+        items.append("runtime_evidence")
+    if artifacts.get("health_report"):
+        items.append("health_report")
+    if artifacts.get("rosbag2"):
+        items.append("rosbag2")
+    if artifacts.get("carla_recorder"):
+        items.append("carla_recorder")
+    return items
+
+
+def _evidence_markdown(result: dict[str, Any]) -> str:
+    items = _evidence_items(result)
+    if not items:
+        return "`none`"
+    return "<br>".join(f"`{item}`" for item in items)
+
+
+def _evidence_html(result: dict[str, Any]) -> str:
+    items = _evidence_items(result)
+    if not items:
+        return "<code>none</code>"
+    return "<br>".join(f"<code>{item}</code>" for item in items)
+
+
 def render_issue_update(summary: dict[str, Any]) -> str:
     shadow_comparison = summary.get("shadow_comparison")
     shadow_profiles = []
@@ -520,11 +556,19 @@ def render_markdown(summary: dict[str, Any]) -> str:
                 )
         if not rendered_gap:
             lines.append("- None")
-    lines.extend(["", "## Runs", "", "| Run ID | Scenario | Stack | Status | Gate Passed |", "| --- | --- | --- | --- | --- |"])
+    lines.extend(
+        [
+            "",
+            "## Runs",
+            "",
+            "| Run ID | Scenario | Stack | Status | Gate Passed | Evidence |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
     for result in summary["runs"]:
         gate_passed = result.get("gate", {}).get("passed")
         lines.append(
-            f"| `{result['run_id']}` | `{result['scenario_id']}` | `{result['stack']}` | `{result['status']}` | `{gate_passed}` |"
+            f"| `{result['run_id']}` | `{result['scenario_id']}` | `{result['stack']}` | `{result['status']}` | `{gate_passed}` | {_evidence_markdown(result)} |"
         )
     lines.append("")
     return "\n".join(lines)
@@ -540,6 +584,7 @@ def render_html(summary: dict[str, Any]) -> str:
             f"<td><code>{result['stack']}</code></td>"
             f"<td><code>{result['status']}</code></td>"
             f"<td><code>{result.get('gate', {}).get('passed')}</code></td>"
+            f"<td>{_evidence_html(result)}</td>"
             "</tr>"
         )
     cluster_items = "".join(
@@ -635,7 +680,7 @@ def render_html(summary: dict[str, Any]) -> str:
   <h2>Runs</h2>
   <table>
     <thead>
-      <tr><th>Run ID</th><th>Scenario</th><th>Stack</th><th>Status</th><th>Gate Passed</th></tr>
+      <tr><th>Run ID</th><th>Scenario</th><th>Stack</th><th>Status</th><th>Gate Passed</th><th>Evidence</th></tr>
     </thead>
     <tbody>
       {''.join(rows)}

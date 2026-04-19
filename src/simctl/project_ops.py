@@ -17,7 +17,7 @@ from .reporting import aggregate_run_results, discover_run_results, load_run_res
 STATUS_DONE = {"done", "completed", "closed", "finished"}
 
 
-@dataclass(slots=True)
+@dataclass
 class ProjectItem:
     title: str
     status: str

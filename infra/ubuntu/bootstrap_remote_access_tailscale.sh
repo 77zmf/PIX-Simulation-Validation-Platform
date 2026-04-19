@@ -27,6 +27,7 @@ EXECUTE=0
 RUN_PREFLIGHT=1
 TAILSCALE_AUTH_KEY="${TAILSCALE_AUTH_KEY:-${TS_AUTHKEY:-}}"
 TAILSCALE_HOSTNAME="${TAILSCALE_HOSTNAME:-}"
+TAILSCALE_OPERATOR="${TAILSCALE_OPERATOR:-${USER}}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -77,6 +78,7 @@ echo "Repo root: ${REPO_ROOT}"
 echo "EXECUTE=${EXECUTE}"
 echo "RUN_PREFLIGHT=${RUN_PREFLIGHT}"
 echo "TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME:-<default>}"
+echo "TAILSCALE_OPERATOR=${TAILSCALE_OPERATOR}"
 if [[ -n "$TAILSCALE_AUTH_KEY" ]]; then
   echo "TAILSCALE_AUTH_KEY=<provided>"
 else
@@ -113,8 +115,9 @@ echo
 echo "== Tailscale remote access =="
 run "curl -fsSL https://tailscale.com/install.sh | sh"
 run "sudo systemctl enable --now tailscaled"
+run "sudo tailscale set --operator '${TAILSCALE_OPERATOR}'"
 
-TAILSCALE_UP_CMD="sudo tailscale up"
+TAILSCALE_UP_CMD="sudo tailscale up --operator '${TAILSCALE_OPERATOR}'"
 if [[ -n "$TAILSCALE_HOSTNAME" ]]; then
   TAILSCALE_UP_CMD+=" --hostname '${TAILSCALE_HOSTNAME}'"
 fi

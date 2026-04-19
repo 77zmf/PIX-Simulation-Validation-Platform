@@ -1,0 +1,37 @@
+bundle_id: site_gy_qyhx_gsh20260310
+site_id: gy_qyhx_gsh
+description: Complete site proxy asset bundle imported from the March 10 2026 lanelet2 and pointcloud package
+source:
+  type: local_archive
+  archive_path: "${REPO_ROOT}/gy_qyhx_gsh20260310_map(2).zip"
+  archive_sha256: B2AFA58DD25DF27475C2A686E457D6CA7F514F59450A801E4F27EEADDE8B8805
+  preferred_extract_dir: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310
+  archive_members:
+    - gy_qyhx_gsh20260310_map(2)/lanelet2_map.osm
+    - gy_qyhx_gsh20260310_map(2)/map_projector_info.yaml
+    - gy_qyhx_gsh20260310_map(2)/pointcloud_map.pcd/
+    - gy_qyhx_gsh20260310_map(2)/pointcloud_map_metadata.yaml
+maps:
+  lanelet2:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/lanelet2_map.osm
+    fallback_repo_path: ${REPO_ROOT}/lanelet2_map.osm
+  projector:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/map_projector_info.yaml
+  pointcloud_dir:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/pointcloud_map.pcd
+  pointcloud_metadata:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/pointcloud_map_metadata.yaml
+metadata:
+  pointcloud_tiles: 3624
+  map_origin:
+    latitude: 26.648465
+    longitude: 106.620033
+    altitude: 1263.969482005
+  available_lanelet_variants:
+    - lanelet2_map.osm
+  tags:
+    - site_proxy
+    - lanelet2
+    - pointcloud
+    - autoware
+    - imported_20260310

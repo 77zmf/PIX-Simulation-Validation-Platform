@@ -1,0 +1,4 @@
+interface:
+  display_name: "PIX Public Road Case Builder"
+  short_description: "Turn public-road assets into traceable scenarios."
+  default_prompt: "Use pix-public-road-case-builder to turn a public-road finding or asset bundle into a traceable scenario draft with source assets, owner, evaluation method, and validation path."
