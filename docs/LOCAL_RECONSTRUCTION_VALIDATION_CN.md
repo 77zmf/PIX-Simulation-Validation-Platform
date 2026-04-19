@@ -2,7 +2,9 @@
 
 ## 结论
 
-这台 Windows 主机当前先承担 `3D reconstruction line` 的本机验证，不承担大规模训练主机职责。
+这台 Windows 主机当前承担 `3D reconstruction line` 的本机验证和资产生产，不承担大规模训练主机职责。
+
+公司 Ubuntu 主机只读取这台电脑生成并同步出去的重建资产，用于 Autoware + CARLA 稳定验证或 site proxy 消费；公司主机不运行三维重建任务。
 
 当前优先级：
 
@@ -11,6 +13,7 @@
 3. 再补图像或视频，做 COLMAP sparse smoke。
 4. 最后决定是否进入 Gaussian / NeRF。
 5. 重建输出只进入 `outputs/` 或 `artifacts/`，不进入 Git。
+6. 每次可交付结果必须生成 handoff manifest，方便公司 Ubuntu 主机读取同一批资产。
 
 ## 1. 当前资产入口
 
@@ -170,6 +173,38 @@ outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/s
 outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/z_histogram.png
 ```
 
+生成规则化地面高度图：
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\build_ground_heightmap.py --input-ply outputs\pointcloud_reconstruction\site_gy_qyhx_gsh20260310\center_tiles64_ground_clean\site_proxy_ground_clean.ply --cell-size 1.0 --min-points-per-cell 2
+```
+
+默认会使用标准库生成 `ground_heightmap.png`。如果只需要 `CSV / JSON / PLY`，可以加 `--skip-png`。
+
+高度图输出：
+
+```text
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/heightmap/ground_heightmap.csv
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/heightmap/ground_heightmap.json
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/heightmap/ground_heightmap_centroids.ply
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/heightmap/ground_heightmap.png
+```
+
+生成公司 Ubuntu 主机消费用的交接清单：
+
+```powershell
+python .\tools\build_reconstruction_handoff_manifest.py --run-dir outputs\pointcloud_reconstruction\site_gy_qyhx_gsh20260310\center_tiles64_ground_clean --site-id site_gy_qyhx_gsh20260310 --handoff-root-uri "<shared-path-or-object-store-prefix>"
+```
+
+交接清单输出：
+
+```text
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/handoff_manifest.json
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/handoff_manifest.md
+```
+
+公司 Ubuntu 主机只需要读取 `handoff_manifest.json` 里的 `handoff_uri` 或对应共享路径，不需要重新执行点云清理、高度图生成、COLMAP 或 Gaussian。
+
 如果只看指定 tile 坐标范围：
 
 ```powershell
@@ -239,3 +274,5 @@ colmap model_analyzer --path "$workspace\sparse\0"
 这条线是 `3D reconstruction line`，不要和公司 Ubuntu 主机上的 `stable local validation line` 混在一起。
 
 重建资产可以服务仿真验证，但不能阻塞 Autoware + CARLA 0.9.15 的稳定闭环主线。
+
+本机负责生产重建资产；公司 Ubuntu 主机负责读取已同步资产并跑仿真验证。
