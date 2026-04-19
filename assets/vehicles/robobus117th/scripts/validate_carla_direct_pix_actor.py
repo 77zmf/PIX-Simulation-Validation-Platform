@@ -30,7 +30,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--spawn-index", type=int, default=30, help="Preferred CARLA spawn point index.")
     parser.add_argument("--ticks", type=int, default=180, help="Validation drive duration in synchronous ticks.")
     parser.add_argument("--fixed-delta-sec", type=float, default=0.05, help="Synchronous mode fixed delta seconds.")
-    parser.add_argument("--throttle", type=float, default=0.32, help="Vehicle throttle command.")
+    parser.add_argument("--throttle", type=float, default=0.75, help="Vehicle throttle command.")
     parser.add_argument("--left-steer", type=float, default=0.16, help="First steering pulse.")
     parser.add_argument("--right-steer", type=float, default=-0.12, help="Second steering pulse.")
     parser.add_argument("--frame-stride", type=int, default=2, help="Record every Nth tick when --record-video is set.")

@@ -31,6 +31,28 @@ current_runtime_state:
     - The PIX visual is inside the same CARLA actor, not an external follower or overlay actor.
     - The current physics and collision path still uses the stable carrier baseline.
     - Native PIX PhysicsAsset, wheel visual animation, and two-wheel/four-wheel steering mode validation remain follow-up work.
+  latest_acceptance:
+    date: "2026-04-19"
+    run_dir: /home/pixmoving/PIX-Simulation-Validation-Platform/runs/robobus_stable_vehicle_acceptance_20260419T153114Z/vehicle_acceptance
+    passed: true
+    observed:
+      distance_m: 23.106969
+      peak_speed_mps: 4.725591
+      speed_before_brake_mps: 4.725591
+      speed_after_brake_mps: 0.033951
+      front_left_steer_left_deg: 19.227951
+      front_right_steer_left_deg: 23.192797
+      front_left_steer_right_deg: -23.192797
+      front_right_steer_right_deg: -19.227951
+    notes:
+      - Direct runtime control, braking, wheel geometry, and CARLA wheel steer API are validated.
+      - Visible PIX tire animation is not accepted by this gate; it requires native UE4 VehicleMesh/AnimBP/PhysicsAsset authoring.
+  native_vehicle_mesh_experiment:
+    date: "2026-04-19"
+    status: blocked_and_rolled_back
+    script: assets/vehicles/robobus117th/unreal/configure_robobus_native_vehicle_mesh.py
+    result: The PIX skeletal mesh can be loaded and cooked, but direct VehicleMesh replacement made vehicle.pixmoving.robobus fail normal CARLA spawn validation.
+    stable_line_decision: Keep the existing spawnable single-actor PIX visual plus carrier physics until a native PIX PhysicsAsset or copy-pose visual component is validated.
 source_inputs:
   required:
     - artifacts/carla_blueprints/robobus117th_source/source/install/robobus_description/mesh/robobus.dae
