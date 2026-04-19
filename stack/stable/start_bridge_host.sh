@@ -70,10 +70,16 @@ PIX_SKIP_WHEEL_STEER_ANGLE="${PIX_CARLA_SKIP_WHEEL_STEER_ANGLE:-}"
 PIX_THROTTLE_GAIN="${PIX_CARLA_THROTTLE_GAIN:-}"
 PIX_MIN_THROTTLE="${PIX_CARLA_MIN_THROTTLE:-}"
 PIX_MAX_THROTTLE="${PIX_CARLA_MAX_THROTTLE:-}"
+PIX_BRAKE_GAIN="${PIX_CARLA_BRAKE_GAIN:-}"
+PIX_MAX_BRAKE="${PIX_CARLA_MAX_BRAKE:-}"
+PIX_BRAKE_DEADBAND="${PIX_CARLA_BRAKE_DEADBAND:-}"
 if [[ "${VEHICLE_TYPE}" == vehicle.pixmoving.* ]]; then
-  PIX_THROTTLE_GAIN="${PIX_THROTTLE_GAIN:-3.5}"
-  PIX_MIN_THROTTLE="${PIX_MIN_THROTTLE:-0.32}"
-  PIX_MAX_THROTTLE="${PIX_MAX_THROTTLE:-0.85}"
+  PIX_THROTTLE_GAIN="${PIX_THROTTLE_GAIN:-2.6}"
+  PIX_MIN_THROTTLE="${PIX_MIN_THROTTLE:-0.0}"
+  PIX_MAX_THROTTLE="${PIX_MAX_THROTTLE:-0.75}"
+  PIX_BRAKE_GAIN="${PIX_BRAKE_GAIN:-0.002}"
+  PIX_MAX_BRAKE="${PIX_MAX_BRAKE:-0.008}"
+  PIX_BRAKE_DEADBAND="${PIX_BRAKE_DEADBAND:-0.05}"
 fi
 
 shell_quote() {
@@ -156,6 +162,15 @@ fi
 if [[ -n "${PIX_MAX_THROTTLE}" ]]; then
   PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_MAX_THROTTLE=$(shell_quote "${PIX_MAX_THROTTLE}")"
 fi
+if [[ -n "${PIX_BRAKE_GAIN}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_BRAKE_GAIN=$(shell_quote "${PIX_BRAKE_GAIN}")"
+fi
+if [[ -n "${PIX_MAX_BRAKE}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_MAX_BRAKE=$(shell_quote "${PIX_MAX_BRAKE}")"
+fi
+if [[ -n "${PIX_BRAKE_DEADBAND}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_BRAKE_DEADBAND=$(shell_quote "${PIX_BRAKE_DEADBAND}")"
+fi
 CMD="${SOURCE_CMD} && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID}${RMW_EXPORT_CMD} && export SIMCTL_RUNTIME_NAMESPACE=$(shell_quote "${RUNTIME_NAMESPACE}") && export SIMCTL_TRAFFIC_MANAGER_PORT=${TRAFFIC_MANAGER_PORT}${PIX_BRIDGE_EXPORT_CMD} && ${ROS_CMD_DISPLAY}"
 
 source_runtime_environment() {
@@ -232,6 +247,9 @@ echo "PIX skip wheel steer angle: ${PIX_SKIP_WHEEL_STEER_ANGLE}"
 echo "PIX throttle gain: ${PIX_THROTTLE_GAIN}"
 echo "PIX min throttle: ${PIX_MIN_THROTTLE}"
 echo "PIX max throttle: ${PIX_MAX_THROTTLE}"
+echo "PIX brake gain: ${PIX_BRAKE_GAIN}"
+echo "PIX max brake: ${PIX_MAX_BRAKE}"
+echo "PIX brake deadband: ${PIX_BRAKE_DEADBAND}"
 if [[ "${#SKIPPED_LAUNCH_ARGS[@]}" -gt 0 ]]; then
   echo "Skipped unsupported launch args: ${SKIPPED_LAUNCH_ARGS[*]}"
 fi
@@ -270,6 +288,15 @@ if [[ "$EXECUTE" -eq 1 ]]; then
   fi
   if [[ -n "${PIX_MAX_THROTTLE}" ]]; then
     export PIX_CARLA_MAX_THROTTLE="${PIX_MAX_THROTTLE}"
+  fi
+  if [[ -n "${PIX_BRAKE_GAIN}" ]]; then
+    export PIX_CARLA_BRAKE_GAIN="${PIX_BRAKE_GAIN}"
+  fi
+  if [[ -n "${PIX_MAX_BRAKE}" ]]; then
+    export PIX_CARLA_MAX_BRAKE="${PIX_MAX_BRAKE}"
+  fi
+  if [[ -n "${PIX_BRAKE_DEADBAND}" ]]; then
+    export PIX_CARLA_BRAKE_DEADBAND="${PIX_BRAKE_DEADBAND}"
   fi
   if [[ -n "$CPU_AFFINITY" ]]; then
     exec taskset -c "$CPU_AFFINITY" "${ROS_CMD[@]}"
