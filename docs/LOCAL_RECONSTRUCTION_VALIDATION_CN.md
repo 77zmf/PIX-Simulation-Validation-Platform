@@ -71,6 +71,22 @@ Python modules: numpy, open3d, opencv-python, trimesh, pycolmap
 
 如果换机器后缺依赖，按脚本输出的 `install_hint` 补齐。
 
+一键准备本机重建工作区，并运行当前点云 smoke：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\bootstrap_local_reconstruction.ps1 -RunAssetValidation -RunPointcloudSmoke -RunName local_setup_pointcloud_smoke -HandoffRootUri "<shared-path-or-object-store-prefix>"
+```
+
+输出：
+
+```text
+outputs/local_reconstruction_setup/bootstrap_local_reconstruction.json
+outputs/local_reconstruction_setup/bootstrap_local_reconstruction.md
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/local_setup_pointcloud_smoke/
+```
+
+当前这台本机如果没有系统级 `python`，脚本会优先尝试可用的显式 `-PythonPath`，再尝试 `.venv` 和 Codex runtime Python。长期建议还是安装一个系统 Python 3.11/3.12 并重建 `.venv`。
+
 ## 3. 资产级验证
 
 运行：

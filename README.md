@@ -168,6 +168,14 @@ $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Env
 powershell -ExecutionPolicy Bypass -File .\tools\check_local_env.ps1
 ```
 
+Bootstrap the local reconstruction workspace and run the current pointcloud smoke:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\bootstrap_local_reconstruction.ps1 -RunAssetValidation -RunPointcloudSmoke -RunName local_setup_pointcloud_smoke -HandoffRootUri "<shared-path-or-object-store-prefix>"
+```
+
+This machine is the reconstruction producer. The company Ubuntu host should consume the generated `handoff_manifest.json` and derived assets from the shared path; it should not rerun reconstruction jobs.
+
 COLMAP sparse smoke after adding image data:
 
 ```powershell

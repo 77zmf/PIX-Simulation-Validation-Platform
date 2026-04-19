@@ -1,5 +1,7 @@
 param(
   [string]$OutputRoot = "outputs/env",
+  [string]$PythonPath = "",
+  [string[]]$ExtraPythonPath = @(),
   [switch]$JsonOnly
 )
 
@@ -49,17 +51,53 @@ function Invoke-Capture {
   }
 }
 
+function Test-PythonExecutable {
+  param([string]$Candidate)
+
+  if ([string]::IsNullOrWhiteSpace($Candidate)) {
+    return $false
+  }
+  if (-not (Test-Path -LiteralPath $Candidate)) {
+    return $false
+  }
+  try {
+    $output = & $Candidate -c "import sys; print(sys.executable)" 2>$null
+    return -not [string]::IsNullOrWhiteSpace(($output | Select-Object -First 1))
+  } catch {
+    return $false
+  }
+}
+
 function Get-PythonPath {
-  param([string]$RepoRoot)
+  param(
+    [string]$RepoRoot,
+    [string]$ExplicitPythonPath
+  )
+
+  $candidates = New-Object System.Collections.Generic.List[string]
+  if (-not [string]::IsNullOrWhiteSpace($ExplicitPythonPath)) {
+    $candidates.Add($ExplicitPythonPath)
+  }
 
   $venvPython = Join-Path $RepoRoot ".venv/Scripts/python.exe"
   if (Test-Path -LiteralPath $venvPython) {
-    return (Resolve-Path $venvPython).Path
+    $candidates.Add((Resolve-Path $venvPython).Path)
   }
 
   $python = Get-Command python -ErrorAction SilentlyContinue
   if ($null -ne $python) {
-    return $python.Source
+    $candidates.Add($python.Source)
+  }
+
+  $codexPython = Join-Path $env:USERPROFILE ".cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe"
+  if (Test-Path -LiteralPath $codexPython) {
+    $candidates.Add((Resolve-Path $codexPython).Path)
+  }
+
+  foreach ($candidate in $candidates) {
+    if (Test-PythonExecutable -Candidate $candidate) {
+      return $candidate
+    }
   }
 
   return $null
@@ -109,9 +147,28 @@ print(json.dumps({
 "@
 
   try {
-    $json = $code | & $PythonPath -
+    $oldPythonPath = $env:PYTHONPATH
+    $pythonPathEntries = New-Object System.Collections.Generic.List[string]
+    foreach ($entry in $ExtraPythonPath) {
+      if (-not [string]::IsNullOrWhiteSpace($entry) -and (Test-Path -LiteralPath $entry)) {
+        $pythonPathEntries.Add((Resolve-Path $entry).Path)
+      }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($oldPythonPath)) {
+      $pythonPathEntries.Add($oldPythonPath)
+    }
+    if ($pythonPathEntries.Count -gt 0) {
+      $env:PYTHONPATH = ($pythonPathEntries -join [IO.Path]::PathSeparator)
+    }
+    $output = @($code | & $PythonPath - 2>&1)
+    $env:PYTHONPATH = $oldPythonPath
+    $json = $output | Where-Object { "$_".TrimStart().StartsWith("{") } | Select-Object -Last 1
+    if ([string]::IsNullOrWhiteSpace($json)) {
+      throw "python module probe did not emit JSON: $($output -join '; ')"
+    }
     return ($json | ConvertFrom-Json)
   } catch {
+    $env:PYTHONPATH = $oldPythonPath
     return [ordered]@{
       ok = $false
       python = $PythonPath
@@ -153,6 +210,9 @@ function New-MarkdownReport {
   }
   $lines.Add("")
   $lines.Add("## Python Modules")
+  if ($Report.python.error) {
+    $lines.Add("- error: $($Report.python.error)")
+  }
   foreach ($mod in $Report.python.modules) {
     $lines.Add("- $($mod.name): present=$($mod.present), version=$($mod.version)")
   }
@@ -168,7 +228,7 @@ function New-MarkdownReport {
 $repoRoot = Get-RepoRoot
 Set-Location $repoRoot
 
-$pythonPath = Get-PythonPath -RepoRoot $repoRoot
+$pythonPath = Get-PythonPath -RepoRoot $repoRoot -ExplicitPythonPath $PythonPath
 $commands = @(
   (Get-CommandInfo -Name "git"),
   (Get-CommandInfo -Name "python"),
