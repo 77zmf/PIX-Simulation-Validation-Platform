@@ -22,7 +22,7 @@ REAR_RADIUS_CM = float(os.environ.get("ROBOBUS_REAR_WHEEL_RADIUS_CM", "32.3"))
 FRONT_WIDTH_CM = float(os.environ.get("ROBOBUS_FRONT_WHEEL_WIDTH_CM", "25.0"))
 REAR_WIDTH_CM = float(os.environ.get("ROBOBUS_REAR_WHEEL_WIDTH_CM", "25.0"))
 FRONT_STEER_DEG = float(os.environ.get("ROBOBUS_FRONT_STEER_DEG", "28.991"))
-MAX_BRAKE_TORQUE = float(os.environ.get("ROBOBUS_WHEEL_MAX_BRAKE_TORQUE", "450.0"))
+MAX_BRAKE_TORQUE = float(os.environ.get("ROBOBUS_WHEEL_MAX_BRAKE_TORQUE", "100.0"))
 MAX_HANDBRAKE_TORQUE = float(os.environ.get("ROBOBUS_WHEEL_MAX_HANDBRAKE_TORQUE", "900.0"))
 
 WHEELS = [
