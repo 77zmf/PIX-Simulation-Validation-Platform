@@ -176,6 +176,15 @@ powershell -ExecutionPolicy Bypass -File .\tools\bootstrap_local_reconstruction.
 
 This machine is the reconstruction producer. The company Ubuntu host should consume the generated `handoff_manifest.json` and derived assets from the shared path; it should not rerun reconstruction jobs.
 
+Extract frames from a local video and run a PyCOLMAP sparse smoke:
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\extract_video_frames.py --video data\raw\qiyu_loop\video\input.mp4 --output-dir data\raw\qiyu_loop\images --fps 2 --max-width 1920 --overwrite
+.\.venv\Scripts\python.exe .\tools\run_pycolmap_sparse_smoke.py --image-dir data\raw\qiyu_loop\images --output-dir outputs\colmap_smoke\qiyu_loop --min-images 8 --matcher exhaustive
+```
+
+The default image-based path uses `pycolmap` from `.venv`. Install an external COLMAP CUDA package only if you need the standalone `colmap.exe` CLI or GUI.
+
 COLMAP sparse smoke after adding image data:
 
 ```powershell

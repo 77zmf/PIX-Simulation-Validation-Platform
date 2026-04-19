@@ -109,6 +109,24 @@ function Set-RepoPythonPath {
   $env:PYTHONPATH = ($entries -join [IO.Path]::PathSeparator)
 }
 
+function Add-LocalToolPath {
+  param([string]$RepoRoot)
+
+  $paths = @(
+    (Join-Path $RepoRoot ".local_tools/ffmpeg/bin"),
+    (Join-Path $RepoRoot ".local_tools/colmap/bin"),
+    (Join-Path $RepoRoot ".local_tools/colmap")
+  )
+  foreach ($path in $paths) {
+    if (Test-Path -LiteralPath $path) {
+      $resolved = (Resolve-Path $path).Path
+      if (($env:Path -split [IO.Path]::PathSeparator) -notcontains $resolved) {
+        $env:Path = $resolved + [IO.Path]::PathSeparator + $env:Path
+      }
+    }
+  }
+}
+
 function New-MarkdownReport {
   param($Report)
 
@@ -144,6 +162,7 @@ function New-MarkdownReport {
 
 $repoRoot = Get-RepoRoot
 Set-Location $repoRoot
+Add-LocalToolPath -RepoRoot $repoRoot
 
 $outDir = Join-Path $repoRoot $OutputRoot
 $rawImageDir = Join-Path $repoRoot "data/raw/qiyu_loop/images"
@@ -200,7 +219,7 @@ if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
   $nextActions.Add("Install FFmpeg before COLMAP image/video smoke tests.")
 }
 if (-not (Get-Command colmap -ErrorAction SilentlyContinue)) {
-  $nextActions.Add("Install COLMAP CUDA build before image-based sparse reconstruction.")
+  $nextActions.Add("External colmap.exe is not installed; use pycolmap smoke first, and install COLMAP CUDA build only if CLI/GUI workflow is required.")
 }
 if (-not $RunPointcloudSmoke) {
   $nextActions.Add("Run again with -RunPointcloudSmoke to produce a pointcloud smoke run and handoff manifest.")
@@ -208,11 +227,20 @@ if (-not $RunPointcloudSmoke) {
 $nextActions.Add("Keep generated outputs under outputs/ or artifacts/; do not commit heavy reconstruction artifacts.")
 
 $failed = @($steps | Where-Object { -not $_.passed })
+$pycolmapReady = $false
+if ($python) {
+  try {
+    & $python -c "import pycolmap" 2>$null
+    $pycolmapReady = ($LASTEXITCODE -eq 0)
+  } catch {
+    $pycolmapReady = $false
+  }
+}
 $verdict = if (-not $python) {
   "blocked"
 } elseif ($failed.Count -gt 0) {
   "partial"
-} elseif ((Get-Command ffmpeg -ErrorAction SilentlyContinue) -and (Get-Command colmap -ErrorAction SilentlyContinue)) {
+} elseif ((Get-Command ffmpeg -ErrorAction SilentlyContinue) -and ((Get-Command colmap -ErrorAction SilentlyContinue) -or $pycolmapReady)) {
   "ready"
 } else {
   "partial"

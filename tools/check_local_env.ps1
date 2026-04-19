@@ -31,6 +31,24 @@ function Get-CommandInfo {
   }
 }
 
+function Add-LocalToolPath {
+  param([string]$RepoRoot)
+
+  $paths = @(
+    (Join-Path $RepoRoot ".local_tools/ffmpeg/bin"),
+    (Join-Path $RepoRoot ".local_tools/colmap/bin"),
+    (Join-Path $RepoRoot ".local_tools/colmap")
+  )
+  foreach ($path in $paths) {
+    if (Test-Path -LiteralPath $path) {
+      $resolved = (Resolve-Path $path).Path
+      if (($env:Path -split [IO.Path]::PathSeparator) -notcontains $resolved) {
+        $env:Path = $resolved + [IO.Path]::PathSeparator + $env:Path
+      }
+    }
+  }
+}
+
 function Invoke-Capture {
   param(
     [string]$FilePath,
@@ -210,6 +228,7 @@ function New-MarkdownReport {
   }
   $lines.Add("")
   $lines.Add("## Python Modules")
+  $lines.Add("- executable: $($Report.python.python)")
   if ($Report.python.error) {
     $lines.Add("- error: $($Report.python.error)")
   }
@@ -227,6 +246,7 @@ function New-MarkdownReport {
 
 $repoRoot = Get-RepoRoot
 Set-Location $repoRoot
+Add-LocalToolPath -RepoRoot $repoRoot
 
 $pythonPath = Get-PythonPath -RepoRoot $repoRoot -ExplicitPythonPath $PythonPath
 $commands = @(
@@ -250,33 +270,24 @@ $versions = [ordered]@{
   nvidia_smi = if ($nvidiaSmi) { Invoke-Capture -FilePath $nvidiaSmi.Source -Arguments @() } else { [ordered]@{ ok = $false; output = @("nvidia-smi not found") } }
 }
 
-$coreReady = $true
-foreach ($name in @("git", "ffmpeg", "colmap")) {
-  $found = $false
-  foreach ($cmd in $commands) {
-    if ($cmd.name -eq $name -and $cmd.present) {
-      $found = $true
-    }
-  }
-  if (-not $found) {
-    $coreReady = $false
-  }
-}
-
-if (-not $pythonModules.ok) {
-  $coreReady = $false
-}
-
-$gpuReady = $false
+$commandPresent = @{}
 foreach ($cmd in $commands) {
-  if ($cmd.name -eq "nvidia-smi" -and $cmd.present) {
-    $gpuReady = $true
-  }
+  $commandPresent[$cmd.name] = [bool]$cmd.present
+}
+$modulePresent = @{}
+foreach ($mod in $pythonModules.modules) {
+  $modulePresent[$mod.name] = [bool]$mod.present
 }
 
-$verdict = if ($coreReady -and $gpuReady) {
+$pythonReady = [bool]$pythonModules.ok
+$gpuReady = [bool]$commandPresent["nvidia-smi"]
+$gitReady = [bool]$commandPresent["git"]
+$ffmpegReady = [bool]$commandPresent["ffmpeg"]
+$colmapReady = [bool]$commandPresent["colmap"] -or [bool]$modulePresent["pycolmap"]
+
+$verdict = if ($gitReady -and $pythonReady -and $ffmpegReady -and $colmapReady -and $gpuReady) {
   "ready"
-} elseif ($coreReady) {
+} elseif ($gitReady -and $pythonReady -and $gpuReady) {
   "partial"
 } else {
   "blocked"
@@ -290,8 +301,8 @@ $report = [ordered]@{
   python = $pythonModules
   versions = $versions
   install_hint = [ordered]@{
-    python_venv = "python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -U pip; .\.venv\Scripts\python.exe -m pip install PyYAML numpy open3d opencv-python trimesh pycolmap matplotlib"
-    ffmpeg = "winget install --id Gyan.FFmpeg.Essentials -e --accept-package-agreements --accept-source-agreements --scope user"
+    python_venv = "python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -U pip; .\.venv\Scripts\python.exe -m pip install PyYAML numpy open3d opencv-python trimesh pycolmap matplotlib imageio-ffmpeg"
+    ffmpeg = "Install system FFmpeg or copy imageio-ffmpeg binary to .local_tools/ffmpeg/bin/ffmpeg.exe"
     colmap = "Download colmap-x64-windows-cuda.zip from https://github.com/colmap/colmap/releases and add its bin directory to PATH"
   }
 }
