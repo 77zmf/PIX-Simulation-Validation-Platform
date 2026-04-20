@@ -36,7 +36,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.9"
 
       - name: Resolve usernames
         id: vars
@@ -68,7 +68,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python tools/publish_issue_plan.py \
-            --repo pixmoving-moveit/zmf_ws \
+            --repo 77zmf/PIX-Simulation-Validation-Platform \
             --manifest ops/issues/2026_q2/manifest.json \
             --lsx-username "${{ steps.vars.outputs.lsx_username }}" \
             --yang-username "${{ steps.vars.outputs.yang_username }}" \

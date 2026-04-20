@@ -24,7 +24,7 @@ If you have a GitHub token with issue write permission:
 ```bash
 export GITHUB_TOKEN=<token>
 python tools/publish_issue_plan.py \
-  --repo pixmoving-moveit/zmf_ws \
+  --repo 77zmf/PIX-Simulation-Validation-Platform \
   --manifest ops/issues/2026_q2/manifest.json \
   --lsx-username <lsx_github_username> \
   --yang-username <yang_github_username> \
@@ -35,7 +35,7 @@ Dry-run without publishing:
 
 ```bash
 python tools/publish_issue_plan.py \
-  --repo pixmoving-moveit/zmf_ws \
+  --repo 77zmf/PIX-Simulation-Validation-Platform \
   --manifest ops/issues/2026_q2/manifest.json \
   --lsx-username <lsx_github_username> \
   --yang-username <yang_github_username> \

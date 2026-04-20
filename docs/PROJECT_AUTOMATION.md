@@ -14,8 +14,8 @@ There is no external wiki sync path or mail-delivery path in the current reposit
 
 ## Data Sources
 
-- Task board: `https://github.com/orgs/pixmoving-moveit/projects/2`
-- Scenario board: `https://github.com/orgs/pixmoving-moveit/projects/3`
+- Task board: `https://github.com/users/77zmf/projects/1`
+- Scenario board: `https://github.com/users/77zmf/projects/2`
 - Local validation outputs: `runs/**/run_result.json` or `runs/report/summary.json`
 - Config: `ops/project_automation.yaml`
 

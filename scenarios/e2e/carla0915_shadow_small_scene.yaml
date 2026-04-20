@@ -1,7 +1,7 @@
 scenario_id: carla0915_small_scene_e2e_shadow
 stack: stable
 map_id: small_corner_case
-asset_bundle: site_gy_qyhx_gsh20260302
+asset_bundle: site_gy_qyhx_gsh20260310
 ego_init:
   local_pose:
     x: 1036.8

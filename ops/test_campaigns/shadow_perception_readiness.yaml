@@ -1,0 +1,28 @@
+campaign_id: shadow_perception_readiness
+description: Shadow-line BEVFusion public-road readiness campaign that requires real perception metrics.
+owner: zmf
+default_run_root: runs/campaign_shadow_perception_readiness
+default_slot: stable-slot-01
+stop_after_each: true
+report: true
+validation_path: simctl campaign --config ops/test_campaigns/shadow_perception_readiness.yaml --slot stable-slot-01 --execute
+rollback_impact: Remove this campaign from scheduled runs until BEVFusion metrics generation is wired.
+scenarios:
+  - id: stable_l2_perception_bevfusion_public_road_occlusion
+    path: scenarios/l2/perception_bevfusion_public_road_occlusion.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - shadow
+      - perception
+      - bevfusion
+      - public_road
+      - occlusion
+    expected_observables:
+      - perception_readiness=1.0
+      - detection_recall>=0.92
+      - false_positive_per_frame<=0.25
+      - tracking_id_switches<=2
+      - occupancy_iou>=0.72
+      - latency_ms<=120

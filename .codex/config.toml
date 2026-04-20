@@ -1,0 +1,10 @@
+# Project-scoped Codex settings for PIX Simulation Validation Platform.
+# Keep personal model / approval / sandbox preferences in ~/.codex/config.toml.
+
+project_doc_fallback_filenames = ["TEAM_GUIDE.md", ".agents.md"]
+project_doc_max_bytes = 131072
+
+[agents]
+max_threads = 4
+max_depth = 2
+job_max_runtime_seconds = 1800

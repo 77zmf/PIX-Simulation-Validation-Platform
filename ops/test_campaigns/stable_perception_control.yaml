@@ -1,0 +1,67 @@
+campaign_id: stable_perception_control
+description: Stable-line campaign for Robobus117th CARLA sensor, perception, and planning-control closure.
+owner: zmf
+default_run_root: runs/campaign_stable_perception_control
+default_slot: stable-slot-01
+stop_after_each: true
+report: true
+validation_path: simctl campaign --config ops/test_campaigns/stable_perception_control.yaml --slot stable-slot-01 --execute
+rollback_impact: Remove this campaign config or run the scenario manually with simctl run followed by simctl validate --finalize --report.
+scenarios:
+  - id: robobus117th_town01_close_cut_in_actor_bridge
+    path: scenarios/l2/robobus117th_town01_close_cut_in_actor_bridge.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - perception
+      - planning_control
+      - actor_bridge
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - collision_count=0
+      - min_ttc_sec>=1.5
+  - id: stable_l2_planning_control_merge_regression
+    path: scenarios/l2/planning_control_merge_regression.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - perception
+      - planning_control
+      - actor_bridge
+      - merge
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l2_planning_control_multi_actor_cut_in_lead_brake
+    path: scenarios/l2/planning_control_multi_actor_cut_in_lead_brake.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - perception
+      - planning_control
+      - actor_bridge
+      - multi_actor
+      - cut_in
+      - lead_brake
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=2
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8

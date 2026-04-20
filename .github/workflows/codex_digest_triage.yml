@@ -1,0 +1,57 @@
+name: codex-digest-triage
+
+on:
+  workflow_dispatch:
+    inputs:
+      use_fixtures:
+        description: Use local fixture JSON instead of live GitHub Project reads
+        type: boolean
+        default: true
+  schedule:
+    - cron: "30 1 * * 1-5"
+
+jobs:
+  digest_triage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Build digest inputs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_PROJECT_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.use_fixtures }}" == "true" ]]; then
+            bash .agents/skills/project-digest-triage/scripts/build_digest.sh automation_outputs/project_digest tests/fixtures/project_tasks.json tests/fixtures/project_scenarios.json
+          else
+            bash .agents/skills/project-digest-triage/scripts/build_digest.sh automation_outputs/project_digest
+          fi
+
+      - name: Run Codex digest triage
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/digest_triage.md
+          output-file: codex-digest-triage.md
+          model: gpt-5.4
+          safety-strategy: drop-sudo
+          sandbox: workspace-write
+
+      - name: Upload digest triage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-digest-triage
+          path: |
+            automation_outputs/project_digest
+            codex-digest-triage.md
+
+      - name: Publish step summary
+        run: cat codex-digest-triage.md >> "$GITHUB_STEP_SUMMARY"
