@@ -1,0 +1,62 @@
+name: codex-digest-narration
+
+on:
+  workflow_dispatch:
+    inputs:
+      use_fixtures:
+        description: Use local fixture JSON instead of live GitHub Project reads
+        type: boolean
+        default: true
+
+jobs:
+  digest_narration:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Build digest inputs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_PROJECT_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+        run: |
+          if [[ "${{ inputs.use_fixtures }}" == "true" ]]; then
+            bash .agents/skills/project-digest-triage/scripts/build_digest.sh automation_outputs/project_digest tests/fixtures/project_tasks.json tests/fixtures/project_scenarios.json
+          else
+            bash .agents/skills/project-digest-triage/scripts/build_digest.sh automation_outputs/project_digest
+          fi
+          mkdir -p .codex/rendered automation_outputs/codex_digest
+          cp .github/codex/prompts/digest_narration.md .codex/rendered/digest_narration_prompt.md
+
+      - name: Run Codex digest narration
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .codex/rendered/digest_narration_prompt.md
+          output-file: automation_outputs/codex_digest/codex_digest.md
+          model: gpt-5.4
+          safety-strategy: drop-sudo
+          sandbox: workspace-write
+
+      - name: Upload digest narration artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-digest-narration
+          path: |
+            automation_outputs/project_digest
+            automation_outputs/codex_digest/codex_digest.md
+
+      - name: Publish step summary
+        run: |
+          cat automation_outputs/project_digest/digest.md >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "***" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          cat automation_outputs/codex_digest/codex_digest.md >> "$GITHUB_STEP_SUMMARY"

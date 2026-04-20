@@ -1,0 +1,26 @@
+gate_id: planning_control_actor_bridge_regression
+description: Executable stable-line planning-control regression gate for CARLA actor bridge scenarios
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - actor_bridge_perception_failure
+  - robobus_sensor_bridge_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.8
+  dynamic_actor_response:
+    op: ">="
+    value: 1.0
+  sensor_topic_coverage:
+    op: ">="
+    value: 1.0
+  sensor_sample_coverage:
+    op: ">="
+    value: 1.0

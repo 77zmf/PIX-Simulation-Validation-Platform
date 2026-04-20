@@ -11,7 +11,7 @@ def require_keys(data: dict[str, Any], required: list[str], *, where: str) -> No
         raise ValueError(f"Missing keys in {where}: {', '.join(missing)}")
 
 
-@dataclass(slots=True)
+@dataclass
 class CommandStep:
     name: str
     runner: str
@@ -33,7 +33,7 @@ class CommandStep:
         )
 
 
-@dataclass(slots=True)
+@dataclass
 class StackProfile:
     stack_id: str
     description: str
@@ -57,7 +57,7 @@ class StackProfile:
         )
 
 
-@dataclass(slots=True)
+@dataclass
 class RuntimeSlot:
     slot_id: str
     carla_rpc_port: int
@@ -87,7 +87,7 @@ class RuntimeSlot:
         )
 
 
-@dataclass(slots=True)
+@dataclass
 class AssetBundle:
     bundle_id: str
     site_id: str
@@ -111,7 +111,7 @@ class AssetBundle:
         )
 
 
-@dataclass(slots=True)
+@dataclass
 class SensorProfile:
     profile_id: str
     description: str
@@ -133,7 +133,7 @@ class SensorProfile:
         )
 
 
-@dataclass(slots=True)
+@dataclass
 class AlgorithmProfile:
     profile_id: str
     profile_type: str
@@ -153,7 +153,7 @@ class AlgorithmProfile:
         )
 
 
-@dataclass(slots=True)
+@dataclass
 class ScenarioConfig:
     scenario_id: str
     stack: str
@@ -216,7 +216,7 @@ class ScenarioConfig:
         )
 
 
-@dataclass(slots=True)
+@dataclass
 class KpiGate:
     gate_id: str
     description: str

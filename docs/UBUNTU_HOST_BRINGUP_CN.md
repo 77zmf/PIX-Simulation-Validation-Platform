@@ -1,7 +1,7 @@
 # 公司 Ubuntu 主机环境落地 Runbook
 
 当前对外展示名统一为 `PIX Simulation Validation Platform`。  
-当前可用 GitHub 仓库路径仍然是 `pixmoving-moveit/zmf_ws`，不影响当前运行和交付。
+当前可用 GitHub 仓库路径仍然是 `77zmf/PIX-Simulation-Validation-Platform`，不影响当前运行和交付。
 
 这份文档描述当前正式执行路径：在公司 `Ubuntu 22.04` 主机上完成：
 
@@ -82,6 +82,34 @@ bash infra/ubuntu/prepare_carla_runtime.sh
 bash "$CARLA_0915_ROOT/CarlaUE4.sh" -RenderOffScreen -carla-rpc-port=2000
 ```
 
+如果需要 NoMachine 里看 CARLA / RViz 画面，先补桌面辅助工具：
+
+```bash
+bash infra/ubuntu/bootstrap_host.sh --with-visual-tools --execute
+bash infra/ubuntu/check_host_readiness.sh --visual
+```
+
+从 Mac SSH 进公司机时，NoMachine 桌面的 `DISPLAY` 通常不会自动带进 shell。当前主机可先用：
+
+```bash
+export DISPLAY=:0
+export XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority
+```
+
+可视化 CARLA 启动示例：
+
+```bash
+bash stack/stable/start_carla_host.sh \
+  --carla-map Town01 \
+  --render-mode visual \
+  --res-x 1280 \
+  --res-y 720 \
+  --quality-level Low \
+  --display :0 \
+  --xauthority "/run/user/$(id -u)/gdm/Xauthority" \
+  --execute
+```
+
 ## 5. Day 4：准备 Autoware 工作区
 
 目标：
@@ -117,6 +145,47 @@ simctl bootstrap --stack stable
 simctl run --scenario scenarios/l0/smoke_stub.yaml --run-root runs
 simctl report --run-root runs
 ```
+
+当前 `PixRover1.2-1.5/117th` 私有 install 的 L0 闭环 smoke 场景已经版本化在：
+
+```bash
+scenarios/l0/robobus117th_town01_closed_loop.yaml
+```
+
+该场景会把稳定栈参数渲染为：
+
+```bash
+AUTOWARE_WS=/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+map_path=/home/pixmoving/autoware_map/Town01
+vehicle_model=robobus
+sensor_model=robobus_sensor_kit
+LIDAR_TYPE=robosense
+CARLA map=Town01
+```
+
+先只渲染启动计划：
+
+```bash
+simctl up --stack stable \
+  --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml \
+  --run-dir runs/manual_robobus117th_town01 \
+  --slot stable-slot-01
+```
+
+如果这次需要通过 `simctl up` 直接开 NoMachine 可视化窗口，不改场景文件也可以显式覆盖：
+
+```bash
+SIMCTL_CARLA_RENDER_MODE=visual \
+SIMCTL_CARLA_DISPLAY=:0 \
+SIMCTL_CARLA_XAUTHORITY="/run/user/$(id -u)/gdm/Xauthority" \
+simctl up --stack stable \
+  --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml \
+  --run-dir runs/manual_robobus117th_town01_visual \
+  --slot stable-slot-01 \
+  --execute
+```
+
+真实执行前确认当前 shell 已经能访问对应 install、map 和 NoMachine 桌面。回滚方式很简单：换回 `scenarios/l0/smoke_stub.yaml`，或者把该场景的 `execution.stable_runtime` 改回默认 sample profile。
 
 ## 7. 并行执行准备
 

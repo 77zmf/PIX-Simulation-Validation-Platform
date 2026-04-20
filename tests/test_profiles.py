@@ -46,6 +46,22 @@ class ProfileLoaderTests(unittest.TestCase):
         self.assertEqual(output.family, "dynamic_gaussians")
         self.assertIn("dynamic_tracks", output.artifacts)
 
+    def test_load_site_proxy_reconstruction_adapter(self) -> None:
+        adapter = load_reconstruction_adapter("reconstruction_site_proxy")
+        output = adapter.reconstruct(
+            AdapterContext(
+                run_id="run-1",
+                scenario_id="stable_l2_reconstruction_site_proxy_refresh",
+                stack="stable",
+                sensor_profile="reconstruction_capture",
+                algorithm_profile="reconstruction_site_proxy",
+                metadata={"run_dir": "runs/site-proxy"},
+            )
+        )
+        self.assertEqual(output.family, "site_proxy")
+        self.assertIn("registered_pointcloud", output.artifacts)
+        self.assertIn("lanelet_update", output.artifacts)
+
 
 if __name__ == "__main__":
     unittest.main()

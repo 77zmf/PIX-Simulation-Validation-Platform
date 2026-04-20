@@ -7,7 +7,7 @@ from typing import Any
 from .base import AdapterContext
 
 
-@dataclass(slots=True)
+@dataclass
 class PlanningControlOutput:
     trajectory_source: str
     control_source: str

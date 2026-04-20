@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -14,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from simctl.health import probe_runtime_health
+from simctl.health import _probe_ros_graph
 from simctl.models import RuntimeSlot
 
 
@@ -42,6 +44,7 @@ class RuntimeHealthTests(unittest.TestCase):
                 {"step": "start-carla-server", "status": "started", "pid": os.getpid()},
                 {"step": "start-autoware-bridge", "status": "started", "pid": os.getpid()},
                 {"step": "start-autoware-stack", "status": "started", "pid": os.getpid()},
+                {"step": "start-carla-localization-bridge", "status": "started", "pid": os.getpid()},
             ]
             with (
                 patch("simctl.health._probe_ros_graph", return_value={"available": False, "passed": None}),
@@ -64,6 +67,7 @@ class RuntimeHealthTests(unittest.TestCase):
                 {"step": "start-carla-server", "status": "started", "pid": os.getpid()},
                 {"step": "start-autoware-bridge", "status": "started", "pid": os.getpid()},
                 {"step": "start-autoware-stack", "status": "started", "pid": os.getpid()},
+                {"step": "start-carla-localization-bridge", "status": "started", "pid": os.getpid()},
             ]
             with (
                 patch("simctl.health._probe_ros_graph", return_value={"available": False, "passed": None}),
@@ -82,3 +86,90 @@ class RuntimeHealthTests(unittest.TestCase):
 
             self.assertFalse(report["passed"])
             self.assertIn("carla_rpc_port", report["failed_checks"])
+
+    def test_probe_runtime_health_checks_extra_started_background_steps(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir, socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+            server.bind(("127.0.0.1", 0))
+            server.listen(1)
+            port = server.getsockname()[1]
+            logs = [
+                {"step": "start-carla-server", "status": "started", "pid": os.getpid()},
+                {"step": "start-autoware-bridge", "status": "started", "pid": os.getpid()},
+                {"step": "start-autoware-stack", "status": "started", "pid": os.getpid()},
+                {"step": "start-carla-localization-bridge", "status": "started", "pid": os.getpid()},
+                {"step": "start-carla-actor-object-bridge", "status": "started", "pid": 0},
+            ]
+            with (
+                patch("simctl.health._probe_ros_graph", return_value={"available": False, "passed": None}),
+                patch("simctl.health.dump_json", side_effect=_write_health_report),
+            ):
+                report = probe_runtime_health(
+                    run_dir=Path(tempdir),
+                    slot=self._slot(port),
+                    logs=logs,
+                    runtime_namespace="/stable/slot01",
+                )
+
+            self.assertFalse(report["passed"])
+            self.assertIn("processes", report["failed_checks"])
+            self.assertIn("start-carla-actor-object-bridge", report["checks"]["processes"]["failed_steps"])
+
+    def test_probe_runtime_health_fails_when_started_process_log_has_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir, socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+            server.bind(("127.0.0.1", 0))
+            server.listen(1)
+            port = server.getsockname()[1]
+            carla_log = Path(tempdir) / "start-carla-server.log"
+            carla_log.write_text("Signal 11 caught.\nSegmentation fault (core dumped)\n", encoding="utf-8")
+            logs = [
+                {
+                    "step": "start-carla-server",
+                    "status": "started",
+                    "pid": os.getpid(),
+                    "log_path": str(carla_log),
+                },
+                {"step": "start-autoware-bridge", "status": "started", "pid": os.getpid()},
+                {"step": "start-autoware-stack", "status": "started", "pid": os.getpid()},
+                {"step": "start-carla-localization-bridge", "status": "started", "pid": os.getpid()},
+            ]
+            with (
+                patch("simctl.health._probe_ros_graph", return_value={"available": False, "passed": None}),
+                patch("simctl.health.dump_json", side_effect=_write_health_report),
+            ):
+                report = probe_runtime_health(
+                    run_dir=Path(tempdir),
+                    slot=self._slot(port),
+                    logs=logs,
+                    runtime_namespace="/stable/slot01",
+                )
+
+            self.assertFalse(report["passed"])
+            self.assertIn("processes", report["failed_checks"])
+            carla_check = report["checks"]["processes"]["process_checks"][0]
+            self.assertFalse(carla_check["passed"])
+            self.assertEqual(carla_check["reason"], "crash_log:Signal 11 caught")
+
+    def test_probe_ros_graph_accepts_scenario_expected_topics(self) -> None:
+        completed = SimpleNamespace(
+            returncode=0,
+            stdout="/clock\n/tf\n/sensing/lidar/top/pointcloud_before_sync\n",
+            stderr="",
+        )
+        with (
+            patch("simctl.health._ros2_available", return_value=True),
+            patch("simctl.health._ros_topic_command", return_value=["ros2", "topic", "list"]),
+            patch("simctl.health.subprocess.run", return_value=completed),
+        ):
+            report = _probe_ros_graph(
+                21,
+                expected_topics=[
+                    "/clock",
+                    "/sensing/lidar/top/pointcloud_before_sync",
+                ],
+            )
+
+        self.assertTrue(report["passed"])
+        self.assertEqual(
+            report["expected_topics"],
+            ["/clock", "/sensing/lidar/top/pointcloud_before_sync"],
+        )

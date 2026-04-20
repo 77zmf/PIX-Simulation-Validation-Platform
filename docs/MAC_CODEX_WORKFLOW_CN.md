@@ -30,6 +30,7 @@ Mac 不负责：
 建议先安装这些基础工具：
 
 - `git`
+- `git-lfs`
 - `python3`
 - `pip`
 - 可选：`gh`
@@ -37,7 +38,8 @@ Mac 不负责：
 如果你用 Homebrew，可以参考：
 
 ```bash
-brew install git python gh
+brew install git git-lfs python gh
+git lfs install
 ```
 
 ## 3. 拉取仓库
@@ -46,7 +48,7 @@ brew install git python gh
 
 ```bash
 cd ~/work
-git clone https://github.com/pixmoving-moveit/zmf_ws.git
+git clone https://github.com/77zmf/PIX-Simulation-Validation-Platform.git
 cd zmf_ws
 ```
 
@@ -55,6 +57,7 @@ cd zmf_ws
 ```bash
 cd ~/work/zmf_ws
 git pull --ff-only
+git lfs pull
 ```
 
 ## 4. 准备 Python 环境
@@ -79,6 +82,7 @@ simctl subagent-spec --name execution_runtime_explorer --format spawn_json
 simctl digest
 simctl report --run-root runs
 simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-result passed
+simctl ding-notify --run-result runs/<run_id>/run_result.json
 ```
 
 这些命令不建议在 Mac 上作为正式主线执行：
@@ -101,6 +105,7 @@ simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --execute
    - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
    - `docs/TEAM_AGENT_USAGE_CN.md`
    - `docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md`
+   - `docs/DINGTALK_CODE_UPDATE_VALIDATION_CN.md`
 4. 需要 agent 时，先用：
 
 ```bash
@@ -114,7 +119,32 @@ simctl subagent-spec --list
 - `project_automation_explorer`
 - `public_road_e2e_shadow_explorer`
 
-## 7. Mac 与公司 Ubuntu 主机如何分工
+## 7. 拉取后如何使用 Codex 方案压缩包
+
+仓库根目录的 `pix_codex_solution_bundle.zip` 是一份便携 Codex 上下文导入包。
+如果你只是在这份仓库里继续工作，Mac 拉取最新 `main` 后直接用 Codex 打开仓库根目录即可，不需要解压这个包；仓库里已经保留了解压后的 `AGENTS.override.md`、`.codex/`、`docs/` 和 `codex_import_manifest.json`。
+
+如果你想确认 Mac 已经拿到这份压缩包：
+
+```bash
+cd ~/work/zmf_ws
+git pull --ff-only
+git lfs pull --include="pix_codex_solution_bundle.zip"
+ls -lh pix_codex_solution_bundle.zip
+unzip -l pix_codex_solution_bundle.zip
+```
+
+如果你想把这套 Codex 上下文导入到另一个仓库，建议先解压到临时目录检查，再复制需要的文件：
+
+```bash
+mkdir -p /tmp/pix_codex_solution_bundle
+unzip -o pix_codex_solution_bundle.zip -d /tmp/pix_codex_solution_bundle
+find /tmp/pix_codex_solution_bundle -maxdepth 3 -type f | sort
+```
+
+导入后，在 Mac 的 Codex 中打开目标仓库根目录，先让 Codex 总结 `README.md`、`AGENTS.md`、`AGENTS.override.md` 和 `docs/CODEX_TASK_ROUTING_CN.md`，确认它能识别 stable 主线、Ubuntu runtime 边界、`simctl` workflow 和 public-road asset reuse。
+
+## 8. Mac 与公司 Ubuntu 主机如何分工
 
 推荐固定分工：
 
@@ -123,7 +153,7 @@ simctl subagent-spec --list
 
 这样可以避免把开发终端和正式运行主机混在一起。
 
-## 8. 推荐日常同步流程
+## 9. 推荐日常同步流程
 
 每天开始：
 
@@ -149,16 +179,17 @@ git push
 # 然后在公司 Ubuntu 主机上 pull 最新 main
 ```
 
-## 9. 你在 Mac 上最应该看的文件
+## 10. 你在 Mac 上最应该看的文件
 
 - `README.md`
 - `docs/PROJECT_MANAGEMENT_OVERVIEW_CN.md`
 - `docs/TEAM_AGENT_USAGE_CN.md`
 - `docs/MAC_CODEX_WORKFLOW_CN.md`
+- `docs/DINGTALK_CODE_UPDATE_VALIDATION_CN.md`
 - `ops/subagents/`
 - `src/simctl/`
 
-## 10. 当前结论
+## 11. 当前结论
 
 结论就是：
 

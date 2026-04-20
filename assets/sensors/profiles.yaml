@@ -17,6 +17,18 @@ profiles:
       - lidar
       - radar
     truth_mode: disabled
+  robobus_pixrover14_application_topology:
+    description: RoboBus PixRover1.4 topology, 6 autonomous-surround cameras plus 5 lidars
+    sensors:
+      - senyun_08bc_front_camera_x1
+      - senyun_ar0233_surround_cameras_x5
+      - robosense_m1plus_lidar_x2
+      - robosense_airy_lidar_x2
+      - robosense_e1r_lidar_x1
+      - imu
+      - gnss
+    truth_mode: disabled
+    catalog: assets/sensors/robobus_pixrover14_application_topology.yaml
   carla0915_high_fidelity:
     description: CARLA 0.9.15 / UE4.26 high-fidelity camera stack for perception and shadow validation
     sensors:
