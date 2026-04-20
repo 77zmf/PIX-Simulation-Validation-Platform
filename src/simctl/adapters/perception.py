@@ -7,7 +7,7 @@ from typing import Any
 from .base import AdapterContext
 
 
-@dataclass(slots=True)
+@dataclass
 class PerceptionOutput:
     detections: list[dict[str, Any]] = field(default_factory=list)
     occupancy: dict[str, Any] = field(default_factory=dict)

@@ -1,11 +1,11 @@
-# AGENTS.md for pixmoving-moveit/zmf_ws
+# AGENTS.md for 77zmf/PIX-Simulation-Validation-Platform
 
 ## Repository intent
 This repository is the control plane and delivery workspace for the PIX Simulation Validation Platform.
 
 Current GitHub URL:
 
-- `pixmoving-moveit/zmf_ws`
+- `77zmf/PIX-Simulation-Validation-Platform`
 
 Display name:
 
@@ -90,3 +90,13 @@ Subagents in this repo should:
 - prefer exact file references and next actions
 - explicitly label what is executable, what is placeholder, and what is blocked on external environment
 - optimize for stable delivery first, then shadow/research
+
+## Codex overlay import
+This repo also carries a Codex-specific overlay in:
+
+- `AGENTS.override.md`
+- `.codex/config.toml`
+- `.agents/skills/`
+- `.github/codex/prompts/`
+
+For automation, PR review, digest triage, and runtime-closure questions, consult `AGENTS.override.md` and the relevant `.agents/skills/*/SKILL.md` file before acting.

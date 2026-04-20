@@ -6,7 +6,7 @@
 
 当前唯一正式管理入口：
 
-- GitHub 仓库：`pixmoving-moveit/zmf_ws`
+- GitHub 仓库：`77zmf/PIX-Simulation-Validation-Platform`
 - GitHub Task Board：`Project 2`
 - GitHub Scenario Board：`Project 3`
 - GitHub Digest Issue：仓库内 `project-digest` 标签 issue

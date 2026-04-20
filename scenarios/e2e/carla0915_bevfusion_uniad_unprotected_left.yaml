@@ -1,7 +1,7 @@
 scenario_id: carla0915_public_road_bevfusion_uniad_unprotected_left
 stack: stable
 map_id: public_road_intersection
-asset_bundle: site_gy_qyhx_gsh20260302
+asset_bundle: site_gy_qyhx_gsh20260310
 ego_init:
   local_pose:
     x: 1036.8

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PIX Host Readiness"
+  short_description: "Prepare and audit the Ubuntu runtime host."
+  default_prompt: "Use pix-host-readiness to check whether the Ubuntu runtime host is ready for stable Autoware + CARLA validation and list blockers, commands, evidence, and rollback notes."

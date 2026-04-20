@@ -1,7 +1,7 @@
 profile_id: reconstruction_public_road_map_refresh
 type: reconstruction
 description: Public-road map refresh and localization-support reconstruction profile
-baseline: site_gy_qyhx_gsh20260302
+baseline: site_gy_qyhx_gsh20260310
 research_focus:
   - lanelet_alignment
   - localization_reference_stability
