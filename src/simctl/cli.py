@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
@@ -12,8 +13,16 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .adapters import AdapterContext, load_reconstruction_adapter
-from .assets import asset_snapshot, load_asset_bundle
-from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, make_run_id, to_wsl_path, utc_now
+from .assets import asset_snapshot, inspect_asset_bundle, load_asset_bundle
+from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, load_yaml, make_run_id, to_wsl_path, utc_now
+from .dingtalk import (
+    build_markdown_payload,
+    load_markdown,
+    redact_webhook,
+    resolve_secret,
+    resolve_webhook,
+    send_dingtalk_markdown,
+)
 from .evaluation import evaluate_metrics, load_kpi_gate, synthetic_metrics
 from .health import probe_runtime_health
 from .profiles import (
@@ -33,6 +42,7 @@ from .project_ops import (
 )
 from .reporting import aggregate_run_results, discover_run_results, load_run_result, write_report
 from .runtime import build_context, execute_plan, load_stack_profile, persist_plan, render_action
+from .runtime_evidence import collect_runtime_evidence, write_runtime_evidence_summary
 from .scenarios import load_scenario
 from .slots import acquire_slot_lock, get_slot_by_id, list_available_slots, load_slot_catalog, release_slot_lock
 from .subagents import list_subagent_specs, load_subagent_spec
@@ -88,6 +98,101 @@ def _slot_payload(slot: Any | None) -> dict[str, Any]:
     }
 
 
+def _scenario_stable_runtime_value(scenario: Any, key: str) -> Any:
+    execution = scenario.execution if scenario else {}
+    stable_runtime = execution.get("stable_runtime", {}) if isinstance(execution, dict) else {}
+    if not isinstance(stable_runtime, dict):
+        stable_runtime = {}
+    return stable_runtime.get(key, execution.get(key))
+
+
+def _scenario_expected_ros_topics(scenario: Any) -> list[str] | None:
+    value = _scenario_stable_runtime_value(scenario, "ros_expected_topics")
+    if value is None:
+        return None
+    if isinstance(value, str):
+        topics = [item.strip() for item in value.split(",")]
+    elif isinstance(value, list):
+        topics = [str(item).strip() for item in value]
+    else:
+        topics = [str(value).strip()]
+    return [topic for topic in topics if topic]
+
+
+def _scenario_rmw_implementation(scenario: Any) -> str:
+    value = _scenario_stable_runtime_value(scenario, "ros_rmw_implementation")
+    return "" if value is None else str(value)
+
+
+def _scenario_metadata(scenario: Any) -> dict[str, Any]:
+    payload = load_yaml(scenario.scenario_path)
+    metadata = payload.get("metadata", {})
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def _scenario_validation_command(scenario: Any) -> str | None:
+    metadata = _scenario_metadata(scenario)
+    command = metadata.get("validation_command")
+    if command is None:
+        command = _scenario_stable_runtime_value(scenario, "validation_command")
+    if command is None:
+        return None
+    return str(command).strip() or None
+
+
+def _validation_command_with_run_dir(command: str, run_dir: Path) -> str:
+    run_dir_arg = shlex.quote(str(run_dir))
+    return command.replace("<run_dir>", run_dir_arg).replace("{run_dir}", run_dir_arg)
+
+
+def _validation_shell_command(
+    *,
+    repo_root: Path,
+    scenario: Any,
+    run_dir: Path,
+    command: str,
+    run_result: dict[str, Any] | None = None,
+) -> str:
+    autoware_ws = str(_scenario_stable_runtime_value(scenario, "autoware_ws") or "")
+    autoware_bridge_ws = str(_scenario_stable_runtime_value(scenario, "autoware_bridge_ws") or "")
+    run_result = run_result or {}
+    ros_domain_id = str(_scenario_stable_runtime_value(scenario, "ros_domain_id") or run_result.get("ros_domain_id") or "")
+    rmw_implementation = _scenario_rmw_implementation(scenario)
+    if not rmw_implementation:
+        runtime_health = run_result.get("runtime_health") if isinstance(run_result.get("runtime_health"), dict) else {}
+        rmw_implementation = str(runtime_health.get("rmw_implementation") or "")
+    carla_root = str(_scenario_stable_runtime_value(scenario, "carla_root") or "$HOME/CARLA_0.9.15")
+    resolved_command = _validation_command_with_run_dir(command, run_dir)
+
+    lines = [
+        "set -eo pipefail",
+        f"cd {shlex.quote(str(repo_root))}",
+        "if [ -f /opt/ros/humble/setup.bash ]; then source /opt/ros/humble/setup.bash; fi",
+    ]
+    if autoware_ws:
+        lines.append(
+            f"if [ -f {shlex.quote(autoware_ws + '/install/setup.bash')} ]; "
+            f"then source {shlex.quote(autoware_ws + '/install/setup.bash')}; fi"
+        )
+    if autoware_bridge_ws and autoware_bridge_ws != autoware_ws:
+        lines.append(
+            f"if [ -f {shlex.quote(autoware_bridge_ws + '/install/setup.bash')} ]; "
+            f"then source {shlex.quote(autoware_bridge_ws + '/install/setup.bash')}; fi"
+        )
+    if ros_domain_id:
+        lines.append(f"export ROS_DOMAIN_ID={shlex.quote(ros_domain_id)}")
+    if rmw_implementation:
+        lines.append(f"export RMW_IMPLEMENTATION={shlex.quote(rmw_implementation)}")
+    lines.extend(
+        [
+            f"CARLA_ROOT={carla_root}",
+            'export PYTHONPATH="$CARLA_ROOT/PythonAPI/carla/dist/carla-0.9.15-py3.10-linux-x86_64.egg:$CARLA_ROOT/PythonAPI/carla:${PYTHONPATH:-}"',
+            resolved_command,
+        ]
+    )
+    return "\n".join(lines)
+
+
 def handle_bootstrap(args: argparse.Namespace) -> int:
     repo_root = _repo_root(args.repo_root)
     asset_root = _asset_root(repo_root, args.asset_root)
@@ -99,6 +204,16 @@ def handle_bootstrap(args: argparse.Namespace) -> int:
         logs = execute_plan(plan, output_dir)
         dump_json(output_dir / "bootstrap_logs.json", logs)
     _print_json(plan)
+    return 0
+
+
+def handle_asset_check(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    asset_root = _asset_root(repo_root, args.asset_root)
+    bundle = load_asset_bundle(args.bundle, repo_root, asset_root)
+    payload = inspect_asset_bundle(bundle)
+    payload["asset_root"] = str(asset_root)
+    _print_json(payload)
     return 0
 
 
@@ -136,6 +251,12 @@ def _artifact_paths(run_dir: Path, recording: dict[str, Any]) -> dict[str, str]:
     if carla_cfg.get("enabled", False):
         carla_rel = carla_cfg.get("path", "carla/latest.log")
         artifacts["carla_recorder"] = str(run_dir / Path(carla_rel))
+    visual_screenshot = run_dir / "screenshots" / "visual_startup.png"
+    visual_screenshot_metadata = run_dir / "screenshots" / "visual_startup.json"
+    if visual_screenshot.exists():
+        artifacts["visual_screenshot"] = str(visual_screenshot)
+    if visual_screenshot_metadata.exists():
+        artifacts["visual_screenshot_metadata"] = str(visual_screenshot_metadata)
     return artifacts
 
 
@@ -354,6 +475,17 @@ def _parse_worker_result(stdout: str, stderr: str, scenario_path: Path) -> dict[
     return payload
 
 
+def _parse_json_command_output(stdout: str, stderr: str, command: list[str]) -> dict[str, Any]:
+    try:
+        return json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        rendered_command = " ".join(shlex.quote(part) for part in command)
+        raise RuntimeError(
+            f"Unable to parse JSON output from command: {rendered_command}\n"
+            f"{exc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+        ) from exc
+
+
 def _run_worker(
     *,
     repo_root: Path,
@@ -363,7 +495,16 @@ def _run_worker(
     slot_id: str,
     execute: bool,
     mock_result: str | None,
+    validate: bool = False,
+    finalize: bool = False,
+    down_on_complete: bool = False,
+    require_validation: bool = False,
 ) -> dict[str, Any]:
+    scenario = load_scenario(str(scenario_path), repo_root)
+    validation_command = _scenario_validation_command(scenario)
+    if require_validation and not validation_command:
+        raise RuntimeError(f"Scenario {scenario_path} does not define metadata.validation_command")
+
     command = _build_worker_command(
         repo_root=repo_root,
         asset_root=asset_root,
@@ -386,12 +527,399 @@ def _run_worker(
             f"STDOUT:\n{completed.stdout}\nSTDERR:\n{completed.stderr}"
         )
     payload = _parse_worker_result(completed.stdout.strip(), completed.stderr.strip(), scenario_path)
-    return {
+    record: dict[str, Any] = {
         "scenario": str(scenario_path),
         "slot_id": payload.get("slot_id"),
         "status": payload.get("status"),
         "run_result": str(payload["artifacts"]["run_result"]),
+        "run_dir": str(payload["artifacts"].get("run_dir") or Path(payload["artifacts"]["run_result"]).parent),
     }
+    run_dir = Path(record["run_dir"])
+    validation_error: RuntimeError | None = None
+    try:
+        if validate and validation_command:
+            validation_completed, validation_payload = _run_campaign_command(
+                repo_root,
+                _campaign_validate_command(repo_root, run_dir, execute=execute, finalize=finalize),
+            )
+            record["validation_returncode"] = validation_completed.returncode
+            record["validation_result"] = validation_payload
+            if validation_payload:
+                finalize_result = validation_payload.get("finalize_result", {})
+                if finalize_result:
+                    record["status"] = finalize_result.get("status", record["status"])
+                    record["gate"] = finalize_result.get("gate")
+                    record["kpis"] = finalize_result.get("kpis")
+            if validation_completed.returncode != 0:
+                validation_error = RuntimeError(
+                    f"Validation failed for {scenario_path} with return code {validation_completed.returncode}\n"
+                    f"STDOUT:\n{validation_completed.stdout}\nSTDERR:\n{validation_completed.stderr}"
+                )
+        elif validate:
+            record["validation_result"] = {"status": "skipped", "reason": "missing_validation_command"}
+    finally:
+        if down_on_complete:
+            down_completed, down_payload = _run_campaign_command(
+                repo_root,
+                _campaign_down_command(repo_root, scenario.stack, run_dir, execute=execute),
+            )
+            record["down_returncode"] = down_completed.returncode
+            record["down_result"] = down_payload or {"stdout": down_completed.stdout.strip()}
+            if down_completed.returncode != 0 and validation_error is None:
+                validation_error = RuntimeError(
+                    f"Down failed for {scenario_path} with return code {down_completed.returncode}\n"
+                    f"STDOUT:\n{down_completed.stdout}\nSTDERR:\n{down_completed.stderr}"
+                )
+    if validation_error is not None:
+        raise validation_error
+    return record
+
+
+def _resolve_campaign_path(repo_root: Path, config_ref: str) -> Path:
+    candidate = Path(config_ref)
+    if candidate.exists():
+        return candidate.resolve()
+    repo_candidate = repo_root / config_ref
+    if repo_candidate.exists():
+        return repo_candidate.resolve()
+    raise FileNotFoundError(f"Unable to locate campaign config '{config_ref}'")
+
+
+def _resolve_campaign_run_root(repo_root: Path, config: dict[str, Any], override: str | None) -> Path:
+    raw = override or config.get("default_run_root") or "runs/campaign"
+    path = Path(str(raw))
+    if not path.is_absolute():
+        path = repo_root / path
+    return path.resolve()
+
+
+def _campaign_slot(config: dict[str, Any], override: str | None) -> str:
+    return str(override or config.get("default_slot") or "stable-slot-01")
+
+
+def _campaign_scenario_entries(config: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_entries = config.get("scenarios", [])
+    if not isinstance(raw_entries, list) or not raw_entries:
+        raise SystemExit("campaign config requires a non-empty scenarios list")
+    entries: list[dict[str, Any]] = []
+    for index, raw_entry in enumerate(raw_entries, start=1):
+        if isinstance(raw_entry, str):
+            entries.append({"id": Path(raw_entry).stem, "path": raw_entry})
+            continue
+        if not isinstance(raw_entry, dict):
+            raise SystemExit(f"campaign scenario entry #{index} must be a mapping or string")
+        if not raw_entry.get("path"):
+            raise SystemExit(f"campaign scenario entry #{index} requires path")
+        entries.append(raw_entry)
+    return entries
+
+
+def _campaign_scenario_path(repo_root: Path, entry: dict[str, Any]) -> Path:
+    raw_path = Path(str(entry["path"]))
+    if raw_path.exists():
+        return raw_path.resolve()
+    candidate = repo_root / raw_path
+    if candidate.exists():
+        return candidate.resolve()
+    raise FileNotFoundError(f"Unable to locate campaign scenario '{entry['path']}'")
+
+
+def _campaign_base_command(repo_root: Path) -> list[str]:
+    return [sys.executable, "-m", "simctl.cli", "--repo-root", str(repo_root)]
+
+
+def _campaign_validate_command(repo_root: Path, run_dir: str | Path, *, execute: bool, finalize: bool) -> list[str]:
+    command = _campaign_base_command(repo_root) + ["validate", "--run-dir", str(run_dir)]
+    if execute:
+        command.append("--execute")
+    if finalize:
+        command.append("--finalize")
+    return command
+
+
+def _campaign_down_command(repo_root: Path, stack: str, run_dir: str | Path, *, execute: bool) -> list[str]:
+    command = _campaign_base_command(repo_root) + ["down", "--stack", stack, "--run-dir", str(run_dir)]
+    if execute:
+        command.append("--execute")
+    return command
+
+
+def _campaign_report_command(repo_root: Path, run_root: Path) -> list[str]:
+    return _campaign_base_command(repo_root) + ["report", "--run-root", str(run_root)]
+
+
+def _run_campaign_command(repo_root: Path, command: list[str]) -> tuple[subprocess.CompletedProcess[str], dict[str, Any] | None]:
+    completed = subprocess.run(
+        command,
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        env=_worker_env(repo_root),
+    )
+    payload = None
+    if completed.stdout.strip().startswith(("{", "[")):
+        payload = _parse_json_command_output(completed.stdout.strip(), completed.stderr.strip(), command)
+    return completed, payload
+
+
+def _render_campaign_plan(
+    *,
+    repo_root: Path,
+    config_path: Path,
+    config: dict[str, Any],
+    run_root: Path,
+    slot_id: str,
+    execute: bool,
+    mock_result: str | None,
+    stop_after_each: bool,
+    pre_down_run_dir: str | None,
+    report: bool,
+) -> dict[str, Any]:
+    entries = _campaign_scenario_entries(config)
+    scenario_plans: list[dict[str, Any]] = []
+    if pre_down_run_dir:
+        scenario_plans.append(
+            {
+                "step": "pre_down",
+                "run_dir": str(Path(pre_down_run_dir).expanduser()),
+                "command": _campaign_down_command(repo_root, "stable", pre_down_run_dir, execute=execute),
+            }
+        )
+
+    for entry in entries:
+        scenario_path = _campaign_scenario_path(repo_root, entry)
+        scenario = load_scenario(str(scenario_path), repo_root)
+        scenario_execute = bool(entry.get("execute", True)) and execute
+        validate = bool(entry.get("validation", entry.get("validate", True)))
+        finalize = bool(entry.get("finalize", True))
+        run_command = _build_worker_command(
+            repo_root=repo_root,
+            asset_root=None,
+            scenario_path=scenario_path,
+            run_root=run_root,
+            slot_id=slot_id,
+            execute=scenario_execute,
+            mock_result=str(entry.get("mock_result") or mock_result or "") or None,
+        )
+        commands: list[dict[str, Any]] = [{"step": "run", "command": run_command}]
+        if validate:
+            commands.append(
+                {
+                    "step": "validate",
+                    "command": _campaign_validate_command(
+                        repo_root,
+                        "<run_dir_from_run_result>",
+                        execute=execute,
+                        finalize=finalize,
+                    ),
+                }
+            )
+        if stop_after_each:
+            commands.append(
+                {
+                    "step": "down",
+                    "command": _campaign_down_command(
+                        repo_root,
+                        scenario.stack,
+                        "<run_dir_from_run_result>",
+                        execute=execute,
+                    ),
+                }
+            )
+        scenario_plans.append(
+            {
+                "id": str(entry.get("id") or scenario.scenario_id),
+                "scenario_id": scenario.scenario_id,
+                "scenario_path": str(scenario_path),
+                "stack": scenario.stack,
+                "tags": entry.get("tags", []),
+                "validation": validate,
+                "finalize": finalize,
+                "execute": scenario_execute,
+                "commands": commands,
+                "expected_observables": entry.get("expected_observables", []),
+            }
+        )
+
+    payload: dict[str, Any] = {
+        "campaign_id": str(config.get("campaign_id") or config_path.stem),
+        "config": str(config_path),
+        "execute": execute,
+        "run_root": str(run_root),
+        "slot_id": slot_id,
+        "stop_after_each": stop_after_each,
+        "report": report,
+        "scenarios": scenario_plans,
+    }
+    if report:
+        payload["report_command"] = _campaign_report_command(repo_root, run_root)
+    return payload
+
+
+def handle_campaign(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    config_path = _resolve_campaign_path(repo_root, args.config)
+    config = load_yaml(config_path)
+    run_root = _resolve_campaign_run_root(repo_root, config, args.run_root)
+    slot_id = _campaign_slot(config, args.slot)
+    stop_after_each = bool(args.stop_after_each or config.get("stop_after_each", False))
+    report_enabled = not args.no_report and bool(config.get("report", True))
+    plan = _render_campaign_plan(
+        repo_root=repo_root,
+        config_path=config_path,
+        config=config,
+        run_root=run_root,
+        slot_id=slot_id,
+        execute=bool(args.execute),
+        mock_result=args.mock_result,
+        stop_after_each=stop_after_each,
+        pre_down_run_dir=args.pre_down_run_dir,
+        report=report_enabled,
+    )
+    if not args.execute:
+        _print_json(plan)
+        return 0
+
+    ensure_dir(run_root)
+    records: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+
+    if args.pre_down_run_dir:
+        command = _campaign_down_command(repo_root, "stable", args.pre_down_run_dir, execute=True)
+        completed, payload = _run_campaign_command(repo_root, command)
+        pre_down_record = {
+            "step": "pre_down",
+            "run_dir": str(Path(args.pre_down_run_dir).expanduser()),
+            "command": command,
+            "returncode": completed.returncode,
+            "stdout_tail": completed.stdout[-2000:],
+            "stderr_tail": completed.stderr[-2000:],
+            "payload": payload,
+        }
+        records.append(pre_down_record)
+        if completed.returncode != 0:
+            failures.append({"step": "pre_down", "returncode": completed.returncode})
+            if not args.keep_going:
+                result = {
+                    **plan,
+                    "status": "failed",
+                    "records": records,
+                    "failures": failures,
+                }
+                result_path = run_root / "campaign_result.json"
+                dump_json(result_path, result)
+                result["result_path"] = str(result_path)
+                _print_json(result)
+                return 1
+
+    for entry in _campaign_scenario_entries(config):
+        scenario_path = _campaign_scenario_path(repo_root, entry)
+        scenario = load_scenario(str(scenario_path), repo_root)
+        scenario_id = str(entry.get("id") or scenario.scenario_id)
+        scenario_execute = bool(entry.get("execute", True))
+        validate = bool(entry.get("validation", entry.get("validate", True)))
+        finalize = bool(entry.get("finalize", True))
+        mock_result = str(entry.get("mock_result") or args.mock_result or "") or None
+        run_command = _build_worker_command(
+            repo_root=repo_root,
+            asset_root=args.asset_root,
+            scenario_path=scenario_path,
+            run_root=run_root,
+            slot_id=slot_id,
+            execute=scenario_execute,
+            mock_result=mock_result,
+        )
+        record: dict[str, Any] = {
+            "scenario": scenario_id,
+            "scenario_id": scenario.scenario_id,
+            "scenario_path": str(scenario_path),
+            "commands": [{"step": "run", "command": run_command}],
+        }
+        completed, run_payload = _run_campaign_command(repo_root, run_command)
+        record["run_returncode"] = completed.returncode
+        record["run_stdout_tail"] = completed.stdout[-2000:]
+        record["run_stderr_tail"] = completed.stderr[-2000:]
+        record["run_payload"] = run_payload
+        if completed.returncode != 0 or run_payload is None:
+            failures.append({"scenario": scenario_id, "step": "run", "returncode": completed.returncode})
+            record["status"] = "failed"
+            records.append(record)
+            if not args.keep_going:
+                break
+            continue
+
+        artifacts = run_payload.get("artifacts", {}) if isinstance(run_payload.get("artifacts"), dict) else {}
+        run_result_path = artifacts.get("run_result")
+        run_dir = artifacts.get("run_dir") or (str(Path(run_result_path).parent) if run_result_path else "")
+        record["run_dir"] = run_dir
+        record["run_result"] = run_result_path
+        record["slot_id"] = run_payload.get("slot_id")
+        record["run_status"] = run_payload.get("status")
+
+        if completed.returncode == 0 and validate and run_dir:
+            validate_command = _campaign_validate_command(repo_root, run_dir, execute=True, finalize=finalize)
+            record["commands"].append({"step": "validate", "command": validate_command})
+            validation_completed, validation_payload = _run_campaign_command(repo_root, validate_command)
+            record["validation_returncode"] = validation_completed.returncode
+            record["validation_stdout_tail"] = validation_completed.stdout[-2000:]
+            record["validation_stderr_tail"] = validation_completed.stderr[-2000:]
+            record["validation_payload"] = validation_payload
+            if validation_payload:
+                validation = validation_payload.get("validation", {})
+                finalize_result = validation_payload.get("finalize_result", {})
+                record["validation_status"] = validation.get("status")
+                record["final_status"] = finalize_result.get("status")
+                record["gate"] = finalize_result.get("gate")
+                record["kpis"] = finalize_result.get("kpis")
+            if validation_completed.returncode != 0:
+                failures.append(
+                    {
+                        "scenario": scenario_id,
+                        "step": "validate",
+                        "returncode": validation_completed.returncode,
+                    }
+                )
+
+        if stop_after_each and run_dir:
+            down_command = _campaign_down_command(repo_root, scenario.stack, run_dir, execute=True)
+            record["commands"].append({"step": "down", "command": down_command})
+            down_completed, down_payload = _run_campaign_command(repo_root, down_command)
+            record["down_returncode"] = down_completed.returncode
+            record["down_stdout_tail"] = down_completed.stdout[-2000:]
+            record["down_stderr_tail"] = down_completed.stderr[-2000:]
+            record["down_payload"] = down_payload
+            if down_completed.returncode != 0:
+                failures.append({"scenario": scenario_id, "step": "down", "returncode": down_completed.returncode})
+
+        final_status = record.get("final_status") or record.get("run_status")
+        if final_status != "passed":
+            failures.append({"scenario": scenario_id, "step": "result", "status": final_status})
+        record["status"] = "failed" if any(item.get("scenario") == scenario_id for item in failures) else str(final_status)
+        records.append(record)
+        if record["status"] == "failed" and not args.keep_going:
+            break
+
+    report_outputs: dict[str, Any] | None = None
+    if report_enabled:
+        report_command = _campaign_report_command(repo_root, run_root)
+        report_completed, report_payload = _run_campaign_command(repo_root, report_command)
+        report_outputs = report_payload
+        if report_completed.returncode != 0:
+            failures.append({"step": "report", "returncode": report_completed.returncode})
+
+    status = "failed" if failures else "passed"
+    result: dict[str, Any] = {
+        **plan,
+        "status": status,
+        "records": records,
+        "failures": failures,
+        "report_outputs": report_outputs,
+    }
+    result_path = run_root / "campaign_result.json"
+    dump_json(result_path, result)
+    result["result_path"] = str(result_path)
+    _print_json(result)
+    return 0 if status == "passed" else 1
 
 
 def handle_up_or_down(args: argparse.Namespace, action: str) -> int:
@@ -482,6 +1010,8 @@ def handle_run(args: argparse.Namespace) -> int:
                     slot=slot,
                     logs=logs,
                     runtime_namespace=slot.runtime_namespace,
+                    expected_ros_topics=_scenario_expected_ros_topics(scenario),
+                    rmw_implementation=_scenario_rmw_implementation(scenario),
                 )
             status, gate_eval = _launch_gate_eval(logs, runtime_health)
             if status == "launch_failed":
@@ -558,11 +1088,11 @@ def handle_batch(args: argparse.Namespace) -> int:
         )
     active_slots = candidate_slots[:parallel]
 
-    if requires_persistent_slots:
+    if requires_persistent_slots and not args.down_on_complete:
         if len(scenarios) > parallel:
             raise SystemExit(
                 "batch --execute with long-running external scenarios currently supports at most --parallel scenarios; "
-                "running slots are released by explicit down, not automatic completion"
+                "use --down-on-complete to release slots between scenarios"
             )
 
     batch_records = []
@@ -583,6 +1113,10 @@ def handle_batch(args: argparse.Namespace) -> int:
                 slot_id=slot.slot_id,
                 execute=args.execute,
                 mock_result=args.mock_result,
+                validate=args.validate,
+                finalize=args.finalize,
+                down_on_complete=args.down_on_complete,
+                require_validation=args.require_validation,
             )
             active[future] = slot
 
@@ -602,6 +1136,10 @@ def handle_batch(args: argparse.Namespace) -> int:
                         slot_id=slot.slot_id,
                         execute=args.execute,
                         mock_result=args.mock_result,
+                        validate=args.validate,
+                        finalize=args.finalize,
+                        down_on_complete=args.down_on_complete,
+                        require_validation=args.require_validation,
                     )
                     active[next_future] = slot
 
@@ -612,9 +1150,21 @@ def handle_batch(args: argparse.Namespace) -> int:
         "records": batch_records,
     }
     batch_dir = ensure_dir(run_root / make_run_id("batch"))
+    if args.report:
+        results = [load_run_result(path) for path in discover_run_results(run_root)]
+        batch_index["report_outputs"] = write_report(run_root / "report", aggregate_run_results(results))
     dump_json(batch_dir / "batch_index.json", batch_index)
     print(str(batch_dir / "batch_index.json"))
     return 0
+
+
+def _to_bash_path(path_value: str | None) -> str:
+    if not path_value:
+        return ""
+    raw = str(path_value)
+    if "\\" in raw or (len(raw) >= 2 and raw[1] == ":"):
+        return to_wsl_path(raw)
+    return raw
 
 
 def handle_replay(args: argparse.Namespace) -> int:
@@ -623,16 +1173,44 @@ def handle_replay(args: argparse.Namespace) -> int:
     repo_root = _repo_root(args.repo_root)
     asset_root = _asset_root(repo_root, args.asset_root)
     profile = load_stack_profile(result["stack"], repo_root)
+    scenario_params = result.get("scenario_params", {})
+    resolved_profiles = result.get("resolved_profiles", {})
+    sensor_profile_id = str(
+        scenario_params.get("sensor_profile")
+        or resolved_profiles.get("sensor", {}).get("profile_id")
+        or ""
+    )
+    algorithm_profile_id = str(
+        scenario_params.get("algorithm_profile")
+        or resolved_profiles.get("algorithm", {}).get("profile_id")
+        or ""
+    )
+    asset_bundle_id = str(scenario_params.get("asset_bundle", ""))
     fake_scenario = type(
         "ReplayScenario",
         (),
-        {"scenario_path": Path(result["scenario_path"]), "scenario_id": result["scenario_id"]},
+        {
+            "scenario_path": Path(result["scenario_path"]),
+            "scenario_id": result["scenario_id"],
+            "sensor_profile": sensor_profile_id,
+            "algorithm_profile": algorithm_profile_id,
+        },
     )()
-    context = build_context(repo_root, Path(result["artifacts"]["run_dir"]), fake_scenario, asset_root, execute=False)
+    context = build_context(
+        repo_root,
+        Path(result["artifacts"]["run_dir"]),
+        fake_scenario,
+        asset_root,
+        asset_bundle_id=asset_bundle_id,
+        execute=False,
+    )
+    rosbag_path = result["artifacts"].get("rosbag2")
+    carla_recorder_path = result["artifacts"].get("carla_recorder")
     context.update(
         {
-            "rosbag_path_wsl": to_wsl_path(result["artifacts"]["rosbag2"]) if result["artifacts"].get("rosbag2") else "",
-            "carla_recorder_path": result["artifacts"].get("carla_recorder", ""),
+            "rosbag_path": _to_bash_path(rosbag_path),
+            "rosbag_path_wsl": _to_bash_path(rosbag_path),
+            "carla_recorder_path": _to_bash_path(carla_recorder_path),
         }
     )
     plan = render_action(profile, "replay", context)
@@ -654,6 +1232,253 @@ def handle_report(args: argparse.Namespace) -> int:
     outputs = write_report(output_dir, summary)
     _print_json(outputs)
     return 0
+
+
+def _finalize_goal_status(runtime_evidence: dict[str, Any]) -> str:
+    if runtime_evidence.get("attempt_count"):
+        return "reached" if runtime_evidence.get("successful_attempt_count") else "not_reached"
+    if runtime_evidence.get("dynamic_probe_attempt_count"):
+        return (
+            "dynamic_probe_passed"
+            if runtime_evidence.get("successful_dynamic_probe_count")
+            else "dynamic_probe_failed"
+        )
+    if runtime_evidence.get("metric_probe_attempt_count") or runtime_evidence.get("sensor_probe_attempt_count"):
+        return "evidence_collected"
+    return "no_runtime_evidence"
+
+
+def _artifact_completeness(
+    *,
+    artifacts: dict[str, Any],
+    missing_artifacts: dict[str, str],
+) -> dict[str, Any]:
+    required = ["runtime_evidence_summary"]
+    optional = [
+        "rosbag2",
+        "carla_recorder",
+        "visual_screenshot",
+        "host_bom",
+        "preflight_report",
+    ]
+    present_keys = set(required + optional)
+    present = {
+        key: str(value)
+        for key, value in artifacts.items()
+        if key in present_keys and value
+    }
+    missing = dict(missing_artifacts)
+    for key in required:
+        if key not in present:
+            missing[key] = str(artifacts.get(key) or "")
+    return {
+        "required": required,
+        "optional": optional,
+        "present": present,
+        "missing": missing,
+        "present_count": len(present),
+        "missing_count": len(missing),
+    }
+
+
+def _finalize_run(repo_root: Path, run_dir: Path, run_result_path: Path) -> dict[str, Any]:
+    if not run_result_path.exists():
+        raise SystemExit(f"run_result.json not found: {run_result_path}")
+
+    result = load_run_result(run_result_path)
+    gate_id = str(result.get("gate", {}).get("gate_id") or result.get("kpi_gate") or "")
+    if not gate_id:
+        raise SystemExit("run_result does not contain gate.gate_id")
+    gate = load_kpi_gate(gate_id, repo_root)
+    runtime_evidence = collect_runtime_evidence(run_dir, result)
+    summary_path = write_runtime_evidence_summary(run_dir, runtime_evidence)
+    metrics = runtime_evidence.get("metrics", {})
+    gate_eval = evaluate_metrics(metrics, gate)
+    finalized_at = utc_now()
+
+    result["runtime_evidence"] = runtime_evidence
+    result["kpis"] = metrics
+    result["gate"] = {"gate_id": gate.gate_id, **gate_eval}
+    result["failure_labels"] = gate_eval.get("failure_labels", [])
+    result["status"] = "passed" if gate_eval["passed"] else "failed"
+    result["finished_at"] = finalized_at
+    result["finalized_at"] = finalized_at
+    result["finalized_by"] = "simctl finalize"
+    artifacts = result.setdefault("artifacts", {})
+    artifacts["runtime_evidence_summary"] = str(summary_path)
+    result["runtime_evidence_path"] = str(summary_path)
+
+    host_bom_path = run_dir / "host_bom.json"
+    preflight_report_path = run_dir / "preflight_report.json"
+    if host_bom_path.exists():
+        artifacts["host_bom"] = str(host_bom_path)
+        result["host_bom_path"] = str(host_bom_path)
+    else:
+        result["host_bom_path"] = None
+    if preflight_report_path.exists():
+        artifacts["preflight_report"] = str(preflight_report_path)
+        result["preflight_report_path"] = str(preflight_report_path)
+    else:
+        result["preflight_report_path"] = None
+
+    missing_artifacts: dict[str, str] = {}
+    for key in ("rosbag2", "carla_recorder"):
+        artifact_path = artifacts.get(key)
+        if artifact_path and not Path(str(artifact_path)).exists():
+            missing_artifacts[key] = str(artifact_path)
+            artifacts.pop(key, None)
+    if missing_artifacts:
+        result["missing_artifacts"] = missing_artifacts
+    result["goal_status"] = _finalize_goal_status(runtime_evidence)
+    result["termination_reason"] = "kpi_gate_passed" if gate_eval["passed"] else "kpi_gate_failed"
+    result["artifact_completeness"] = _artifact_completeness(
+        artifacts=artifacts,
+        missing_artifacts=missing_artifacts,
+    )
+    dump_json(run_result_path, result)
+    return result
+
+
+def handle_finalize(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    if args.run_result:
+        run_result_path = Path(args.run_result).resolve()
+        run_dir = run_result_path.parent
+    elif args.run_dir:
+        run_dir = Path(args.run_dir).resolve()
+        run_result_path = run_dir / "run_result.json"
+    else:
+        raise SystemExit("finalize requires --run-dir or --run-result")
+    result = _finalize_run(repo_root, run_dir, run_result_path)
+    _print_json(result)
+    return 0
+
+
+def _run_validation_command(
+    *,
+    repo_root: Path,
+    run_dir: Path,
+    scenario: Any,
+    command: str,
+    run_result: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    validation_dir = ensure_dir(run_dir / "validation_logs")
+    shell_command = _validation_shell_command(
+        repo_root=repo_root,
+        scenario=scenario,
+        run_dir=run_dir,
+        command=command,
+        run_result=run_result,
+    )
+    script_path = validation_dir / "validation_command.sh"
+    script_path.write_text(shell_command + "\n", encoding="utf-8")
+    completed = subprocess.run(
+        ["bash", str(script_path)],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+    )
+    log_path = validation_dir / "validation_command.log"
+    log_path.write_text(
+        "\n".join(
+            [
+                "[command]",
+                _validation_command_with_run_dir(command, run_dir),
+                "",
+                "[stdout]",
+                completed.stdout,
+                "",
+                "[stderr]",
+                completed.stderr,
+                "",
+                f"[returncode] {completed.returncode}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = {
+        "status": "passed" if completed.returncode == 0 else "failed",
+        "returncode": completed.returncode,
+        "command": _validation_command_with_run_dir(command, run_dir),
+        "script": str(script_path),
+        "log_path": str(log_path),
+        "stdout_tail": completed.stdout[-4000:],
+        "stderr_tail": completed.stderr[-4000:],
+    }
+    dump_json(validation_dir / "validation_result.json", result)
+    return result
+
+
+def handle_validate(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    run_dir = Path(args.run_dir).resolve()
+    run_result_path = run_dir / "run_result.json"
+    if not run_result_path.exists():
+        raise SystemExit(f"run_result.json not found: {run_result_path}")
+    run_result = load_run_result(run_result_path)
+    scenario_ref = args.scenario or run_result.get("scenario_path")
+    if not scenario_ref:
+        raise SystemExit("validate requires --scenario when run_result.scenario_path is missing")
+    scenario = load_scenario(str(scenario_ref), repo_root)
+    command = args.command or _scenario_validation_command(scenario)
+
+    plan = {
+        "run_dir": str(run_dir),
+        "run_result": str(run_result_path),
+        "scenario_id": scenario.scenario_id,
+        "scenario_path": str(scenario.scenario_path),
+        "validation_available": command is not None,
+        "execute": bool(args.execute),
+        "finalize": bool(args.finalize),
+        "report": bool(args.report),
+    }
+    if command:
+        plan["command"] = _validation_command_with_run_dir(command, run_dir)
+        plan["shell_command"] = _validation_shell_command(
+            repo_root=repo_root,
+            scenario=scenario,
+            run_dir=run_dir,
+            command=command,
+            run_result=run_result,
+        )
+
+    if not args.execute:
+        _print_json(plan)
+        return 0
+    if not command:
+        raise SystemExit(f"No validation_command found for scenario {scenario.scenario_id}")
+
+    validation_result = _run_validation_command(
+        repo_root=repo_root,
+        run_dir=run_dir,
+        scenario=scenario,
+        command=command,
+        run_result=run_result,
+    )
+    payload: dict[str, Any] = {**plan, "validation": validation_result}
+    exit_code = int(validation_result["returncode"])
+
+    finalized_result: dict[str, Any] | None = None
+    if args.finalize:
+        finalized_result = _finalize_run(repo_root, run_dir, run_result_path)
+        payload["finalize_result"] = {
+            "run_result": str(run_result_path),
+            "status": finalized_result.get("status"),
+            "gate": finalized_result.get("gate"),
+            "kpis": finalized_result.get("kpis"),
+            "runtime_evidence_summary": finalized_result.get("artifacts", {}).get("runtime_evidence_summary"),
+        }
+        if finalized_result.get("status") != "passed":
+            exit_code = exit_code or 1
+
+    if args.report:
+        run_root = run_dir.parent
+        results = [load_run_result(path) for path in discover_run_results(run_root)]
+        outputs = write_report(run_root / "report", aggregate_run_results(results))
+        payload["report_outputs"] = outputs
+
+    _print_json(payload)
+    return exit_code
 
 
 def handle_digest(args: argparse.Namespace) -> int:
@@ -735,6 +1560,34 @@ def handle_digest(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_ding_notify(args: argparse.Namespace) -> int:
+    markdown = load_markdown(args.markdown, args.markdown_file, args.run_result)
+    payload = build_markdown_payload(args.title, markdown, args.at_mobile or [])
+    if not args.execute:
+        _print_json(
+            {
+                "mode": "dry-run",
+                "execute": False,
+                "title": args.title,
+                "payload": payload,
+                "note": "Add --execute to send this message to DingTalk.",
+            }
+        )
+        return 0
+    webhook = resolve_webhook(args.webhook, args.webhook_env)
+    secret = resolve_secret(args.secret, args.secret_env)
+    result = send_dingtalk_markdown(webhook, secret, payload, timeout=args.timeout)
+    _print_json(
+        {
+            "mode": "sent",
+            "webhook": redact_webhook(webhook),
+            "signed": bool(secret),
+            "result": result,
+        }
+    )
+    return 0
+
+
 def handle_subagent_spec(args: argparse.Namespace) -> int:
     repo_root = _repo_root(args.repo_root)
     if args.list:
@@ -775,6 +1628,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--asset-root", help="Override extracted asset root")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    asset_check = subparsers.add_parser("asset-check", help="Validate one asset bundle against the local asset root")
+    asset_check.add_argument("--bundle", required=True, help="Bundle id or manifest path")
+    asset_check.set_defaults(func=handle_asset_check)
+
     bootstrap = subparsers.add_parser("bootstrap", help="Prepare host, WSL, or remote nodes")
     bootstrap.add_argument("--stack", choices=["stable"], required=True)
     bootstrap.add_argument("--execute", action="store_true")
@@ -812,7 +1669,28 @@ def build_parser() -> argparse.ArgumentParser:
     batch.add_argument("--parallel", type=int, default=1)
     batch.add_argument("--execute", action="store_true")
     batch.add_argument("--mock-result", choices=["passed", "failed"])
+    batch.add_argument("--validate", action="store_true", help="Run each scenario validation_command after run")
+    batch.add_argument("--finalize", action="store_true", help="Fold validation evidence into run_result.json")
+    batch.add_argument("--report", action="store_true", help="Regenerate the run-root report after the batch")
+    batch.add_argument("--down-on-complete", action="store_true", help="Run simctl down after each scenario")
+    batch.add_argument(
+        "--require-validation",
+        action="store_true",
+        help="Fail scenarios that do not define metadata.validation_command",
+    )
     batch.set_defaults(func=handle_batch)
+
+    campaign = subparsers.add_parser("campaign", help="Run a validation campaign with run/validate/report closure")
+    campaign.add_argument("--config", required=True, help="Path to a campaign YAML config")
+    campaign.add_argument("--run-root", help="Override campaign run root")
+    campaign.add_argument("--slot", help="Override stable slot id")
+    campaign.add_argument("--execute", action="store_true", help="Execute run and validation commands")
+    campaign.add_argument("--mock-result", choices=["passed", "failed"], help="Pass a mock result to campaign runs")
+    campaign.add_argument("--keep-going", action="store_true", help="Continue after failed scenarios")
+    campaign.add_argument("--stop-after-each", action="store_true", help="Run simctl down after each scenario")
+    campaign.add_argument("--pre-down-run-dir", help="Run simctl down for an existing run directory before the campaign")
+    campaign.add_argument("--no-report", action="store_true", help="Skip final report generation")
+    campaign.set_defaults(func=handle_campaign)
 
     replay = subparsers.add_parser("replay", help="Render replay commands for one run_result.json")
     replay.add_argument("--run-result", required=True)
@@ -824,6 +1702,20 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--output-dir")
     report.set_defaults(func=handle_report)
 
+    finalize = subparsers.add_parser("finalize", help="Fold runtime evidence back into run_result.json and KPI gate")
+    finalize.add_argument("--run-dir")
+    finalize.add_argument("--run-result")
+    finalize.set_defaults(func=handle_finalize)
+
+    validate = subparsers.add_parser("validate", help="Run a scenario validation command for an existing runtime run")
+    validate.add_argument("--run-dir", required=True)
+    validate.add_argument("--scenario", help="Override scenario path instead of run_result.scenario_path")
+    validate.add_argument("--command", help="Override the scenario metadata.validation_command")
+    validate.add_argument("--execute", action="store_true")
+    validate.add_argument("--finalize", action="store_true", help="Fold validation evidence into run_result.json")
+    validate.add_argument("--report", action="store_true", help="Regenerate the parent run-root report")
+    validate.set_defaults(func=handle_validate)
+
     digest = subparsers.add_parser("digest", help="Generate a GitHub Project digest and issue-ready outputs")
     digest.add_argument("--config", help="Path to project automation config YAML")
     digest.add_argument("--output-dir")
@@ -831,6 +1723,20 @@ def build_parser() -> argparse.ArgumentParser:
     digest.add_argument("--tasks-json", help="Use a local GitHub Project JSON export for task items")
     digest.add_argument("--scenarios-json", help="Use a local GitHub Project JSON export for scenario items")
     digest.set_defaults(func=handle_digest)
+
+    ding_notify = subparsers.add_parser("ding-notify", help="Render or send a DingTalk robot markdown message")
+    ding_notify.add_argument("--title", default="PIX 仿真验证结果")
+    ding_notify.add_argument("--markdown", help="Markdown text to send")
+    ding_notify.add_argument("--markdown-file", help="Path to a markdown file to send")
+    ding_notify.add_argument("--run-result", help="Build a validation summary from run_result.json")
+    ding_notify.add_argument("--at-mobile", action="append", help="Mobile number to mention; can be repeated")
+    ding_notify.add_argument("--webhook", help="DingTalk robot webhook URL. Prefer env vars for secrets.")
+    ding_notify.add_argument("--webhook-env", default="DINGTALK_WEBHOOK")
+    ding_notify.add_argument("--secret", help="DingTalk robot signing secret. Prefer env vars for secrets.")
+    ding_notify.add_argument("--secret-env", default="DINGTALK_SECRET")
+    ding_notify.add_argument("--timeout", type=int, default=10)
+    ding_notify.add_argument("--execute", action="store_true", help="Actually send the message")
+    ding_notify.set_defaults(func=handle_ding_notify)
 
     subagent_spec = subparsers.add_parser("subagent-spec", help="Render reusable Codex subagent definitions")
     subagent_spec.add_argument("--name", help="Subagent spec id")

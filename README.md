@@ -1,21 +1,18 @@
 # PIX Simulation Validation Platform
 
 Display name: `PIX Simulation Validation Platform`  
-Current GitHub URL: `pixmoving-moveit/zmf_ws`
+Current GitHub URL: `77zmf/PIX-Simulation-Validation-Platform`
 
-This repository is the control plane for a simulation validation platform built around:
+This repository is the control plane for PIX simulation validation and public-road reconstruction validation.
+
+The current runtime baseline is:
 
 - `Autoware Universe main`
 - `ROS 2 Humble`
 - `CARLA 0.9.15`
 - `UE4.26`
 
-The current delivery is not a generic environment-setup effort. It is a reusable validation baseline for:
-
-- stable closed-loop verification on the company Ubuntu host
-- automated `bootstrap / up / run / batch / replay / report` workflows
-- public-road asset reuse, `site proxy`, and corner-case accumulation
-- BEV / VAD / UniAD-style / E2E shadow research on the same CARLA 0.9.15 runtime baseline
+The repository stores scripts, configs, scenarios, lightweight manifests, reports, and project automation. It does not store large maps, point clouds, reconstruction outputs, model weights, checkpoints, or generated artifacts.
 
 ## Current Focus
 
@@ -23,24 +20,26 @@ The active quarter is organized around four priorities:
 
 1. Make the `stable` stack usable in closed loop on the company Ubuntu host.
 2. Make `simctl` usable for daily validation and reporting.
-3. Turn `gy_qyhx_gsh20260302` into reusable public-road map and scenario inputs.
-4. Keep E2E shadow research on `CARLA 0.9.15 / UE4.26` without destabilizing the main line.
+3. Turn `site_gy_qyhx_gsh20260310` into reusable public-road map, reconstruction, and scenario inputs.
+4. Keep BEV / VAD / UniAD-style / E2E shadow research on `CARLA 0.9.15 / UE4.26` without destabilizing the main line.
 
 Near-term gate:
 
-- by `2026-04-05`, finish Ubuntu host bring-up and close the first automation data loop:
+- finish Ubuntu host bring-up and close the first automation data loop:
   `simctl run -> run_result.json -> report -> replay`
+- finish local reconstruction readiness:
+  `asset manifest -> tool check -> pointcloud/COLMAP smoke -> handoff manifest -> company-host consumption`
 
 ## Public Entry Points
 
-- GitHub URL: [pixmoving-moveit/zmf_ws](https://github.com/pixmoving-moveit/zmf_ws)
-- GitHub Task Board: [Project 2](https://github.com/orgs/pixmoving-moveit/projects/2)
-- GitHub Scenario Board: [Project 3](https://github.com/orgs/pixmoving-moveit/projects/3)
-- GitHub Digest Inbox: [project-digest issues](https://github.com/pixmoving-moveit/zmf_ws/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
+- GitHub URL: [77zmf/PIX-Simulation-Validation-Platform](https://github.com/77zmf/PIX-Simulation-Validation-Platform)
+- GitHub Task Board: [Project 1](https://github.com/users/77zmf/projects/1)
+- GitHub Scenario Board: [Project 2](https://github.com/users/77zmf/projects/2)
+- GitHub Digest Inbox: [project-digest issues](https://github.com/77zmf/PIX-Simulation-Validation-Platform/issues?q=is%3Aissue+is%3Aopen+label%3Aproject-digest)
 
 ## Team Ownership
 
-- `Zhu Minfeng`: stable stack, Ubuntu host, control plane, automation, KPI gates
+- `Zhu Minfeng / 朱民峰`: stable stack, Ubuntu host, control plane, automation, KPI gates
 - `Luo Shunxiong / lsx`: public-road map and pointcloud assets, reconstruction inputs, corner-case replay
 - `Yang Zhipeng / 杨志朋`: `BEVFusion` perception baseline, public-road perception, and E2E shadow research
 - `Codex PMO support`: digest generation, weekly review preparation, blocker aggregation, and repo-side management support
@@ -51,23 +50,34 @@ Near-term gate:
 
 - the company `Ubuntu 22.04` host is the primary runtime environment
 - the same host runs `ROS 2 Humble`, `Autoware Universe`, `autoware_carla_interface`, and `CARLA 0.9.15`
-- the local machine is only for code management, remote access, and artifact review
+- this Windows machine is the local 3D reconstruction producer and also handles code management, asset validation, remote access, and artifact review
+- the company Ubuntu host consumes generated reconstruction assets from a shared path or object store; it does not run reconstruction jobs in this phase
 - primary success signal is a repeatable closed loop:
   `startup -> localization -> planning -> control -> goal reached -> report`
 
 ### Public-Road Assets And Corner Cases
 
-- first public-road bundle: `site_gy_qyhx_gsh20260302`
+- current complete public-road bundle: `site_gy_qyhx_gsh20260310`
+- legacy public-road bundle manifest: `site_gy_qyhx_gsh20260302`
 - target asset bundle shape:
   - `lanelet2_map.osm`
   - `map_projector_info.yaml`
   - `pointcloud_map.pcd/`
-  - `metadata.yaml`
+  - `pointcloud_map_metadata.yaml`
 - large raw assets stay out of Git history and are referenced by manifests
 - reconstruction direction is staged:
   - `map refresh` for asset and localization support
   - `static Gaussian` reconstruction for future geometry-rich replay assets
   - `dynamic Gaussian` reconstruction for future actor-aware replay and high-fidelity simulation
+
+### Local 3D Reconstruction Line
+
+- primary execution machine is this local Windows host
+- local validation starts with asset inspection and tool readiness
+- COLMAP sparse reconstruction is the first real smoke test
+- Gaussian / NeRF experiments only start after sparse reconstruction has usable camera poses
+- reconstruction outputs stay under `outputs/` or `artifacts/` and are ignored by Git
+- company Ubuntu reads only synced handoff assets and manifests generated by this line
 
 ### Future E2E Route
 
@@ -95,7 +105,7 @@ references/  Curated local paper PDFs and reading materials
 src/         simctl CLI and supporting library code
 tests/       Control-plane, digest, and scenario regression tests
 ops/         Project automation configuration
-tools/       Maintenance and publishing helpers
+tools/       Maintenance, publishing, and local validation helpers
 ```
 
 ## Runtime Assumptions
@@ -104,6 +114,8 @@ tools/       Maintenance and publishing helpers
 - `CARLA 0.9.15` is the only official simulator runtime in this repository.
 - no secondary simulator runtime is part of the current repository strategy or execution path.
 - E2E shadow research stays on the `stable` stack and reuses the same CARLA 0.9.15 baseline.
+- local reconstruction asset generation runs on this Windows host; the company Ubuntu host only consumes synced derived assets.
+- local reconstruction validation is separate from stable closed-loop acceptance and must not block it.
 
 ## Main Commands
 
@@ -129,19 +141,81 @@ simctl batch --scenario-dir scenarios/l1 --run-root runs --parallel 2 --mock-res
 simctl report --run-root runs
 ```
 
+Asset validation:
+
+```bash
+simctl asset-check --bundle site_gy_qyhx_gsh20260302
+simctl asset-check --bundle site_gy_qyhx_gsh20260310
+python tools/validate_reconstruction_assets.py --bundle site_gy_qyhx_gsh20260310
+```
+
+Pointcloud-map reconstruction smoke:
+
+```powershell
+python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --max-tiles 16 --max-points 50000 --selection largest --run-name largest_tiles16_points50000
+python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --selection center --max-tiles 64 --max-points 200000 --split-ground --run-name center_tiles64_split_ground
+python .\tools\reconstruct_pointcloud_map.py --bundle site_gy_qyhx_gsh20260310 --selection center --max-tiles 64 --max-points 200000 --split-ground --clean-ground --clean-voxel-size 0.5 --clean-neighbor-radius 1.5 --clean-min-neighbors 2 --run-name center_tiles64_ground_clean
+.\.venv\Scripts\python.exe .\tools\render_pointcloud_preview.py --run-dir outputs\pointcloud_reconstruction\site_gy_qyhx_gsh20260310\center_tiles64_ground_clean
+.\.venv\Scripts\python.exe .\tools\build_ground_heightmap.py --input-ply outputs\pointcloud_reconstruction\site_gy_qyhx_gsh20260310\center_tiles64_ground_clean\site_proxy_ground_clean.ply --cell-size 1.0 --min-points-per-cell 2
+python .\tools\build_reconstruction_handoff_manifest.py --run-dir outputs\pointcloud_reconstruction\site_gy_qyhx_gsh20260310\center_tiles64_ground_clean --site-id site_gy_qyhx_gsh20260310 --handoff-root-uri "<shared-path-or-object-store-prefix>"
+# Add --skip-png only when you need CSV/JSON/PLY without the visual PNG preview.
+```
+
+Local reconstruction tool check on Windows:
+
+```powershell
+$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+powershell -ExecutionPolicy Bypass -File .\tools\check_local_env.ps1
+```
+
+Bootstrap the local reconstruction workspace and run the current pointcloud smoke:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\bootstrap_local_reconstruction.ps1 -RunAssetValidation -RunPointcloudSmoke -RunName local_setup_pointcloud_smoke -HandoffRootUri "<shared-path-or-object-store-prefix>"
+```
+
+This machine is the reconstruction producer. The company Ubuntu host should consume the generated `handoff_manifest.json` and derived assets from the shared path; it should not rerun reconstruction jobs.
+
+Extract frames from a local video and run a PyCOLMAP sparse smoke:
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\extract_video_frames.py --video data\raw\qiyu_loop\video\input.mp4 --output-dir data\raw\qiyu_loop\images --fps 2 --max-width 1920 --overwrite
+.\.venv\Scripts\python.exe .\tools\run_pycolmap_sparse_smoke.py --image-dir data\raw\qiyu_loop\images --output-dir outputs\colmap_smoke\qiyu_loop --min-images 8 --matcher exhaustive
+```
+
+The default image-based path uses `pycolmap` from `.venv`. Install an external COLMAP CUDA package only if you need the standalone `colmap.exe` CLI or GUI.
+
+COLMAP sparse smoke after adding image data:
+
+```powershell
+New-Item -ItemType Directory -Force -Path data\raw\qiyu_loop\images | Out-Null
+$workspace = "outputs\colmap_smoke\qiyu_loop"
+New-Item -ItemType Directory -Force -Path "$workspace\sparse" | Out-Null
+colmap feature_extractor --database_path "$workspace\database.db" --image_path "data\raw\qiyu_loop\images" --ImageReader.single_camera 1
+colmap exhaustive_matcher --database_path "$workspace\database.db"
+colmap mapper --database_path "$workspace\database.db" --image_path "data\raw\qiyu_loop\images" --output_path "$workspace\sparse"
+colmap model_analyzer --path "$workspace\sparse\0"
+```
+
 Stable slot catalog:
 
 ```text
 stack/slots/stable_slots.yaml
 ```
 
-Use `--parallel 2` as the default operating mode. The repository now defines 4 slots, but 4-way execution should only be enabled after host-level pressure testing.
+Use `--parallel 2` as the default operating mode. The repository defines 4 slots, but 4-way execution should only be enabled after host-level pressure testing.
 
 Digest and replay:
 
 ```bash
 simctl digest
 simctl replay --run-result runs/<run_id>/run_result.json
+```
+
+DingTalk robot notification dry-run:
+
+```bash
+simctl ding-notify --run-result runs/<run_id>/run_result.json
 ```
 
 ## Ubuntu Host Workflow
@@ -163,11 +237,18 @@ Reference documents:
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
 - [Remote GPU Resource And UE4 Blockers](./docs/REMOTE_GPU_RESOURCE_AND_UE4_BLOCKERS_CN.md)
 - [Remote GPU Access Plan](./docs/REMOTE_GPU_ACCESS_PLAN_CN.md)
+- [BEVFusion Shadow Ubuntu Execute Runbook](./docs/BEVFUSION_SHADOW_UBUNTU_EXECUTE_RUNBOOK_CN.md)
+- [Issue 18 Delivery Closure](./docs/ISSUE18_BEVFUSION_SHADOW_DELIVERY_CLOSURE_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
+- [DingTalk Code Update Validation](./docs/DINGTALK_CODE_UPDATE_VALIDATION_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
+- [Weekly Repo Sync 2026-04-18](./docs/WEEKLY_REPO_SYNC_2026_04_18_CN.md)
+- [Local Reconstruction Validation](./docs/LOCAL_RECONSTRUCTION_VALIDATION_CN.md)
+- [BEVFusion Shadow Interface Baseline](./docs/BEVFUSION_SHADOW_INTERFACE_BASELINE_CN.md)
+- [Yang Shadow E2E Reading Notes](./docs/YANG_SHADOW_E2E_READING_NOTES_CN.md)
 
 ## Subagent Catalog
 
@@ -198,6 +279,7 @@ Subagent catalog:
 The repo-side planning documents live in:
 
 - `docs/TEAM_90_DAY_PLAN.md`
+- `docs/AI_SUPERBODY_PERCEPTION_SUPPLEMENT_CN.md`
 - `docs/TEAM_OPERATING_RHYTHM.md`
 - `docs/PROJECT_OPERATING_TEAM_CN.md`
 - `docs/QUARTER_ACCEPTANCE.md`
@@ -236,6 +318,7 @@ This repository includes a repo-side Git collaboration guide and commit template
 - `site proxy` and corner cases must accumulate as reusable assets, not one-off scripts.
 - E2E shadow remains a research path under `CARLA 0.9.15 / UE4.26`.
 - Digest automation now uses GitHub Projects and GitHub issues only.
+- Local reconstruction must always start with small smoke tests and traceable outputs.
 
 ## Current Gaps
 
@@ -243,8 +326,8 @@ The project-management and control-plane layers are in place, but three delivery
 
 - the real `Autoware + CARLA` runtime path still needs to be brought up on the company Ubuntu host
 - the first reusable public-road scenario still needs to move from asset structure into repeatable validation input
-- GitHub Project hygiene and digest quality still depend on board field discipline and assignee maintenance
+- local reconstruction still needs real camera images or video before COLMAP / Gaussian validation can start
 
 ## Current Asset Note
 
-The archive `gy_qyhx_gsh20260302_map.zip` remains outside Git tracking because of GitHub file-size constraints. The repository tracks manifests and normalized paths instead of the raw archive itself.
+The archives `gy_qyhx_gsh20260302_map.zip` and `gy_qyhx_gsh20260310_map(2).zip` remain outside Git tracking because of GitHub file-size constraints. The repository tracks manifests and normalized paths instead of the raw archives themselves.

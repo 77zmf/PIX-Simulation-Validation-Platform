@@ -1,0 +1,148 @@
+catalog_id: robobus_pixrover14_application_topology
+display_name: RoboBus PixRover1.4 application topology
+owner: zmf
+line: stable
+source:
+  application_topology_pdf: assets/vehicles/robobus117th/topology/robobus_application_topology_v4.3.0_pixrover1.4.pdf
+  topology_title: Bus产品化应用拓扑图V4.3.0
+  hardware_version: PixRover1.4
+  extracted_on: 2026-04-18
+  parameter_set: /home/pixmoving/pix/parameter_sets/PixRover1.2-1.5_117th_d53377bf684e_20260416T100429Z
+  parameter_files:
+    - sensor_kit/robobus_sensor_kit_description/extrinsic_parameters/sensors_calibration.yaml
+    - sensor_kit/robobus_sensor_kit_description/extrinsic_parameters/sensor_kit_calibration.yaml
+vehicle:
+  platform: robobus
+  hardware_version: PixRover1.4
+  vehicle_number: 117th
+  vin: H093BD2R4THHKS003
+compute_and_network:
+  autonomous_domain_controller:
+    count: 1
+    model: 河北优控ADCU
+  autonomous_ipc:
+    count: 1
+    model: 宸耀Nuvo-9650AWP
+  switch:
+    count: 1
+    model: 拓宾 8口 M12 千兆车载工业以太网交换机
+  router:
+    count: 1
+    model: 星创SV900-5G 车载网关
+  navigation:
+    count: 1
+    model: 华测CGI-430
+    antennas: 2
+cameras:
+  autonomous_surround:
+    count: 6
+    vendor: Senyun
+    topology_models:
+      - model: 08bc
+        count: 1
+        role: front_surround
+      - model: SG2-AR0233C-5200-G2A-H120UA
+        count: 5
+        role: surround
+    lens_mm: 3.0
+    horizontal_fov_deg: 118.0
+    vertical_fov_deg: 62.0
+    ros_frames:
+      - camera0/camera_link
+      - camera1/camera_link
+      - camera2/camera_link
+      - camera3/camera_link
+      - camera4/camera_link
+      - camera5/camera_link
+    topology_wiring:
+      - channel: camera0
+        role: front_surround
+        model: 08bc
+        ros_frame: camera0/camera_link
+        carla_topic: /sensing/camera/CAM_FRONT/image_raw
+      - channel: camera1
+        role: rear_surround
+        model: SG2-AR0233C-5200-G2A-H120UA
+        ros_frame: camera1/camera_link
+        carla_topic: /sensing/camera/CAM_BACK/image_raw
+      - channel: camera2
+        role: front_left_surround
+        model: SG2-AR0233C-5200-G2A-H120UA
+        ros_frame: camera2/camera_link
+        carla_topic: /sensing/camera/CAM_FRONT_LEFT/image_raw
+      - channel: camera3
+        role: front_right_surround
+        model: SG2-AR0233C-5200-G2A-H120UA
+        ros_frame: camera3/camera_link
+        carla_topic: /sensing/camera/CAM_FRONT_RIGHT/image_raw
+      - channel: camera4
+        role: rear_left_surround
+        model: SG2-AR0233C-5200-G2A-H120UA
+        ros_frame: camera4/camera_link
+        carla_topic: /sensing/camera/CAM_BACK_LEFT/image_raw
+      - channel: camera5
+        role: rear_right_surround
+        model: SG2-AR0233C-5200-G2A-H120UA
+        ros_frame: camera5/camera_link
+        carla_topic: /sensing/camera/CAM_BACK_RIGHT/image_raw
+  remote_drive_blind_spot:
+    count: 2
+    vendor: Senyun
+    model: SG2-AR0233C-5200-G2A-H190XA
+    lens_mm: 1.51
+    horizontal_fov_deg: 196.0
+    vertical_fov_deg: 112.0
+    status: recorded_from_topology_not_enabled_in_current_l0_carla_mapping
+    topology_wiring:
+      - channel: camera6
+        role: remote_drive_front_blind_spot
+      - channel: camera7
+        role: remote_drive_rear_blind_spot
+lidars:
+  count: 5
+  vendor: RoboSense
+  topology_devices:
+    - role: front_top
+      model: M1Plus
+      parameter_frame: lidar_ft_base_link
+      carla_topic: /sensing/lidar/top/pointcloud_before_sync
+    - role: rear_top
+      model: M1Plus
+      parameter_frame: lidar_rt_base_link
+      carla_topic: /sensing/lidar/rear_top/pointcloud_before_sync
+    - role: front_left
+      model: Airy
+      parameter_frame: lidar_fl_base_link
+      carla_topic: /sensing/lidar/left/pointcloud_before_sync
+    - role: front_right
+      model: Airy
+      parameter_frame: lidar_fr_base_link
+      carla_topic: /sensing/lidar/right/pointcloud_before_sync
+    - role: rear_or_supplemental
+      model: E1R
+      parameter_frame: lidar_rear_base_link
+      carla_topic: /sensing/lidar/rear/pointcloud_before_sync
+      assignment_status: inferred_from_parameter_frame_name
+  notes:
+    - The topology explicitly lists two RoboSense M1Plus, two RoboSense Airy, and one RoboSense E1R lidar.
+    - The topology diagram labels front-top, rear-top, front-left, and front-right lidars; the E1R placement is inferred from the existing rear lidar parameter frame until field confirmation.
+    - This catalog replaces the earlier temporary oral-source catalog.
+ultrasonic:
+  count: 1
+  model: 晨沐F40-16TR7B
+  probes: 12
+imu_gnss:
+  imu_frame: tamagawa/imu_link
+  gnss_frame: gnss_link
+validation:
+  scenario: scenarios/l0/robobus117th_town01_closed_loop.yaml
+  bridge_mapping: assets/sensors/carla/robobus117th_sensor_mapping.yaml
+  physical_calibration_for_native_robobus: assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+  prius_fallback_calibration: assets/sensors/carla/robobus117th_prius_fallback_sensor_kit_calibration.yaml
+  expected_observable:
+    - six autonomous-surround camera image and camera_info topics are present
+    - five lidar pointcloud_before_sync topics are present
+    - IMU, GNSS, localization, vehicle status, control, and trajectory topics stay healthy
+rollback:
+  action: Revert this topology catalog and restore the previous tracked sensor profile/mapping reference.
+  impact: Returns to the prior validation baseline but no longer represents the PixRover1.4 application topology.

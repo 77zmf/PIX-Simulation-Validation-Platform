@@ -1,0 +1,4 @@
+interface:
+  display_name: "PIX Project Digest"
+  short_description: "Generate owner-focused project digest summaries."
+  default_prompt: "Use pix-project-digest to build or review the current project digest, then report blockers, owner next actions, scenario watch items, and the highest-leverage next moves."

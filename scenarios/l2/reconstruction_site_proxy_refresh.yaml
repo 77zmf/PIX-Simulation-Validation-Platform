@@ -1,7 +1,7 @@
 scenario_id: stable_l2_reconstruction_site_proxy_refresh
 stack: stable
 map_id: gy_qyhx_gsh_site_proxy
-asset_bundle: site_gy_qyhx_gsh20260302
+asset_bundle: site_gy_qyhx_gsh20260310
 ego_init:
   local_pose:
     x: 1032.2

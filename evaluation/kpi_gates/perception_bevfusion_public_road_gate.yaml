@@ -5,6 +5,9 @@ failure_labels:
   - tracking_instability
   - planner_interface_divergence
 metrics:
+  perception_readiness:
+    op: ">="
+    value: 1.0
   detection_recall:
     op: ">="
     value: 0.92

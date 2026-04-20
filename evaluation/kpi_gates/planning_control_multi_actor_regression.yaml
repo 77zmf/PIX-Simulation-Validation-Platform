@@ -1,0 +1,33 @@
+gate_id: planning_control_multi_actor_regression
+description: Stable-line multi-actor planning-control regression gate for deterministic CARLA actor bridge scenarios
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - multi_actor_perception_failure
+  - actor_bridge_perception_failure
+  - robobus_sensor_bridge_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.8
+  dynamic_actor_response:
+    op: ">="
+    value: 1.0
+  actor_count_observed:
+    op: ">="
+    value: 2
+  yield_response_count:
+    op: ">="
+    value: 1
+  sensor_topic_coverage:
+    op: ">="
+    value: 1.0
+  sensor_sample_coverage:
+    op: ">="
+    value: 1.0

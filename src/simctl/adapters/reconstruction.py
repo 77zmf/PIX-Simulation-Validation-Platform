@@ -7,7 +7,7 @@ from typing import Any
 from .base import AdapterContext
 
 
-@dataclass(slots=True)
+@dataclass
 class ReconstructionOutput:
     source: str
     family: str
@@ -65,6 +65,32 @@ class MapRefreshReconstructionAdapter(_BasePlaceholderReconstructionAdapter):
         return output
 
 
+class SiteProxyReconstructionAdapter(_BasePlaceholderReconstructionAdapter):
+    family = "site_proxy"
+    stage = "site_proxy_refresh"
+
+    def reconstruct(self, context: AdapterContext) -> ReconstructionOutput:
+        output = super().reconstruct(context)
+        run_dir = context.metadata.get("run_dir", "")
+        output.artifacts["registered_pointcloud"] = (
+            f"{run_dir}/reconstruction/site_proxy_pointcloud.pcd"
+            if run_dir
+            else "reconstruction/site_proxy_pointcloud.pcd"
+        )
+        output.artifacts["lanelet_update"] = (
+            f"{run_dir}/reconstruction/lanelet2_candidate.osm"
+            if run_dir
+            else "reconstruction/lanelet2_candidate.osm"
+        )
+        output.notes.extend(
+            [
+                "focus=site_proxy_map_alignment_and_replay_readiness",
+                "deliverable=registered_pointcloud_and_lanelet_update_candidate",
+            ]
+        )
+        return output
+
+
 class StaticGaussianReconstructionAdapter(_BasePlaceholderReconstructionAdapter):
     family = "static_gaussians"
     stage = "geometry_base"
@@ -110,6 +136,8 @@ class DynamicGaussianReconstructionAdapter(_BasePlaceholderReconstructionAdapter
 def load_reconstruction_adapter(profile_id: str) -> ReconstructionAdapter:
     if profile_id == "reconstruction_public_road_map_refresh":
         return MapRefreshReconstructionAdapter()
+    if profile_id == "reconstruction_site_proxy":
+        return SiteProxyReconstructionAdapter()
     if profile_id == "reconstruction_static_public_road_gaussians":
         return StaticGaussianReconstructionAdapter()
     if profile_id == "reconstruction_dynamic_public_road_gaussians":

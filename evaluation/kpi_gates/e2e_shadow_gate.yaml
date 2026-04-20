@@ -1,5 +1,5 @@
 gate_id: e2e_shadow_gate
-description: Shadow gate for UE5 or E2E experiments before online takeover
+description: Shadow gate for UE4 or E2E experiments before online takeover
 failure_labels:
   - shadow_divergence
   - shadow_safety_violation

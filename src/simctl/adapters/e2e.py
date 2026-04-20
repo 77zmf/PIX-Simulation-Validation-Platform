@@ -7,7 +7,7 @@ from typing import Any
 from .base import AdapterContext
 
 
-@dataclass(slots=True)
+@dataclass
 class E2EOutput:
     shadow_only: bool = True
     planned_trajectory: dict[str, Any] = field(default_factory=dict)

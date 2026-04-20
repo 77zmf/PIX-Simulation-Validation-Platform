@@ -57,10 +57,17 @@ def make_run_id(scenario_id: str) -> str:
 
 
 def to_wsl_path(path: str | Path) -> str:
-    raw = str(Path(path).resolve())
-    drive, tail = raw[0], raw[2:]
-    normalized = tail.replace("\\", "/")
-    return f"/mnt/{drive.lower()}{normalized}"
+    raw = str(path)
+    if len(raw) >= 2 and raw[1] == ":":
+        drive = raw[0].lower()
+        tail = raw[2:].replace("\\", "/").lstrip("/")
+        return f"/mnt/{drive}/{tail}"
+    if raw.startswith("/"):
+        return raw
+    posix_path = Path(raw)
+    if posix_path.is_absolute():
+        return raw
+    return str(posix_path.resolve())
 
 
 def interpolate(value: Any, context: dict[str, str]) -> Any:
