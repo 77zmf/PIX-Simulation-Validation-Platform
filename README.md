@@ -242,6 +242,7 @@ Reference documents:
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
 - [DingTalk Code Update Validation](./docs/DINGTALK_CODE_UPDATE_VALIDATION_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)
+- [Subagent Onboarding Playbook](./docs/SUBAGENT_ONBOARDING_PLAYBOOK_CN.md)
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
@@ -298,6 +299,7 @@ The repo-side planning documents live in:
 - `docs/TEAM_AGENT_USAGE_CN.md`
 - `docs/TEAM_SKILL_USAGE_CN.md`
 - `docs/MAC_CODEX_WORKFLOW_CN.md`
+- `docs/SUBAGENT_ONBOARDING_PLAYBOOK_CN.md`
 - `docs/PAPER_READING_MAP_CN.md`
 - `docs/PAPER_LANDSCAPE_CN.md`
 - `docs/LOCAL_PDF_INDEX_CN.md`

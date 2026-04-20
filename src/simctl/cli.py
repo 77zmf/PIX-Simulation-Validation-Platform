@@ -45,7 +45,12 @@ from .runtime import build_context, execute_plan, load_stack_profile, persist_pl
 from .runtime_evidence import collect_runtime_evidence, write_runtime_evidence_summary
 from .scenarios import load_scenario
 from .slots import acquire_slot_lock, get_slot_by_id, list_available_slots, load_slot_catalog, release_slot_lock
-from .subagents import list_subagent_specs, load_subagent_spec
+from .subagents import (
+    list_onboarding_profiles,
+    list_subagent_specs,
+    load_onboarding_profile,
+    load_subagent_spec,
+)
 
 
 def _repo_root(explicit: str | None) -> Path:
@@ -1590,6 +1595,24 @@ def handle_ding_notify(args: argparse.Namespace) -> int:
 
 def handle_subagent_spec(args: argparse.Namespace) -> int:
     repo_root = _repo_root(args.repo_root)
+    if args.list_onboarding:
+        _print_json(
+            {
+                "profiles": [
+                    {
+                        "profile_id": profile.profile_id,
+                        "display_name": profile.display_name,
+                        "description": profile.description,
+                        "recommended_subagents": profile.recommended_subagents,
+                        "related_skills": profile.related_skills,
+                        "source_path": str(profile.source_path),
+                    }
+                    for profile in list_onboarding_profiles(repo_root)
+                ]
+            }
+        )
+        return 0
+
     if args.list:
         _print_json(
             {
@@ -1609,8 +1632,13 @@ def handle_subagent_spec(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if args.onboarding:
+        profile = load_onboarding_profile(args.onboarding, repo_root)
+        _print_json(profile.as_payload(repo_root))
+        return 0
+
     if not args.name:
-        raise SystemExit("subagent-spec requires --name or --list")
+        raise SystemExit("subagent-spec requires --name, --list, --onboarding, or --list-onboarding")
 
     spec = load_subagent_spec(args.name, repo_root)
     if args.format == "prompt":
@@ -1741,6 +1769,8 @@ def build_parser() -> argparse.ArgumentParser:
     subagent_spec = subparsers.add_parser("subagent-spec", help="Render reusable Codex subagent definitions")
     subagent_spec.add_argument("--name", help="Subagent spec id")
     subagent_spec.add_argument("--list", action="store_true", help="List available subagent specs")
+    subagent_spec.add_argument("--onboarding", help="Render one onboarding profile")
+    subagent_spec.add_argument("--list-onboarding", action="store_true", help="List onboarding profiles")
     subagent_spec.add_argument("--format", choices=["json", "prompt", "spawn_json"], default="json")
     subagent_spec.set_defaults(func=handle_subagent_spec)
 
