@@ -236,6 +236,7 @@ Reference documents:
 - [Ubuntu Host Bring-up](./docs/UBUNTU_HOST_BRINGUP_CN.md)
 - [Tomorrow Company Host Checklist](./docs/TOMORROW_COMPANY_HOST_CHECKLIST_CN.md)
 - [Remote GPU Resource And UE4 Blockers](./docs/REMOTE_GPU_RESOURCE_AND_UE4_BLOCKERS_CN.md)
+- [Remote GPU Access Plan](./docs/REMOTE_GPU_ACCESS_PLAN_CN.md)
 - [BEVFusion Shadow Ubuntu Execute Runbook](./docs/BEVFUSION_SHADOW_UBUNTU_EXECUTE_RUNBOOK_CN.md)
 - [Issue 18 Delivery Closure](./docs/ISSUE18_BEVFUSION_SHADOW_DELIVERY_CLOSURE_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
@@ -288,6 +289,7 @@ The repo-side planning documents live in:
 - `docs/UBUNTU_HOST_BRINGUP_CN.md`
 - `docs/SERVER_COMPILE_BASELINE_CN.md`
 - `docs/REMOTE_GPU_RESOURCE_AND_UE4_BLOCKERS_CN.md`
+- `docs/REMOTE_GPU_ACCESS_PLAN_CN.md`
 - `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
 - `docs/PROJECT_AUTOMATION.md`
 - `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
