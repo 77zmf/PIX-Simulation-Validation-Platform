@@ -240,6 +240,7 @@ Reference documents:
 - [BEVFusion Shadow Ubuntu Execute Runbook](./docs/BEVFUSION_SHADOW_UBUNTU_EXECUTE_RUNBOOK_CN.md)
 - [Issue 18 Delivery Closure](./docs/ISSUE18_BEVFUSION_SHADOW_DELIVERY_CLOSURE_CN.md)
 - [Mac Codex Workflow](./docs/MAC_CODEX_WORKFLOW_CN.md)
+- [Windows Codex Workflow](./docs/WINDOWS_CODEX_WORKFLOW_CN.md)
 - [DingTalk Code Update Validation](./docs/DINGTALK_CODE_UPDATE_VALIDATION_CN.md)
 - [Team Skill Usage](./docs/TEAM_SKILL_USAGE_CN.md)
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
@@ -302,6 +303,7 @@ The repo-side planning documents live in:
 - `docs/TEAM_AGENT_USAGE_CN.md`
 - `docs/TEAM_SKILL_USAGE_CN.md`
 - `docs/MAC_CODEX_WORKFLOW_CN.md`
+- `docs/WINDOWS_CODEX_WORKFLOW_CN.md`
 - `docs/PAPER_READING_MAP_CN.md`
 - `docs/YANG_SHADOW_E2E_READING_NOTES_CN.md`
 - `docs/PAPER_LANDSCAPE_CN.md`
