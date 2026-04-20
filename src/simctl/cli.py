@@ -25,6 +25,7 @@ from .dingtalk import (
 )
 from .evaluation import evaluate_metrics, load_kpi_gate, synthetic_metrics
 from .health import probe_runtime_health
+from .lanelet_opendrive import add_lanelet_to_opendrive_arguments, conversion_result_payload, convert_from_args
 from .profiles import (
     algorithm_profile_snapshot,
     load_algorithm_profile,
@@ -214,6 +215,12 @@ def handle_asset_check(args: argparse.Namespace) -> int:
     payload = inspect_asset_bundle(bundle)
     payload["asset_root"] = str(asset_root)
     _print_json(payload)
+    return 0
+
+
+def handle_lanelet_to_opendrive(args: argparse.Namespace) -> int:
+    result = convert_from_args(args)
+    _print_json(conversion_result_payload(result))
     return 0
 
 
@@ -1631,6 +1638,13 @@ def build_parser() -> argparse.ArgumentParser:
     asset_check = subparsers.add_parser("asset-check", help="Validate one asset bundle against the local asset root")
     asset_check.add_argument("--bundle", required=True, help="Bundle id or manifest path")
     asset_check.set_defaults(func=handle_asset_check)
+
+    lanelet_to_opendrive = subparsers.add_parser(
+        "lanelet-to-opendrive",
+        help="Convert a Lanelet2 local-coordinate OSM map to first-pass OpenDRIVE",
+    )
+    add_lanelet_to_opendrive_arguments(lanelet_to_opendrive)
+    lanelet_to_opendrive.set_defaults(func=handle_lanelet_to_opendrive)
 
     bootstrap = subparsers.add_parser("bootstrap", help="Prepare host, WSL, or remote nodes")
     bootstrap.add_argument("--stack", choices=["stable"], required=True)

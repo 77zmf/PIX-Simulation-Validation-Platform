@@ -149,6 +149,16 @@ simctl asset-check --bundle site_gy_qyhx_gsh20260310
 python tools/validate_reconstruction_assets.py --bundle site_gy_qyhx_gsh20260310
 ```
 
+Lanelet2 to CARLA OpenDRIVE first pass:
+
+```powershell
+.\.venv\Scripts\python.exe -m simctl lanelet-to-opendrive `
+  --lanelet G:\Carla\gy_qyhx_gsh20260310_map\lanelet2_map.osm `
+  --projector G:\Carla\gy_qyhx_gsh20260310_map\map_projector_info.yaml `
+  --output-dir outputs\carla_maps\site_gy_qyhx_gsh20260310 `
+  --map-name site_gy_qyhx_gsh20260310
+```
+
 Pointcloud-map reconstruction smoke:
 
 ```powershell
@@ -250,6 +260,7 @@ Reference documents:
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
 - [Weekly Repo Sync 2026-04-18](./docs/WEEKLY_REPO_SYNC_2026_04_18_CN.md)
 - [Local Reconstruction Validation](./docs/LOCAL_RECONSTRUCTION_VALIDATION_CN.md)
+- [Lanelet2 To CARLA OpenDRIVE](./docs/LANELET_TO_CARLA_OPENDRIVE_CN.md)
 - [BEVFusion Shadow Interface Baseline](./docs/BEVFUSION_SHADOW_INTERFACE_BASELINE_CN.md)
 - [Yang Shadow E2E Reading Notes](./docs/YANG_SHADOW_E2E_READING_NOTES_CN.md)
 
