@@ -13,19 +13,41 @@ start:
   - name: start-carla-server
     runner: bash
     background: true
-    command: "bash '{repo_root}/stack/stable/start_carla_host.sh' --run-dir '{run_dir}' --asset-root '{asset_root}' --slot-id '{slot_id}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --gpu-id '{gpu_id}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
+    env:
+      CARLA_0915_ROOT: "{carla_root}"
+    command: "bash '{repo_root}/stack/stable/start_carla_host.sh' --run-dir '{run_dir}' --asset-root '{asset_root}' --slot-id '{slot_id}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --gpu-id '{gpu_id}' --cpu-affinity '{cpu_affinity}' --carla-map '{carla_map}' --render-mode '{carla_render_mode}' --res-x '{carla_res_x}' --res-y '{carla_res_y}' --quality-level '{carla_quality_level}' --extra-args '{carla_extra_args}' --display '{carla_display}' --xauthority '{carla_xauthority}' {execute_flag}"
+  - name: wait-carla-rpc
+    runner: bash
+    background: false
+    env:
+      CARLA_0915_ROOT: "{carla_root}"
+    command: "python3 '{repo_root}/stack/stable/wait_for_carla_rpc.py' --host '127.0.0.1' --port '{carla_rpc_port}' --timeout-sec '{carla_startup_timeout_sec}' --carla-root '{carla_root}'"
   - name: start-autoware-bridge
     runner: bash
     background: true
-    command: "bash '{repo_root}/stack/stable/start_bridge_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --ros-domain-id '{ros_domain_id}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
+    env:
+      CARLA_0915_ROOT: "{carla_root}"
+    command: "bash '{repo_root}/stack/stable/start_bridge_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_bridge_ws}' --autoware-underlay-ws '{autoware_bridge_underlay_ws}' --vehicle-type '{carla_vehicle_type}' --carla-map '{carla_map}' --spawn-point '{carla_spawn_point}' --ego-vehicle-role-name '{carla_ego_vehicle_role_name}' --sensor-kit-name '{carla_sensor_kit_name}' --sensor-mapping-file '{carla_sensor_mapping_file}' --sensor-kit-calibration-file '{carla_sensor_kit_calibration_file}' --objects-definition-file '{carla_objects_definition_file}' --use-traffic-manager '{carla_use_traffic_manager}' {execute_flag}"
   - name: start-autoware-stack
     runner: bash
     background: true
-    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_ws}' --map-path '{autoware_map_path}' --vehicle-model '{autoware_vehicle_model}' --sensor-model '{autoware_sensor_model}' --lidar-type '{autoware_lidar_type}' --rviz '{autoware_rviz}' {execute_flag}"
+  - name: start-carla-localization-bridge
+    runner: bash
+    background: true
+    command: "bash '{repo_root}/stack/stable/start_carla_localization_bridge_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_ws}' --autoware-bridge-ws '{autoware_bridge_ws}' --kill-simple-sim '{carla_localization_bridge_kill_simple_sim}' --wait-sec '{carla_localization_bridge_wait_sec}' --kill-monitor-sec '{carla_localization_bridge_kill_monitor_sec}' {execute_flag}"
+  - name: start-carla-actor-object-bridge
+    runner: bash
+    background: true
+    command: "bash '{repo_root}/stack/stable/start_carla_actor_object_bridge_host.sh' --run-dir '{run_dir}' --carla-port '{carla_rpc_port}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_ws}' --ego-vehicle-role-name '{carla_ego_vehicle_role_name}' --enabled '{carla_actor_object_bridge_enabled}' --poll-sec '{carla_actor_object_bridge_poll_sec}' --wait-sec '{carla_actor_object_bridge_wait_sec}' --include-walkers '{carla_actor_object_bridge_include_walkers}' --delete-all-on-start '{carla_actor_object_bridge_delete_all_on_start}' --delete-all-on-stop '{carla_actor_object_bridge_delete_all_on_stop}' {execute_flag}"
+  - name: capture-visual-screenshot
+    runner: bash
+    background: false
+    command: "bash '{repo_root}/stack/stable/capture_visual_screenshot_host.sh' --run-dir '{run_dir}' --render-mode '{carla_render_mode}' --rviz '{autoware_rviz}' --display '{carla_display}' --xauthority '{carla_xauthority}' --wait-sec '{visual_screenshot_wait_sec}' {execute_flag}"
 stop:
   - name: stop-autoware-stack
     runner: bash
-    command: "bash '{repo_root}/stack/stable/stop_stable_stack.sh' --run-dir '{run_dir}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/stop_stable_stack.sh' --run-dir '{run_dir}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' {execute_flag}"
 replay:
   - name: replay-rosbag
     runner: bash

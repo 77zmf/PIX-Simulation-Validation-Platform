@@ -1,0 +1,25 @@
+gate_id: robobus117th_sensor_actor_bridge
+description: Robobus117th CARLA bridge gate requiring live sensors, actor perception, and safe planning-control response.
+failure_labels:
+  - robobus_sensor_bridge_failure
+  - actor_bridge_perception_failure
+  - planning_control_gate_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.5
+  dynamic_actor_response:
+    op: ">="
+    value: 1.0
+  sensor_topic_coverage:
+    op: ">="
+    value: 1.0
+  sensor_sample_coverage:
+    op: ">="
+    value: 1.0

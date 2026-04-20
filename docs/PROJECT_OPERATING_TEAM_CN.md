@@ -1,7 +1,7 @@
 # 项目推进团队与边界
 
 当前项目对外展示名统一为 `PIX Simulation Validation Platform`。  
-当前可用 GitHub 仓库路径仍然是 `pixmoving-moveit/zmf_ws`。
+当前可用 GitHub 仓库路径仍然是 `77zmf/PIX-Simulation-Validation-Platform`。
 
 ## 1. 团队目标
 

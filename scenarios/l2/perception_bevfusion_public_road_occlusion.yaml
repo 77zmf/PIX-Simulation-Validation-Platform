@@ -7,14 +7,14 @@ ego_init:
 goal:
   route_id: Town01/occluded_crosswalk
 traffic_profile:
-  mode: public_road_occlusion
+  mode: public_road_occlusion_shadow
   vehicles: 24
   pedestrians: 10
   scripted_agents:
     - occluded_crosswalk_pedestrian
 weather_profile:
   preset: WetCloudySunset
-sensor_profile: production_perception
+sensor_profile: robobus_pixrover14_application_topology
 algorithm_profile: perception_bevfusion_public_road
 seed: 20260324
 recording:
@@ -27,8 +27,87 @@ recording:
 kpi_gate: perception_bevfusion_public_road_gate
 labels:
   - L2
+  - shadow
   - perception
+  - bevfusion
   - public_road
   - occlusion
+metadata:
+  owner: zmf
+  source_assets:
+    - assets/sensors/robobus_pixrover14_application_topology.yaml
+    - ops/runtime_probes/carla_sensor_topic_probe.py
+    - ops/runtime_probes/perception_readiness_probe.py
+  validation_method: Run the stable CARLA/Autoware sensor stack, verify Robobus117th sensor samples, then require a BEVFusion public-road metrics artifact before KPI evaluation.
+  validation_command: >
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th;
+    sensor_rc=$?;
+    python3 ops/runtime_probes/perception_readiness_probe.py
+    --run-dir <run_dir>
+    --profile bevfusion_public_road
+    --require-metrics;
+    readiness_rc=$?;
+    test "$sensor_rc" -eq 0
+    &&
+    test "$readiness_rc" -eq 0
+  metrics_artifact: runtime_verification/perception_metrics/bevfusion_public_road_metrics.json
+  expected_observable: CARLA publishes Robobus117th sensor samples, BEVFusion publishes object outputs, and the metrics artifact contains detection, tracking, occupancy, lane-topology, latency, and planner-interface scores.
+  blocked_on:
+    - runtime_verification/perception_metrics/bevfusion_public_road_metrics.json
+  rollback_impact: Exclude ops/test_campaigns/shadow_perception_readiness.yaml from automated runs until BEVFusion metrics generation is wired.
 execution:
   mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_map: Town01
+    carla_vehicle_type: vehicle.toyota.prius
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: ""
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_prius_fallback_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_actor_object_bridge_enabled: "false"
+    carla_actor_object_bridge_poll_sec: "0.2"
+    carla_actor_object_bridge_include_walkers: "true"
+    carla_actor_object_bridge_delete_all_on_start: "true"
+    carla_actor_object_bridge_delete_all_on_stop: "true"
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info
+      - /sensing/camera/CAM_BACK/image_raw
+      - /sensing/camera/CAM_BACK/camera_info
+      - /sensing/camera/CAM_FRONT_LEFT/image_raw
+      - /sensing/camera/CAM_FRONT_LEFT/camera_info
+      - /sensing/camera/CAM_FRONT_RIGHT/image_raw
+      - /sensing/camera/CAM_FRONT_RIGHT/camera_info
+      - /sensing/camera/CAM_BACK_LEFT/image_raw
+      - /sensing/camera/CAM_BACK_LEFT/camera_info
+      - /sensing/camera/CAM_BACK_RIGHT/image_raw
+      - /sensing/camera/CAM_BACK_RIGHT/camera_info
+      - /localization/kinematic_state
+      - /localization/acceleration
+      - /vehicle/status/control_mode
+      - /vehicle/status/velocity_status

@@ -1,0 +1,116 @@
+scenario_id: robobus117th_town01_close_cut_in_actor_bridge
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 229.78167724609375
+    y: -2.0201120376586914
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 314.2434997558594
+    y: -1.982629656791687
+    z: 0.0
+    yaw_deg: -0.03045654296875
+traffic_profile:
+  mode: carla_actor_bridge_close_cut_in
+  vehicles: 1
+  pedestrians: 0
+  scripted_agents:
+    - close_cut_in_audi_tt
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 1172
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/robobus117th_close_cut_in_actor_bridge
+  carla_recorder:
+    enabled: true
+    path: carla/robobus117th_close_cut_in_actor_bridge.log
+kpi_gate: robobus117th_sensor_actor_bridge
+labels:
+  - L2
+  - robobus117th
+  - planning_control
+  - actor_bridge
+  - close_cut_in
+metadata:
+  owner: zmf
+  source_assets:
+    - scenarios/l0/robobus117th_town01_closed_loop.yaml
+    - stack/stable/carla_actor_object_bridge.py
+    - ops/runtime_probes/carla_sensor_topic_probe.py
+    - ops/runtime_probes/carla_dynamic_actor_probe.py
+  validation_method: Run the stable stack with CARLA actor object bridge enabled, verify robobus117th sensor topic samples, then execute the l2_close_cut_in actor_bridge runtime probe.
+  validation_command: >
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th
+    &&
+    python3 ops/runtime_probes/carla_dynamic_actor_probe.py
+    --run-dir <run_dir>
+    --kind l2_close_cut_in
+    --perception-source actor_bridge
+    --no-rosbag
+  expected_observable: All 6 camera image topics, 5 lidar pointcloud topics, IMU, and GNSS have live samples; /perception/object_recognition/objects is non-empty without probe-local DummyObject injection; ego slows for the cut-in target with no collision and safe TTC.
+  rollback_impact: Disable carla_actor_object_bridge_enabled or switch back to scenarios/l0/robobus117th_town01_closed_loop.yaml.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_map: Town01
+    carla_vehicle_type: vehicle.toyota.prius
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: ""
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_prius_fallback_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_actor_object_bridge_enabled: "true"
+    carla_actor_object_bridge_poll_sec: "0.2"
+    carla_actor_object_bridge_include_walkers: "true"
+    carla_actor_object_bridge_delete_all_on_start: "true"
+    carla_actor_object_bridge_delete_all_on_stop: "true"
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info
+      - /sensing/camera/CAM_BACK/image_raw
+      - /sensing/camera/CAM_BACK/camera_info
+      - /sensing/camera/CAM_FRONT_LEFT/image_raw
+      - /sensing/camera/CAM_FRONT_LEFT/camera_info
+      - /sensing/camera/CAM_FRONT_RIGHT/image_raw
+      - /sensing/camera/CAM_FRONT_RIGHT/camera_info
+      - /sensing/camera/CAM_BACK_LEFT/image_raw
+      - /sensing/camera/CAM_BACK_LEFT/camera_info
+      - /sensing/camera/CAM_BACK_RIGHT/image_raw
+      - /sensing/camera/CAM_BACK_RIGHT/camera_info
+      - /localization/kinematic_state
+      - /localization/acceleration
+      - /vehicle/status/control_mode
+      - /vehicle/status/velocity_status
+      - /perception/object_recognition/objects

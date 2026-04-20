@@ -2,9 +2,14 @@
 set -euo pipefail
 
 STRICT=0
-if [[ "${1:-}" == "--strict" ]]; then
-  STRICT=1
-fi
+VISUAL=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --strict) STRICT=1; shift ;;
+    --visual) VISUAL=1; shift ;;
+    *) echo "Unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
 
 FAILURES=0
 
@@ -29,6 +34,36 @@ check_cmd() {
   else
     fail "$name missing"
   fi
+}
+
+check_optional_cmd() {
+  local name="$1"
+  local cmd="$2"
+  if command -v "$cmd" >/dev/null 2>&1; then
+    pass "$name available: $(command -v "$cmd")"
+  else
+    warn "$name missing"
+  fi
+}
+
+check_ros2_cli() {
+  if command -v ros2 >/dev/null 2>&1; then
+    pass "ros2 available: $(command -v ros2)"
+    if ros2 --help >/dev/null 2>&1; then
+      pass "ROS 2 CLI responds"
+    else
+      fail "ROS 2 CLI found but not responding correctly"
+    fi
+    return
+  fi
+
+  if [[ -f /opt/ros/humble/setup.bash ]] && bash -lc "source /opt/ros/humble/setup.bash >/dev/null 2>&1 && command -v ros2 >/dev/null 2>&1 && ros2 --help >/dev/null 2>&1"; then
+    pass "ros2 available after sourcing /opt/ros/humble/setup.bash"
+    pass "ROS 2 CLI responds"
+    return
+  fi
+
+  fail "ros2 missing"
 }
 
 echo "Checking company Ubuntu host readiness for Autoware + CARLA stable stack"
@@ -58,7 +93,8 @@ if command -v nvidia-smi >/dev/null 2>&1; then
   else
     warn "nvcc missing; CUDA toolkit is not ready"
   fi
-  if ldconfig -p | grep -q libnvinfer; then
+  LDCONFIG_CACHE="$(ldconfig -p 2>/dev/null || true)"
+  if grep -q 'libnvinfer' <<<"$LDCONFIG_CACHE"; then
     pass "TensorRT runtime libraries registered"
   else
     warn "TensorRT runtime libraries missing"
@@ -67,7 +103,7 @@ else
   warn "nvidia-smi missing; GPU checks unavailable"
 fi
 
-if sudo dpkg --audit | grep -q .; then
+if dpkg --audit | grep -q .; then
   fail "dpkg audit reports broken packages"
 else
   pass "dpkg audit clean"
@@ -77,16 +113,7 @@ if [[ -n "${CONDA_PREFIX:-}" ]]; then
   warn "Conda environment active: ${CONDA_PREFIX}"
 fi
 
-if command -v ros2 >/dev/null 2>&1; then
-  pass "ros2 available: $(command -v ros2)"
-  if ros2 --help >/dev/null 2>&1; then
-    pass "ROS 2 CLI responds"
-  else
-    fail "ROS 2 CLI found but not responding correctly"
-  fi
-else
-  fail "ros2 missing"
-fi
+check_ros2_cli
 
 AUTOWARE_WS="${AUTOWARE_WS:-$HOME/zmf_ws/projects/autoware_universe/autoware}"
 if [[ -d "$AUTOWARE_WS" ]]; then
@@ -121,6 +148,27 @@ if [[ -n "${DISPLAY:-}" ]]; then
   pass "DISPLAY is set: $DISPLAY"
 else
   warn "DISPLAY is not set; offscreen mode is expected"
+fi
+
+if [[ "$VISUAL" -eq 1 ]]; then
+  echo
+  echo "Checking optional visual validation tools"
+  check_cmd "ffmpeg" ffmpeg
+  check_optional_cmd "xwd" xwd
+  check_optional_cmd "xprop" xprop
+  check_optional_cmd "xwininfo" xwininfo
+  check_optional_cmd "wmctrl" wmctrl
+  check_optional_cmd "xdotool" xdotool
+  check_optional_cmd "gnome-screenshot" gnome-screenshot
+  check_optional_cmd "scrot" scrot
+  check_optional_cmd "ImageMagick import" import
+  check_optional_cmd "glxinfo" glxinfo
+
+  if [[ -n "${DISPLAY:-}" ]]; then
+    pass "visual DISPLAY target is available from current shell"
+  else
+    warn "For NoMachine visual runs over SSH, export DISPLAY=:0 and XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority if present."
+  fi
 fi
 
 if [[ "$STRICT" -eq 1 && "$FAILURES" -gt 0 ]]; then

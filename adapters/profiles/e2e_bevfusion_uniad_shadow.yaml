@@ -15,6 +15,54 @@ outputs:
   trajectories: shadow_multimodal_trajectories
   trajectory: shadow_trajectory
   control: shadow_control
+interface_contract:
+  contract_version: 2026q2-shadow-v1
+  comparison_role: primary_shadow_reference
+  consumes:
+    perception_profile: perception_bevfusion_public_road
+    outputs:
+      - bevfusion_objects
+      - bevfusion_occupancy
+      - bevfusion_tracks
+    planner_interface:
+      - object_queries
+      - lane_graph_features
+      - occupancy_queries
+      - ego_history
+  minimal_inputs:
+    object_queries:
+      required: true
+    lane_graph_features:
+      required: true
+    occupancy_queries:
+      required: true
+    ego_history:
+      required: true
+    route_reference:
+      required: true
+  synchronization:
+    target_frame: map
+    max_perception_age_ms: 100
+    planning_tick_hz: 10
+  outputs:
+    shadow_multimodal_trajectories:
+      top_k: 6
+    shadow_trajectory:
+      horizon_sec: 8.0
+      step_sec: 0.5
+    shadow_control:
+      observation_only: true
+  comparison_metrics:
+    common:
+      - route_completion
+      - collision_count
+      - trajectory_divergence_m
+      - min_ttc_sec
+      - planner_disengagement_triggers
+    profile_specific:
+      - comfort_cost
+      - red_light_violations
+      - unprotected_left_yield_failures
 constraints:
   shadow_only: true
   requires_gate_pass_before_online: true

@@ -7,7 +7,7 @@ from typing import Any
 from .config import find_repo_root, load_yaml
 
 
-@dataclass(slots=True)
+@dataclass
 class SubagentSpec:
     spec_id: str
     name: str
