@@ -1,0 +1,156 @@
+# Mac 远程接管工作流
+
+这份说明对应已经接入 `Tailscale` 的公司 Ubuntu 主机，目标是让后续主要工作直接从 Mac 远程继续。
+
+## 当前可用入口
+
+优先使用 `Tailscale`：
+
+```bash
+ssh pixmoving@100.112.150.90
+```
+
+或者使用 `MagicDNS`：
+
+```bash
+ssh pixmoving@pixmoving-system-product-name.taild98089.ts.net
+```
+
+## 远程登录后的主工作目录
+
+后续主工作目录统一使用个人仓库：
+
+```bash
+cd /home/pixmoving/PIX-Simulation-Validation-Platform
+```
+
+公司原始工作区仍在：
+
+```bash
+cd /home/pixmoving/zmf
+```
+
+但后续开发建议优先在个人仓库继续，再确认后同步到公司仓库。
+
+## 仓库远端约定
+
+个人仓库当前已经配置好两个远端：
+
+```bash
+git remote -v
+```
+
+预期结果：
+
+- `origin` -> `git@github.com:77zmf/PIX-Simulation-Validation-Platform.git`
+- `company` -> `git@github.com:77zmf/PIX-Simulation-Validation-Platform.git`
+
+推荐推送顺序：
+
+```bash
+git push origin main
+git push company main
+```
+
+## 环境检查
+
+先跑主机预检：
+
+```bash
+cd /home/pixmoving/PIX-Simulation-Validation-Platform
+bash infra/ubuntu/check_host_readiness.sh
+bash infra/ubuntu/preflight_and_next_steps.sh
+```
+
+如果需要补 CARLA 运行时：
+
+```bash
+bash infra/ubuntu/prepare_carla_runtime.sh --execute
+```
+
+如果需要补 Tailscale 远程接入：
+
+```bash
+bash infra/ubuntu/bootstrap_remote_access_tailscale.sh --execute --tailscale-hostname zmf-company-ubuntu
+```
+
+## Autoware / CARLA 常用核对
+
+```bash
+ls -l /home/pixmoving/CARLA_0.9.15/CarlaUE4.sh
+source /opt/ros/humble/setup.bash
+source /home/pixmoving/zmf_ws/projects/autoware_universe/autoware/install/setup.bash
+ros2 pkg prefix autoware_launch
+ros2 pkg prefix autoware_carla_interface
+```
+
+当前 stable Autoware host 启动脚本默认使用：
+
+- `map_path=/home/pixmoving/PIX-Simulation-Validation-Platform`
+- `vehicle_model=sample_vehicle`
+- `sensor_model=carla_sensor_kit`
+- `rviz=true`
+
+当前 `117th` 私有 install 验证请优先走已版本化场景：
+
+```bash
+cd /home/pixmoving/PIX-Simulation-Validation-Platform
+source .venv/bin/activate
+simctl up --stack stable \
+  --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml \
+  --run-dir runs/manual_robobus117th_town01 \
+  --slot stable-slot-01
+```
+
+它会渲染以下运行参数：
+
+- `AUTOWARE_WS=/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware`
+- `map_path=/home/pixmoving/autoware_map/Town01`
+- `vehicle_model=robobus`
+- `sensor_model=robobus_sensor_kit`
+- `LIDAR_TYPE=robosense`
+
+如果需要 NoMachine 可视化：
+
+```bash
+bash infra/ubuntu/bootstrap_host.sh --with-visual-tools --execute
+bash infra/ubuntu/check_host_readiness.sh --visual
+export DISPLAY=:0
+export XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority
+CARLA_RENDER_MODE=visual CARLA_RES_X=1280 CARLA_RES_Y=720 CARLA_QUALITY_LEVEL=Low \
+  bash stack/stable/start_carla_host.sh --carla-map Town01 --execute
+```
+
+走 `simctl up` 时也可以临时覆盖场景里的 offscreen 默认：
+
+```bash
+SIMCTL_CARLA_RENDER_MODE=visual \
+SIMCTL_CARLA_DISPLAY=:0 \
+SIMCTL_CARLA_XAUTHORITY="/run/user/$(id -u)/gdm/Xauthority" \
+simctl up --stack stable \
+  --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml \
+  --run-dir runs/manual_robobus117th_town01_visual \
+  --slot stable-slot-01 \
+  --execute
+```
+
+## 继续编译时建议
+
+先看之前的编译日志：
+
+```bash
+tail -n 200 /home/pixmoving/.cache/zmf/build_logs/autoware_normal_startup_build.log
+```
+
+进入工作区：
+
+```bash
+cd /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+```
+
+## 说明
+
+- 仓库里不会同步本机密钥、登录态、运行日志和下载产物。
+- 已同步的是远程继续工作真正需要的脚本修正、路径口径和接管说明。

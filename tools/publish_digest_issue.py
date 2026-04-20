@@ -50,15 +50,12 @@ def find_digest_issue(repo: str, label: str, title: str, token: str) -> dict | N
 
 def build_issue_body(*, digest_markdown: str, summary: dict, repo: str, label: str) -> str:
     generated_on = summary.get("generated_on", "unknown")
-    email = summary.get("email", {})
-    email_status = "sent" if email.get("sent") else email.get("reason", "disabled")
     issue_filter = f"https://github.com/{repo}/issues?q=is%3Aissue+is%3Aopen+label%3A{quote_plus(label)}"
     return "\n".join(
         [
             "# Project Digest Inbox",
             "",
             f"- Last updated: `{generated_on}`",
-            f"- Email status: `{email_status}`",
             f"- Digest issues filter: [open digest issues]({issue_filter})",
             "",
             "---",

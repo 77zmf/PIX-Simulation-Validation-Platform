@@ -9,6 +9,7 @@ source:
     - gy_qyhx_gsh20260302_map/lanelet2_map.osm
     - gy_qyhx_gsh20260302_map/map_projector_info.yaml
     - gy_qyhx_gsh20260302_map/pointcloud_map.pcd/
+    - gy_qyhx_gsh20260302_map/pointcloud_map_metadata.yaml
 maps:
   lanelet2:
     path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260302/lanelet2_map.osm
@@ -17,6 +18,8 @@ maps:
     path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260302/map_projector_info.yaml
   pointcloud_dir:
     path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260302/pointcloud_map.pcd
+  pointcloud_metadata:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260302/pointcloud_map_metadata.yaml
 metadata:
   pointcloud_tiles: 3215
   map_origin:

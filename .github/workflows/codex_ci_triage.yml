@@ -1,0 +1,81 @@
+name: codex-ci-triage
+
+on:
+  workflow_run:
+    workflows: ["checks", "project-management"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Optional workflow run id to triage
+        required: false
+        type: string
+
+jobs:
+  ci_triage:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare triage inputs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_RUN_ID: ${{ inputs.run_id }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          mkdir -p .codex/rendered automation_outputs/ci_failure automation_outputs/codex_ci_triage
+          RUN_ID="${DISPATCH_RUN_ID:-${WORKFLOW_RUN_ID:-}}"
+          {
+            echo "# CI failure metadata"
+            echo
+            echo "- event: ${EVENT_NAME}"
+            echo "- run_id: ${RUN_ID:-unknown}"
+            echo "- workflow_name: ${WORKFLOW_NAME:-unknown}"
+            echo "- conclusion: ${WORKFLOW_CONCLUSION:-unknown}"
+            echo "- url: ${WORKFLOW_URL:-unknown}"
+          } > automation_outputs/ci_failure/run_metadata.md
+          cp .github/codex/prompts/ci_failure_triage.md .codex/rendered/ci_failure_triage_prompt.md
+
+      - name: Fetch failed workflow logs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISPATCH_RUN_ID: ${{ inputs.run_id }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          RUN_ID="${DISPATCH_RUN_ID:-${WORKFLOW_RUN_ID:-}}"
+          if [ -n "$RUN_ID" ]; then
+            gh run view "$RUN_ID" --log-failed > automation_outputs/ci_failure/failed_workflow.log || \
+              gh run view "$RUN_ID" --log > automation_outputs/ci_failure/failed_workflow.log || \
+              echo "Unable to fetch workflow logs for run ${RUN_ID}" > automation_outputs/ci_failure/failed_workflow.log
+          else
+            echo "No workflow run id was available for triage." > automation_outputs/ci_failure/failed_workflow.log
+          fi
+
+      - name: Run Codex CI triage
+        id: run_codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .codex/rendered/ci_failure_triage_prompt.md
+          output-file: automation_outputs/codex_ci_triage/triage.md
+          model: gpt-5.4
+          safety-strategy: drop-sudo
+          sandbox: workspace-write
+
+      - name: Upload CI triage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-ci-triage
+          path: |
+            automation_outputs/ci_failure
+            automation_outputs/codex_ci_triage/triage.md
+
+      - name: Publish step summary
+        run: cat automation_outputs/codex_ci_triage/triage.md >> "$GITHUB_STEP_SUMMARY"

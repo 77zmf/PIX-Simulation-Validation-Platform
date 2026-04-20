@@ -1,0 +1,4 @@
+interface:
+  display_name: "PIX Run Result Triage"
+  short_description: "Interpret simctl run artifacts and KPI outcomes."
+  default_prompt: "Use pix-run-result-triage to review the latest run_result, KPI gate, report, and replay artifacts, then summarize status, evidence, gaps, and next action."

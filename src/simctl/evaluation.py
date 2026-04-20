@@ -86,7 +86,10 @@ def synthetic_metrics(gate: KpiGate, outcome: str) -> dict[str, float]:
 def cluster_failures(run_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     buckets: dict[tuple[str, ...], list[str]] = defaultdict(list)
     for result in run_results:
-        labels = tuple(sorted(result.get("failure_labels") or ["unlabeled"]))
+        failure_labels = result.get("failure_labels") or []
+        if result.get("status") == "passed" and not failure_labels:
+            continue
+        labels = tuple(sorted(failure_labels or ["unlabeled"]))
         buckets[labels].append(result["run_id"])
     clusters = []
     for labels, run_ids in sorted(buckets.items(), key=lambda item: (-len(item[1]), item[0])):

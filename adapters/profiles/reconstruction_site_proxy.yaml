@@ -1,7 +1,7 @@
 profile_id: reconstruction_site_proxy
 type: reconstruction
 description: Research profile for site-proxy 3D reconstruction and map refresh
-baseline: site_gy_qyhx_gsh20260302
+baseline: site_gy_qyhx_gsh20260310
 research_focus:
   - map_alignment
   - pointcloud_refresh

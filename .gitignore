@@ -1,5 +1,8 @@
 gy_qyhx_gsh20260302_map.zip
+gy_qyhx_gsh*_map*.zip
 .venv/
+.local_tools/
+.tmp/
 __pycache__/
 *.pyc
 build/
@@ -10,3 +13,8 @@ dist/
 runs/
 artifacts/
 reports/
+ci_runs/
+ci_digest/
+automation_outputs/
+outputs/
+src.zip
