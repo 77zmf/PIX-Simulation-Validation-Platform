@@ -2,8 +2,10 @@
 
 对应 issue：
 
-- [#22 论文整理：公开道路感知、Shadow E2E 与三维重建阅读清单](https://github.com/pixmoving-moveit/zmf_ws/issues/22)
-- [#27 BEVFusion 基线与 Shadow E2E 研究计划](https://github.com/pixmoving-moveit/zmf_ws/issues/27)
+- [#7 论文整理：公开道路感知、Shadow E2E 与三维重建阅读清单](https://github.com/77zmf/PIX-Simulation-Validation-Platform/issues/7)
+- [#10 BEVFusion 基线与 Shadow E2E 研究计划](https://github.com/77zmf/PIX-Simulation-Validation-Platform/issues/10)
+- [#5 P1 感知与 Shadow E2E：BEVFusion 接口与指标口径](https://github.com/77zmf/PIX-Simulation-Validation-Platform/issues/5)
+- [#27 建立 BEVFusion 公开道路感知基线与 planner 接口评测](https://github.com/77zmf/PIX-Simulation-Validation-Platform/issues/27)
 
 本文档只覆盖当前由杨志朋主责的研究线：
 
@@ -11,7 +13,7 @@
 - `UniAD-style / VAD / VADv2` shadow planner 对照
 - `Hydra-MDP / Hydra-NeXt / MomAD` 作为中期观察与储备路线
 
-统一回答 issue #22 要求的 3 个问题：
+统一回答 issue #7 要求的 3 个问题：
 
 1. 它解决了什么问题？
 2. 它会影响项目中的哪条主线？
@@ -20,6 +22,7 @@
 ## 当前结论
 
 - 立刻落地的主线仍然是 `BEVFusion -> UniAD-style shadow / VADv2 shadow`。
+- 截至 `2026-04-20`，`BEVFusion -> shadow planner` 接口合同、KPI gate、report/issue_update 输出和 Ubuntu execute runbook 已经合入 `main`，阅读纪要后续只需要服务于真实运行证据解释。
 - `VAD` 更适合作为结构化 scene token 和对照基线，而不是替代当前的 `BEVFusion` 感知主线。
 - `Hydra-MDP / Hydra-NeXt / MomAD` 值得持续跟踪，但不应在公司 Ubuntu 主机真实 `--execute` 路径跑通之前扩成当前季度主线任务。
 
@@ -78,6 +81,7 @@
 
 - `docs/PAPER_READING_MAP_CN.md`
 - `docs/PAPER_LANDSCAPE_CN.md`
+- `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
 - `docs/BEVFUSION_SHADOW_INTERFACE_BASELINE_CN.md`
 
 ## 4. VADv2
@@ -173,7 +177,8 @@
 仓库内：
 
 - 保持 `BEVFusion -> shadow planner` 契约文档和 KPI 口径一致
-- 继续把 issue #27 的 blocker 回贴到同一条研究线 issue
+- 优先引用 `docs/BEVFUSION_SHADOW_INTERFACE_BASELINE_CN.md` 与 `docs/BEVFUSION_SHADOW_RESEARCH_STATUS_CN.md`，避免阅读结论漂离已合并合同
+- 继续把 `#5 / #10 / #27` 的 blocker、研究结论和 runtime evidence 回贴到同一条线的 issue
 
 公司 Ubuntu 主机：
 
