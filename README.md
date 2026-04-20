@@ -245,6 +245,7 @@ Reference documents:
 - [Server Compile Baseline](./docs/SERVER_COMPILE_BASELINE_CN.md)
 - [Algorithm Research Roadmap](./docs/ALGORITHM_RESEARCH_ROADMAP_CN.md)
 - [BEVFusion Shadow Research Status](./docs/BEVFUSION_SHADOW_RESEARCH_STATUS_CN.md)
+- [BEVFusion Shadow PR Review Guide](./docs/BEVFUSION_SHADOW_PR_REVIEW_GUIDE_CN.md)
 - [Project Review](./docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md)
 - [Weekly Repo Sync 2026-04-18](./docs/WEEKLY_REPO_SYNC_2026_04_18_CN.md)
 - [Local Reconstruction Validation](./docs/LOCAL_RECONSTRUCTION_VALIDATION_CN.md)
@@ -293,6 +294,7 @@ The repo-side planning documents live in:
 - `docs/REMOTE_GPU_ACCESS_PLAN_CN.md`
 - `docs/ALGORITHM_RESEARCH_ROADMAP_CN.md`
 - `docs/BEVFUSION_SHADOW_RESEARCH_STATUS_CN.md`
+- `docs/BEVFUSION_SHADOW_PR_REVIEW_GUIDE_CN.md`
 - `docs/PROJECT_AUTOMATION.md`
 - `docs/PROJECT_REVIEW_AND_OPTIMIZATION_CN.md`
 - `docs/GIT_COLLABORATION_STANDARD_CN.md`
