@@ -87,6 +87,15 @@ outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/local_setup_pointclou
 
 当前这台本机如果没有系统级 `python`，脚本会优先尝试可用的显式 `-PythonPath`，再尝试 `.venv` 和 Codex runtime Python。长期建议还是安装一个系统 Python 3.11/3.12 并重建 `.venv`。
 
+当前本机推荐的默认路径是：
+
+```text
+.venv                       Python 重建环境
+.local_tools/ffmpeg/bin     本机 FFmpeg，不污染系统 PATH
+outputs/                    本机生成结果
+handoff_manifest.json        公司 Ubuntu 主机消费入口
+```
+
 ## 3. 资产级验证
 
 运行：
@@ -251,10 +260,25 @@ New-Item -ItemType Directory -Force -Path data\raw\qiyu_loop\images | Out-Null
 如果有视频，先抽帧：
 
 ```powershell
-ffmpeg -i data\raw\qiyu_loop\video\input.mp4 -vf "fps=2,scale=-1:1080" data\raw\qiyu_loop\images\frame_%06d.jpg
+.\.venv\Scripts\python.exe .\tools\extract_video_frames.py --video data\raw\qiyu_loop\video\input.mp4 --output-dir data\raw\qiyu_loop\images --fps 2 --max-width 1920 --overwrite
 ```
 
-跑 sparse reconstruction：
+优先跑 Python 版 PyCOLMAP sparse smoke：
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\run_pycolmap_sparse_smoke.py --image-dir data\raw\qiyu_loop\images --output-dir outputs\colmap_smoke\qiyu_loop --min-images 8 --matcher exhaustive
+```
+
+输出：
+
+```text
+outputs/colmap_smoke/qiyu_loop/database.db
+outputs/colmap_smoke/qiyu_loop/sparse/
+outputs/colmap_smoke/qiyu_loop/pycolmap_sparse_smoke.json
+outputs/colmap_smoke/qiyu_loop/pycolmap_sparse_smoke.md
+```
+
+如果后续安装了外部 `colmap.exe`，也可以跑 CLI sparse reconstruction：
 
 ```powershell
 $workspace = "outputs\colmap_smoke\qiyu_loop"
