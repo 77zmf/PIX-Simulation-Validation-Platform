@@ -21,7 +21,6 @@ def find_ffmpeg(repo_root: Path) -> str | None:
 
 def extract_frames(video_path: Path, output_dir: Path, fps: float, max_width: int, overwrite: bool) -> dict[str, object]:
     repo_root = Path(__file__).resolve().parents[1]
-    ffmpeg = find_ffmpeg(repo_root)
     output_dir.mkdir(parents=True, exist_ok=True)
     pattern = output_dir / "frame_%06d.jpg"
     report = {
@@ -30,16 +29,19 @@ def extract_frames(video_path: Path, output_dir: Path, fps: float, max_width: in
         "output_dir": str(output_dir),
         "fps": fps,
         "max_width": max_width,
-        "ffmpeg": ffmpeg,
+        "ffmpeg": None,
         "passed": False,
         "frame_count": 0,
         "error": None,
     }
-    if not ffmpeg:
-        report["error"] = "ffmpeg not found"
-        return report
     if not video_path.is_file():
         report["error"] = f"video not found: {video_path}"
+        return report
+
+    ffmpeg = find_ffmpeg(repo_root)
+    report["ffmpeg"] = ffmpeg
+    if not ffmpeg:
+        report["error"] = "ffmpeg not found"
         return report
 
     scale = f"scale='min({max_width},iw)':-2"
