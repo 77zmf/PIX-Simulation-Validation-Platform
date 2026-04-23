@@ -2,7 +2,9 @@
 
 ## 结论
 
-这台 Windows 主机当前先承担 `3D reconstruction line` 的本机验证，不承担大规模训练主机职责。
+这台 Windows 主机当前承担 `3D reconstruction line` 的本机验证和资产生产，不承担大规模训练主机职责。
+
+公司 Ubuntu 主机只读取这台电脑生成并同步出去的重建资产，用于 Autoware + CARLA 稳定验证或 site proxy 消费；公司主机不运行三维重建任务。
 
 当前优先级：
 
@@ -11,6 +13,7 @@
 3. 再补图像或视频，做 COLMAP sparse smoke。
 4. 最后决定是否进入 Gaussian / NeRF。
 5. 重建输出只进入 `outputs/` 或 `artifacts/`，不进入 Git。
+6. 每次可交付结果必须生成 handoff manifest，方便公司 Ubuntu 主机读取同一批资产。
 
 ## 1. 当前资产入口
 
@@ -67,6 +70,31 @@ Python modules: numpy, open3d, opencv-python, trimesh, pycolmap
 ```
 
 如果换机器后缺依赖，按脚本输出的 `install_hint` 补齐。
+
+一键准备本机重建工作区，并运行当前点云 smoke：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\bootstrap_local_reconstruction.ps1 -RunAssetValidation -RunPointcloudSmoke -RunName local_setup_pointcloud_smoke -HandoffRootUri "<shared-path-or-object-store-prefix>"
+```
+
+输出：
+
+```text
+outputs/local_reconstruction_setup/bootstrap_local_reconstruction.json
+outputs/local_reconstruction_setup/bootstrap_local_reconstruction.md
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/local_setup_pointcloud_smoke/
+```
+
+当前这台本机如果没有系统级 `python`，脚本会优先尝试可用的显式 `-PythonPath`，再尝试 `.venv` 和 Codex runtime Python。长期建议还是安装一个系统 Python 3.11/3.12 并重建 `.venv`。
+
+当前本机推荐的默认路径是：
+
+```text
+.venv                       Python 重建环境
+.local_tools/ffmpeg/bin     本机 FFmpeg，不污染系统 PATH
+outputs/                    本机生成结果
+handoff_manifest.json        公司 Ubuntu 主机消费入口
+```
 
 ## 3. 资产级验证
 
@@ -170,6 +198,38 @@ outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/s
 outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/previews/z_histogram.png
 ```
 
+生成规则化地面高度图：
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\build_ground_heightmap.py --input-ply outputs\pointcloud_reconstruction\site_gy_qyhx_gsh20260310\center_tiles64_ground_clean\site_proxy_ground_clean.ply --cell-size 1.0 --min-points-per-cell 2
+```
+
+默认会使用标准库生成 `ground_heightmap.png`。如果只需要 `CSV / JSON / PLY`，可以加 `--skip-png`。
+
+高度图输出：
+
+```text
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/heightmap/ground_heightmap.csv
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/heightmap/ground_heightmap.json
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/heightmap/ground_heightmap_centroids.ply
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/heightmap/ground_heightmap.png
+```
+
+生成公司 Ubuntu 主机消费用的交接清单：
+
+```powershell
+python .\tools\build_reconstruction_handoff_manifest.py --run-dir outputs\pointcloud_reconstruction\site_gy_qyhx_gsh20260310\center_tiles64_ground_clean --site-id site_gy_qyhx_gsh20260310 --handoff-root-uri "<shared-path-or-object-store-prefix>"
+```
+
+交接清单输出：
+
+```text
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/handoff_manifest.json
+outputs/pointcloud_reconstruction/site_gy_qyhx_gsh20260310/<run-name>/handoff_manifest.md
+```
+
+公司 Ubuntu 主机只需要读取 `handoff_manifest.json` 里的 `handoff_uri` 或对应共享路径，不需要重新执行点云清理、高度图生成、COLMAP 或 Gaussian。
+
 如果只看指定 tile 坐标范围：
 
 ```powershell
@@ -200,10 +260,25 @@ New-Item -ItemType Directory -Force -Path data\raw\qiyu_loop\images | Out-Null
 如果有视频，先抽帧：
 
 ```powershell
-ffmpeg -i data\raw\qiyu_loop\video\input.mp4 -vf "fps=2,scale=-1:1080" data\raw\qiyu_loop\images\frame_%06d.jpg
+.\.venv\Scripts\python.exe .\tools\extract_video_frames.py --video data\raw\qiyu_loop\video\input.mp4 --output-dir data\raw\qiyu_loop\images --fps 2 --max-width 1920 --overwrite
 ```
 
-跑 sparse reconstruction：
+优先跑 Python 版 PyCOLMAP sparse smoke：
+
+```powershell
+.\.venv\Scripts\python.exe .\tools\run_pycolmap_sparse_smoke.py --image-dir data\raw\qiyu_loop\images --output-dir outputs\colmap_smoke\qiyu_loop --min-images 8 --matcher exhaustive
+```
+
+输出：
+
+```text
+outputs/colmap_smoke/qiyu_loop/database.db
+outputs/colmap_smoke/qiyu_loop/sparse/
+outputs/colmap_smoke/qiyu_loop/pycolmap_sparse_smoke.json
+outputs/colmap_smoke/qiyu_loop/pycolmap_sparse_smoke.md
+```
+
+如果后续安装了外部 `colmap.exe`，也可以跑 CLI sparse reconstruction：
 
 ```powershell
 $workspace = "outputs\colmap_smoke\qiyu_loop"
@@ -239,3 +314,5 @@ colmap model_analyzer --path "$workspace\sparse\0"
 这条线是 `3D reconstruction line`，不要和公司 Ubuntu 主机上的 `stable local validation line` 混在一起。
 
 重建资产可以服务仿真验证，但不能阻塞 Autoware + CARLA 0.9.15 的稳定闭环主线。
+
+本机负责生产重建资产；公司 Ubuntu 主机负责读取已同步资产并跑仿真验证。

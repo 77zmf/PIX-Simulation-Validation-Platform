@@ -1403,6 +1403,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertTrue((report_dir / "report.md").exists())
             self.assertTrue((report_dir / "report.html").exists())
+            self.assertTrue((report_dir / "issue_update.md").exists())
             report_md = (report_dir / "report.md").read_text(encoding="utf-8")
             report_html = (report_dir / "report.html").read_text(encoding="utf-8")
             self.assertIn("## Failure Clusters", report_md)

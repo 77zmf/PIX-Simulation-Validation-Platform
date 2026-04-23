@@ -1,5 +1,7 @@
 param(
   [string]$OutputRoot = "outputs/env",
+  [string]$PythonPath = "",
+  [string[]]$ExtraPythonPath = @(),
   [switch]$JsonOnly
 )
 
@@ -29,6 +31,24 @@ function Get-CommandInfo {
   }
 }
 
+function Add-LocalToolPath {
+  param([string]$RepoRoot)
+
+  $paths = @(
+    (Join-Path $RepoRoot ".local_tools/ffmpeg/bin"),
+    (Join-Path $RepoRoot ".local_tools/colmap/bin"),
+    (Join-Path $RepoRoot ".local_tools/colmap")
+  )
+  foreach ($path in $paths) {
+    if (Test-Path -LiteralPath $path) {
+      $resolved = (Resolve-Path $path).Path
+      if (($env:Path -split [IO.Path]::PathSeparator) -notcontains $resolved) {
+        $env:Path = $resolved + [IO.Path]::PathSeparator + $env:Path
+      }
+    }
+  }
+}
+
 function Invoke-Capture {
   param(
     [string]$FilePath,
@@ -49,17 +69,53 @@ function Invoke-Capture {
   }
 }
 
+function Test-PythonExecutable {
+  param([string]$Candidate)
+
+  if ([string]::IsNullOrWhiteSpace($Candidate)) {
+    return $false
+  }
+  if (-not (Test-Path -LiteralPath $Candidate)) {
+    return $false
+  }
+  try {
+    $output = & $Candidate -c "import sys; print(sys.executable)" 2>$null
+    return -not [string]::IsNullOrWhiteSpace(($output | Select-Object -First 1))
+  } catch {
+    return $false
+  }
+}
+
 function Get-PythonPath {
-  param([string]$RepoRoot)
+  param(
+    [string]$RepoRoot,
+    [string]$ExplicitPythonPath
+  )
+
+  $candidates = New-Object System.Collections.Generic.List[string]
+  if (-not [string]::IsNullOrWhiteSpace($ExplicitPythonPath)) {
+    $candidates.Add($ExplicitPythonPath)
+  }
 
   $venvPython = Join-Path $RepoRoot ".venv/Scripts/python.exe"
   if (Test-Path -LiteralPath $venvPython) {
-    return (Resolve-Path $venvPython).Path
+    $candidates.Add((Resolve-Path $venvPython).Path)
   }
 
   $python = Get-Command python -ErrorAction SilentlyContinue
   if ($null -ne $python) {
-    return $python.Source
+    $candidates.Add($python.Source)
+  }
+
+  $codexPython = Join-Path $env:USERPROFILE ".cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe"
+  if (Test-Path -LiteralPath $codexPython) {
+    $candidates.Add((Resolve-Path $codexPython).Path)
+  }
+
+  foreach ($candidate in $candidates) {
+    if (Test-PythonExecutable -Candidate $candidate) {
+      return $candidate
+    }
   }
 
   return $null
@@ -109,9 +165,28 @@ print(json.dumps({
 "@
 
   try {
-    $json = $code | & $PythonPath -
+    $oldPythonPath = $env:PYTHONPATH
+    $pythonPathEntries = New-Object System.Collections.Generic.List[string]
+    foreach ($entry in $ExtraPythonPath) {
+      if (-not [string]::IsNullOrWhiteSpace($entry) -and (Test-Path -LiteralPath $entry)) {
+        $pythonPathEntries.Add((Resolve-Path $entry).Path)
+      }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($oldPythonPath)) {
+      $pythonPathEntries.Add($oldPythonPath)
+    }
+    if ($pythonPathEntries.Count -gt 0) {
+      $env:PYTHONPATH = ($pythonPathEntries -join [IO.Path]::PathSeparator)
+    }
+    $output = @($code | & $PythonPath - 2>&1)
+    $env:PYTHONPATH = $oldPythonPath
+    $json = $output | Where-Object { "$_".TrimStart().StartsWith("{") } | Select-Object -Last 1
+    if ([string]::IsNullOrWhiteSpace($json)) {
+      throw "python module probe did not emit JSON: $($output -join '; ')"
+    }
     return ($json | ConvertFrom-Json)
   } catch {
+    $env:PYTHONPATH = $oldPythonPath
     return [ordered]@{
       ok = $false
       python = $PythonPath
@@ -153,6 +228,10 @@ function New-MarkdownReport {
   }
   $lines.Add("")
   $lines.Add("## Python Modules")
+  $lines.Add("- executable: $($Report.python.python)")
+  if ($Report.python.error) {
+    $lines.Add("- error: $($Report.python.error)")
+  }
   foreach ($mod in $Report.python.modules) {
     $lines.Add("- $($mod.name): present=$($mod.present), version=$($mod.version)")
   }
@@ -167,8 +246,9 @@ function New-MarkdownReport {
 
 $repoRoot = Get-RepoRoot
 Set-Location $repoRoot
+Add-LocalToolPath -RepoRoot $repoRoot
 
-$pythonPath = Get-PythonPath -RepoRoot $repoRoot
+$pythonPath = Get-PythonPath -RepoRoot $repoRoot -ExplicitPythonPath $PythonPath
 $commands = @(
   (Get-CommandInfo -Name "git"),
   (Get-CommandInfo -Name "python"),
@@ -190,33 +270,24 @@ $versions = [ordered]@{
   nvidia_smi = if ($nvidiaSmi) { Invoke-Capture -FilePath $nvidiaSmi.Source -Arguments @() } else { [ordered]@{ ok = $false; output = @("nvidia-smi not found") } }
 }
 
-$coreReady = $true
-foreach ($name in @("git", "ffmpeg", "colmap")) {
-  $found = $false
-  foreach ($cmd in $commands) {
-    if ($cmd.name -eq $name -and $cmd.present) {
-      $found = $true
-    }
-  }
-  if (-not $found) {
-    $coreReady = $false
-  }
-}
-
-if (-not $pythonModules.ok) {
-  $coreReady = $false
-}
-
-$gpuReady = $false
+$commandPresent = @{}
 foreach ($cmd in $commands) {
-  if ($cmd.name -eq "nvidia-smi" -and $cmd.present) {
-    $gpuReady = $true
-  }
+  $commandPresent[$cmd.name] = [bool]$cmd.present
+}
+$modulePresent = @{}
+foreach ($mod in $pythonModules.modules) {
+  $modulePresent[$mod.name] = [bool]$mod.present
 }
 
-$verdict = if ($coreReady -and $gpuReady) {
+$pythonReady = [bool]$pythonModules.ok
+$gpuReady = [bool]$commandPresent["nvidia-smi"]
+$gitReady = [bool]$commandPresent["git"]
+$ffmpegReady = [bool]$commandPresent["ffmpeg"]
+$colmapReady = [bool]$commandPresent["colmap"] -or [bool]$modulePresent["pycolmap"]
+
+$verdict = if ($gitReady -and $pythonReady -and $ffmpegReady -and $colmapReady -and $gpuReady) {
   "ready"
-} elseif ($coreReady) {
+} elseif ($gitReady -and $pythonReady -and $gpuReady) {
   "partial"
 } else {
   "blocked"
@@ -230,8 +301,8 @@ $report = [ordered]@{
   python = $pythonModules
   versions = $versions
   install_hint = [ordered]@{
-    python_venv = "python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -U pip; .\.venv\Scripts\python.exe -m pip install PyYAML numpy open3d opencv-python trimesh pycolmap matplotlib"
-    ffmpeg = "winget install --id Gyan.FFmpeg.Essentials -e --accept-package-agreements --accept-source-agreements --scope user"
+    python_venv = "python -m venv .venv; .\.venv\Scripts\python.exe -m pip install -U pip; .\.venv\Scripts\python.exe -m pip install PyYAML numpy open3d opencv-python trimesh pycolmap matplotlib imageio-ffmpeg"
+    ffmpeg = "Install system FFmpeg or copy imageio-ffmpeg binary to .local_tools/ffmpeg/bin/ffmpeg.exe"
     colmap = "Download colmap-x64-windows-cuda.zip from https://github.com/colmap/colmap/releases and add its bin directory to PATH"
   }
 }
