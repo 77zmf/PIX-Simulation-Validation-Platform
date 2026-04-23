@@ -1,0 +1,25 @@
+profile_id: lidar_sensor_kit_extrinsic_calibration
+type: calibration
+description: External automatic lidar extrinsic calibration for the Robobus117th five-lidar sensor kit
+line: stable_candidate
+owner: zmf
+external_program:
+  integration_status: adapter_contract_only
+  expected_input:
+    - five Robobus117th lidar pointcloud_before_sync topics
+    - assets/calibration/lidar_sensor_kit_initial_perturbed.yaml
+    - rosbag2 capture or live ROS 2 topics from the stable CARLA runtime
+  expected_output: runtime_verification/calibration/lidar_sensor_kit_extrinsic/calibration_result.json
+outputs:
+  calibration_result: calibration_result.json
+  metric_probe: metric_probe_lidar_sensor_kit_extrinsic
+  estimated_frames:
+    - lidar_ft_base_link
+    - lidar_rt_base_link
+    - lidar_rear_base_link
+    - lidar_fl_base_link
+    - lidar_fr_base_link
+acceptance_gate: lidar_sensor_kit_extrinsic
+notes:
+  - The external calibration program must not read lidar_sensor_kit_truth.yaml during calibration.
+  - The metric probe only converts calibration_result.json into KPI evidence; it is not the calibration algorithm.

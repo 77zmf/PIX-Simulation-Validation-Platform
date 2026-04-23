@@ -181,6 +181,20 @@ def _validation_shell_command(
         )
     if ros_domain_id:
         lines.append(f"export ROS_DOMAIN_ID={shlex.quote(ros_domain_id)}")
+    if run_result.get("carla_rpc_port") is not None:
+        lines.append(f"export SIMCTL_CARLA_RPC_PORT={shlex.quote(str(run_result['carla_rpc_port']))}")
+    if run_result.get("traffic_manager_port") is not None:
+        lines.append(
+            f"export SIMCTL_TRAFFIC_MANAGER_PORT={shlex.quote(str(run_result['traffic_manager_port']))}"
+        )
+    sumo_traci_port = _scenario_stable_runtime_value(scenario, "sumo_traci_port")
+    if sumo_traci_port is None and run_result.get("traffic_manager_port") is not None:
+        try:
+            sumo_traci_port = int(run_result["traffic_manager_port"]) + 1000
+        except (TypeError, ValueError):
+            sumo_traci_port = None
+    if sumo_traci_port is not None:
+        lines.append(f"export SIMCTL_SUMO_TRACI_PORT={shlex.quote(str(sumo_traci_port))}")
     if rmw_implementation:
         lines.append(f"export RMW_IMPLEMENTATION={shlex.quote(rmw_implementation)}")
     lines.extend(
@@ -459,6 +473,10 @@ def _build_worker_command(
     if mock_result:
         command.extend(["--mock-result", mock_result])
     return command
+
+
+def _default_slot_id_for_scenario(repo_root: Path, scenario: Any) -> str:
+    return load_slot_catalog(scenario.stack, repo_root)[0].slot_id
 
 
 def _parse_worker_result(stdout: str, stderr: str, scenario_path: Path) -> dict[str, Any]:
@@ -1010,7 +1028,8 @@ def handle_run(args: argparse.Namespace) -> int:
                     slot=slot,
                     logs=logs,
                     runtime_namespace=slot.runtime_namespace,
-                    expected_ros_topics=_scenario_expected_ros_topics(scenario),
+                    expected_process_steps=["start-carla-server"] if scenario.stack == "novadrive" else None,
+                    expected_ros_topics=[] if scenario.stack == "novadrive" else _scenario_expected_ros_topics(scenario),
                     rmw_implementation=_scenario_rmw_implementation(scenario),
                 )
             status, gate_eval = _launch_gate_eval(logs, runtime_health)
@@ -1072,21 +1091,25 @@ def handle_batch(args: argparse.Namespace) -> int:
         raise SystemExit("batch requires at least one scenario, --glob, or --scenario-dir")
 
     scenarios = [load_scenario(str(path), repo_root) for path in scenario_paths]
-    for scenario in scenarios:
-        if scenario.stack != "stable":
-            raise SystemExit(f"batch parallel execution only supports stable scenarios, got '{scenario.stack}'")
-
     parallel = max(1, int(args.parallel or 1))
-    slot_catalog = load_slot_catalog("stable", repo_root)
-    if parallel > len(slot_catalog):
-        raise SystemExit(f"batch --parallel {parallel} exceeds configured slot count {len(slot_catalog)}")
     requires_persistent_slots = args.execute and any(str(scenario.execution.get("mode", "external")) != "stub" for scenario in scenarios)
-    candidate_slots = list_available_slots(repo_root, "stable", slot_catalog) if requires_persistent_slots else slot_catalog
-    if parallel > len(candidate_slots):
-        raise SystemExit(
-            f"batch --parallel {parallel} exceeds available stable slots {len(candidate_slots)}"
-        )
-    active_slots = candidate_slots[:parallel]
+    stack_ids = {scenario.stack for scenario in scenarios}
+    mixed_stack_batch = len(stack_ids) != 1
+    if mixed_stack_batch and requires_persistent_slots:
+        raise SystemExit(f"batch --execute requires one stack per batch, got {sorted(stack_ids)}")
+    if mixed_stack_batch:
+        active_slots = [None] * parallel
+    else:
+        batch_stack = next(iter(stack_ids))
+        slot_catalog = load_slot_catalog(batch_stack, repo_root)
+        if parallel > len(slot_catalog):
+            raise SystemExit(f"batch --parallel {parallel} exceeds configured slot count {len(slot_catalog)}")
+        candidate_slots = list_available_slots(repo_root, batch_stack, slot_catalog) if requires_persistent_slots else slot_catalog
+        if parallel > len(candidate_slots):
+            raise SystemExit(
+                f"batch --parallel {parallel} exceeds available {batch_stack} slots {len(candidate_slots)}"
+            )
+        active_slots = candidate_slots[:parallel]
 
     if requires_persistent_slots and not args.down_on_complete:
         if len(scenarios) > parallel:
@@ -1110,7 +1133,7 @@ def handle_batch(args: argparse.Namespace) -> int:
                 asset_root=args.asset_root,
                 scenario_path=scenario.scenario_path,
                 run_root=run_root,
-                slot_id=slot.slot_id,
+                slot_id=slot.slot_id if slot is not None else _default_slot_id_for_scenario(repo_root, scenario),
                 execute=args.execute,
                 mock_result=args.mock_result,
                 validate=args.validate,
@@ -1133,7 +1156,7 @@ def handle_batch(args: argparse.Namespace) -> int:
                         asset_root=args.asset_root,
                         scenario_path=scenario.scenario_path,
                         run_root=run_root,
-                        slot_id=slot.slot_id,
+                        slot_id=slot.slot_id if slot is not None else _default_slot_id_for_scenario(repo_root, scenario),
                         execute=args.execute,
                         mock_result=args.mock_result,
                         validate=args.validate,
@@ -1146,7 +1169,8 @@ def handle_batch(args: argparse.Namespace) -> int:
     batch_index = {
         "generated_at": utc_now(),
         "parallel": parallel,
-        "slot_ids": [slot.slot_id for slot in active_slots],
+        "slot_ids": [slot.slot_id for slot in active_slots if slot is not None]
+        or sorted({str(record.get("slot_id")) for record in batch_records if record.get("slot_id")}),
         "records": batch_records,
     }
     batch_dir = ensure_dir(run_root / make_run_id("batch"))
@@ -1235,6 +1259,8 @@ def handle_report(args: argparse.Namespace) -> int:
 
 
 def _finalize_goal_status(runtime_evidence: dict[str, Any]) -> str:
+    if runtime_evidence.get("novadrive_attempt_count"):
+        return "novadrive_passed" if runtime_evidence.get("successful_novadrive_count") else "novadrive_failed"
     if runtime_evidence.get("attempt_count"):
         return "reached" if runtime_evidence.get("successful_attempt_count") else "not_reached"
     if runtime_evidence.get("dynamic_probe_attempt_count"):
@@ -1243,6 +1269,8 @@ def _finalize_goal_status(runtime_evidence: dict[str, Any]) -> str:
             if runtime_evidence.get("successful_dynamic_probe_count")
             else "dynamic_probe_failed"
         )
+    if runtime_evidence.get("sumo_cosim_attempt_count"):
+        return "sumo_cosim_passed" if runtime_evidence.get("successful_sumo_cosim_count") else "sumo_cosim_failed"
     if runtime_evidence.get("metric_probe_attempt_count") or runtime_evidence.get("sensor_probe_attempt_count"):
         return "evidence_collected"
     return "no_runtime_evidence"
@@ -1633,12 +1661,12 @@ def build_parser() -> argparse.ArgumentParser:
     asset_check.set_defaults(func=handle_asset_check)
 
     bootstrap = subparsers.add_parser("bootstrap", help="Prepare host, WSL, or remote nodes")
-    bootstrap.add_argument("--stack", choices=["stable"], required=True)
+    bootstrap.add_argument("--stack", choices=["stable", "novadrive"], required=True)
     bootstrap.add_argument("--execute", action="store_true")
     bootstrap.set_defaults(func=handle_bootstrap)
 
     up = subparsers.add_parser("up", help="Render or execute stack startup plan")
-    up.add_argument("--stack", choices=["stable"], required=True)
+    up.add_argument("--stack", choices=["stable", "novadrive"], required=True)
     up.add_argument("--scenario")
     up.add_argument("--run-dir")
     up.add_argument("--slot")
@@ -1646,7 +1674,7 @@ def build_parser() -> argparse.ArgumentParser:
     up.set_defaults(func=lambda args: handle_up_or_down(args, "up"))
 
     down = subparsers.add_parser("down", help="Render or execute stack shutdown plan")
-    down.add_argument("--stack", choices=["stable"], required=True)
+    down.add_argument("--stack", choices=["stable", "novadrive"], required=True)
     down.add_argument("--scenario")
     down.add_argument("--run-dir")
     down.add_argument("--slot")

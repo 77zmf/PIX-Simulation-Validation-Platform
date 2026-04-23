@@ -18,6 +18,10 @@ BACKGROUND_STARTUP_TIMEOUT_SEC = 0.2
 _BACKGROUND_PROCESSES: list[subprocess.Popen[str]] = []
 
 
+def _truthy(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 def load_stack_profile(stack_id: str, repo_root: Path | None = None) -> StackProfile:
     root = repo_root or find_repo_root()
     profile_path = root / "stack" / "profiles" / f"{stack_id}.yaml"
@@ -59,6 +63,9 @@ def build_context(
 
     autoware_ws = runtime_option("autoware_ws")
     autoware_bridge_ws = runtime_option("autoware_bridge_ws", autoware_ws)
+    default_sumo_traci_port = ""
+    if slot:
+        default_sumo_traci_port = str(slot.traffic_manager_port + 1000)
 
     context = {
         "repo_root": str(repo_root),
@@ -148,8 +155,35 @@ def build_context(
             "carla_actor_object_bridge_delete_all_on_stop",
             "true",
         ),
+        "sumo_enabled": runtime_option("sumo_enabled", "false"),
+        "sumo_home": runtime_option("sumo_home"),
+        "sumo_config_file": runtime_option("sumo_config_file"),
+        "sumo_net_file": runtime_option("sumo_net_file"),
+        "sumo_route_file": runtime_option("sumo_route_file"),
+        "sumo_traci_port": runtime_option("sumo_traci_port", default_sumo_traci_port),
+        "sumo_host": runtime_option("sumo_host", "127.0.0.1"),
+        "sumo_binary": runtime_option("sumo_binary", "sumo"),
+        "sumo_gui": runtime_option("sumo_gui", "false"),
+        "sumo_step_length": runtime_option("sumo_step_length", "0.05"),
+        "sumo_sync_vehicle_lights": runtime_option("sumo_sync_vehicle_lights", "false"),
+        "sumo_sync_vehicle_color": runtime_option("sumo_sync_vehicle_color", "true"),
+        "sumo_tls_manager": runtime_option("sumo_tls_manager", "none"),
+        "sumo_additional_args": runtime_option("sumo_additional_args"),
+        "sumo_cosim_script": runtime_option("sumo_cosim_script"),
+        "sumo_min_actor_count": runtime_option("sumo_min_actor_count", "1"),
+        "novadrive_runtime_mode": runtime_option("novadrive_runtime_mode", "carla"),
+        "novadrive_perception_source": runtime_option("novadrive_perception_source", "carla_truth"),
+        "novadrive_bevfusion_json": runtime_option("novadrive_bevfusion_json"),
+        "novadrive_tick_sec": runtime_option("novadrive_tick_sec", "0.05"),
+        "novadrive_max_duration_sec": runtime_option("novadrive_max_duration_sec", "45"),
     }
     return context
+
+
+def _step_enabled(step: CommandStep, context: dict[str, str]) -> bool:
+    if not step.when:
+        return True
+    return _truthy(str(context.get(step.when, "")))
 
 
 def render_step(step: CommandStep, context: dict[str, str]) -> dict[str, Any]:
@@ -170,7 +204,7 @@ def render_action(profile: StackProfile, action: str, context: dict[str, str]) -
         "description": profile.description,
         "action": action,
         "software_versions": profile.software_versions,
-        "steps": [render_step(step, context) for step in steps],
+        "steps": [render_step(step, context) for step in steps if _step_enabled(step, context)],
     }
 
 

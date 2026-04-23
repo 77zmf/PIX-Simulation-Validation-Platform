@@ -246,6 +246,37 @@ class CliTests(unittest.TestCase):
             self.assertIn("--display ':0'", screenshot_command)
             self.assertIn("--xauthority '/run/user/1000/gdm/Xauthority'", screenshot_command)
 
+    def test_up_renders_sumo_step_only_for_sumo_enabled_scenario(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "up",
+                        "--stack",
+                        "stable",
+                        "--scenario",
+                        "scenarios/l1/sumo_town01_traffic_smoke.yaml",
+                        "--run-dir",
+                        tempdir,
+                        "--slot",
+                        "stable-slot-01",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
+            step_names = [step["name"] for step in plan["steps"]]
+            self.assertEqual(step_names[0:4], ["start-carla-server", "wait-carla-rpc", "start-sumo-cosim", "start-autoware-bridge"])
+            sumo_command = plan["steps"][2]["command"]
+            stop_plan_path = Path(tempdir) / "down_plan.json"
+            self.assertIn("start_sumo_cosim_host.sh", sumo_command)
+            self.assertIn("--sumo-enabled 'true'", sumo_command)
+            self.assertIn("--sumo-traci-port '9000'", sumo_command)
+            self.assertIn("Town01.sumocfg", sumo_command)
+            self.assertFalse(stop_plan_path.exists())
+
     def test_up_passes_scenario_carla_root_for_pix_robobus_runtime(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             stream = io.StringIO()
@@ -617,6 +648,9 @@ class CliTests(unittest.TestCase):
                             "moved": True,
                             "total_delta_m": 84.0,
                             "max_speed_mps": 5.2,
+                            "lateral_error_m": 0.12,
+                            "longitudinal_error_m": 0.2,
+                            "jerk_mps3": 1.1,
                             "sample_count": 75,
                             "last_location": {"x": 313.8, "y": 1.8},
                         },
@@ -638,6 +672,9 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result["kpis"]["route_completion"], 1.0)
             self.assertEqual(result["kpis"]["collision_count"], 0.0)
             self.assertEqual(result["kpis"]["min_ttc_sec"], 999.0)
+            self.assertEqual(result["kpis"]["lateral_error_m"], 0.12)
+            self.assertEqual(result["kpis"]["longitudinal_error_m"], 0.2)
+            self.assertEqual(result["kpis"]["jerk_mps3"], 1.1)
             self.assertEqual(result["runtime_evidence"]["attempt_count"], 1)
             self.assertEqual(result["runtime_evidence"]["successful_attempt_count"], 1)
             self.assertEqual(result["runtime_evidence"]["ignored_attempts"][0]["reason"], "service_call_failed")
@@ -1184,28 +1221,39 @@ class CliTests(unittest.TestCase):
         self.assertEqual(payload["campaign_id"], "stable_perception_control")
         self.assertFalse(payload["execute"])
         self.assertEqual(payload["slot_id"], "stable-slot-01")
-        self.assertEqual(len(payload["scenarios"]), 3)
+        self.assertEqual(len(payload["scenarios"]), 5)
         scenario_ids = [scenario["scenario_id"] for scenario in payload["scenarios"]]
         self.assertEqual(
             scenario_ids,
             [
+                "stable_l1_follow_lane",
                 "robobus117th_town01_close_cut_in_actor_bridge",
                 "stable_l2_planning_control_merge_regression",
                 "stable_l2_planning_control_multi_actor_cut_in_lead_brake",
+                "stable_l2_planning_control_public_road_merge_regression",
             ],
         )
         first_scenario = payload["scenarios"][0]
         second_scenario = payload["scenarios"][1]
         third_scenario = payload["scenarios"][2]
+        fourth_scenario = payload["scenarios"][3]
+        fifth_scenario = payload["scenarios"][4]
         self.assertTrue(first_scenario["validation"])
         self.assertTrue(second_scenario["validation"])
         self.assertTrue(third_scenario["validation"])
-        self.assertIn("sensor_topic_coverage=1.0", first_scenario["expected_observables"])
-        self.assertIn("min_ttc_sec>=1.8", second_scenario["expected_observables"])
-        self.assertIn("actor_count_observed>=2", third_scenario["expected_observables"])
+        self.assertTrue(fourth_scenario["validation"])
+        self.assertTrue(fifth_scenario["validation"])
+        self.assertIn("route_completion>=0.98", first_scenario["expected_observables"])
+        self.assertIn("route_goal_lateral_error_m<=0.80", first_scenario["expected_observables"])
+        self.assertIn("sensor_topic_coverage=1.0", second_scenario["expected_observables"])
+        self.assertIn("min_ttc_sec>=1.8", third_scenario["expected_observables"])
+        self.assertIn("actor_count_observed>=2", fourth_scenario["expected_observables"])
+        self.assertIn("public_road", fifth_scenario["tags"])
         self.assertEqual([command["step"] for command in first_scenario["commands"]], ["run", "validate", "down"])
         self.assertEqual([command["step"] for command in second_scenario["commands"]], ["run", "validate", "down"])
         self.assertEqual([command["step"] for command in third_scenario["commands"]], ["run", "validate", "down"])
+        self.assertEqual([command["step"] for command in fourth_scenario["commands"]], ["run", "validate", "down"])
+        self.assertEqual([command["step"] for command in fifth_scenario["commands"]], ["run", "validate", "down"])
 
     def test_campaign_execute_writes_result_and_report_for_stub_scenario(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

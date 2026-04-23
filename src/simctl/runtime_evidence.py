@@ -45,6 +45,8 @@ def _goal_reached(evidence: dict[str, Any], last_location: dict[str, Any] | None
     summary = evidence.get("summary") or {}
     if summary.get("reached_near_goal") is True:
         return True
+    if summary.get("reached_near_goal") is False:
+        return False
     goal_xy = _xy(evidence.get("goal"))
     last_xy = _xy(last_location)
     if goal_xy is None or last_xy is None:
@@ -71,12 +73,12 @@ def _closed_loop_artifacts(runtime_dir: Path) -> list[Path]:
     paths: set[Path] = set()
     for pattern in patterns:
         paths.update(runtime_dir.glob(pattern))
-    return sorted(paths)
+    return sorted(path for path in paths if not path.name.endswith("_summary.json"))
 
 
 def _dynamic_probe_artifacts(runtime_dir: Path) -> list[Path]:
     paths: set[Path] = set()
-    for pattern in ("l1_*/*.json", "l2_*/*.json", "carla_dynamic_*/*.json"):
+    for pattern in ("l1_*/*.json", "l2_*/*.json", "l3_*/*.json", "carla_dynamic_*/*.json"):
         paths.update(runtime_dir.glob(pattern))
     return sorted(path for path in paths if not path.name.endswith("_summary.json"))
 
@@ -94,21 +96,58 @@ def _metric_probe_artifacts(runtime_dir: Path) -> list[Path]:
     return sorted(path for path in paths if not path.name.endswith("_summary.json"))
 
 
+def _sumo_cosim_artifacts(runtime_dir: Path) -> list[Path]:
+    paths: set[Path] = set()
+    paths.update(runtime_dir.glob("sumo_cosim_*/*.json"))
+    return sorted(path for path in paths if not path.name.endswith("_summary.json"))
+
+
+def _novadrive_artifacts(runtime_dir: Path) -> list[Path]:
+    paths: set[Path] = set()
+    paths.update(runtime_dir.glob("novadrive_*.json"))
+    return sorted(path for path in paths if path.name != "novadrive_summary.json")
+
+
+def _calibration_scene_artifacts(runtime_dir: Path) -> list[Path]:
+    paths: set[Path] = set()
+    paths.update(runtime_dir.glob("calibration_scene/*_spawn.json"))
+    return sorted(paths)
+
+
+def _camera_fiducial_artifacts(runtime_dir: Path) -> list[Path]:
+    paths: set[Path] = set()
+    paths.update(runtime_dir.glob("calibration/camera_fiducial_board_detection/detection_result.json"))
+    return sorted(paths)
+
+
 def _dynamic_probe_matches_scenario(attempt: dict[str, Any], traffic: dict[str, Any], empty_scene: bool) -> bool:
     if empty_scene:
         return False
     mode = str(traffic.get("mode") or "").lower()
     kind = str(attempt.get("kind") or "").lower()
     source = str(attempt.get("perception_source") or "").lower()
+    try:
+        vehicle_count = int(traffic.get("vehicles") or 0)
+    except (TypeError, ValueError):
+        vehicle_count = 0
+    multi_actor_mode = "multi_actor" in mode or vehicle_count >= 2
 
     if "actor_bridge" in mode and source != "actor_bridge":
         return False
     if "dummy" in mode and source != "dummy_injection":
         return False
+    pedestrian_mode = (
+        "occluded_pedestrian" in mode
+        or "occluded_crosswalk" in mode
+        or "pedestrian" in mode
+    )
+    if pedestrian_mode and not kind.startswith("l3_occluded_pedestrian"):
+        return False
     if "multi_actor" in mode and not kind.startswith("l2_multi_actor"):
         return False
     if "merge" in mode and kind != "l2_merge":
-        return False
+        if not (multi_actor_mode and kind.startswith("l2_multi_actor")):
+            return False
     if "close_cut_in" in mode and kind != "l2_close_cut_in":
         return False
     if "cut_in" in mode and kind not in {"l2_cut_in", "l2_close_cut_in", "l2_multi_actor_cut_in_lead_brake"}:
@@ -128,7 +167,16 @@ def _dynamic_probe_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any
     recording = payload.get("recording") if isinstance(payload.get("recording"), dict) else {}
     classification = str(payload.get("classification") or path.stem)
     kind = path.stem
-    for known_kind in ("l2_multi_actor_cut_in_lead_brake", "l2_close_cut_in", "l2_merge", "l2_cut_in", "l1_static"):
+    for known_kind in (
+        "l3_occluded_pedestrian_double_occluder",
+        "l3_occluded_pedestrian_close_yield",
+        "l3_occluded_pedestrian",
+        "l2_multi_actor_cut_in_lead_brake",
+        "l2_close_cut_in",
+        "l2_merge",
+        "l2_cut_in",
+        "l1_static",
+    ):
         if path.stem == known_kind or path.stem.startswith(f"{known_kind}_"):
             kind = known_kind
             break
@@ -218,12 +266,141 @@ def _metric_probe_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any]
     }
 
 
+def _sumo_cosim_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any] | None:
+    if payload.get("kind") != "sumo_cosim_probe":
+        return None
+    raw_metrics = payload.get("metrics")
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    if not isinstance(raw_metrics, dict):
+        return None
+    metrics: dict[str, float] = {}
+    for name, value in raw_metrics.items():
+        if isinstance(value, bool):
+            metrics[str(name)] = 1.0 if value else 0.0
+            continue
+        try:
+            metrics[str(name)] = float(value)
+        except (TypeError, ValueError):
+            continue
+    if not metrics:
+        return None
+    return {
+        "path": str(path),
+        "profile": payload.get("profile"),
+        "overall_passed": bool(payload.get("overall_passed")),
+        "metrics": metrics,
+        "summary": summary,
+        "sumo_cosim_alive": bool(summary.get("sumo_cosim_alive")),
+        "sumo_actor_count": int(summary.get("sumo_actor_count") or 0),
+        "sumo_route_loaded": bool(summary.get("sumo_route_loaded")),
+        "autoware_object_stream_seen": bool(summary.get("autoware_object_stream_seen")),
+        "ego_control_command_seen": bool(summary.get("ego_control_command_seen")),
+    }
+
+
+def _calibration_scene_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any] | None:
+    if "target_count" not in payload or "spawned_count" not in payload:
+        return None
+    spawned = payload.get("spawned") if isinstance(payload.get("spawned"), list) else []
+    targets = payload.get("targets") if isinstance(payload.get("targets"), list) else []
+    marker_overlay_count = 0
+    panel_overlay_line_count = 0
+    panel_count = 0
+    marker_payload_count = 0
+    for item in spawned:
+        if not isinstance(item, dict):
+            continue
+        marker_overlay = item.get("marker_overlay") if isinstance(item.get("marker_overlay"), dict) else {}
+        panel_overlay = item.get("panel_overlay") if isinstance(item.get("panel_overlay"), dict) else {}
+        panel = item.get("panel") if isinstance(item.get("panel"), dict) else {}
+        marker = item.get("marker") if isinstance(item.get("marker"), dict) else {}
+        marker_overlay_count += int(marker_overlay.get("marker_count") or 0)
+        panel_overlay_line_count += int(panel_overlay.get("line_count") or 0)
+        if panel:
+            panel_count += 1
+        if marker.get("qr_payload"):
+            marker_payload_count += 1
+    if not marker_payload_count:
+        for target in targets:
+            if not isinstance(target, dict):
+                continue
+            marker = target.get("marker") if isinstance(target.get("marker"), dict) else {}
+            if marker.get("qr_payload"):
+                marker_payload_count += 1
+    spawned_count = int(payload.get("spawned_count") or 0)
+    target_count = int(payload.get("target_count") or 0)
+    return {
+        "path": str(path),
+        "scene_asset_id": payload.get("scene_asset_id"),
+        "target_count": target_count,
+        "spawned_count": spawned_count,
+        "failed_count": int(payload.get("failed_count") or 0),
+        "skipped_count": int(payload.get("skipped_count") or 0),
+        "marker_overlay_count": marker_overlay_count,
+        "panel_overlay_line_count": panel_overlay_line_count,
+        "panel_count": panel_count,
+        "marker_payload_count": marker_payload_count,
+        "overall_passed": spawned_count >= target_count and target_count > 0,
+    }
+
+
+def _camera_fiducial_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any] | None:
+    if "detection_count" not in payload or "passed" not in payload:
+        return None
+    captured_images = payload.get("captured_images") if isinstance(payload.get("captured_images"), list) else []
+    return {
+        "path": str(path),
+        "overall_passed": bool(payload.get("passed")),
+        "capture_from_carla": bool(payload.get("capture_from_carla")),
+        "expected_board_count": int(payload.get("expected_board_count") or 0),
+        "captured_image_count": len(captured_images),
+        "detection_count": int(payload.get("detection_count") or 0),
+        "qr_count": int(payload.get("qr_count") or 0),
+        "aruco_count": int(payload.get("aruco_count") or 0),
+        "binary_fiducial_candidate_count": int(payload.get("binary_fiducial_candidate_count") or 0),
+        "image_dir": payload.get("image_dir"),
+    }
+
+
+def _novadrive_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any] | None:
+    if payload.get("kind") != "novadrive_run":
+        return None
+    raw_metrics = payload.get("metrics")
+    if not isinstance(raw_metrics, dict):
+        return None
+    metrics: dict[str, float] = {}
+    for name, value in raw_metrics.items():
+        if isinstance(value, bool):
+            metrics[str(name)] = 1.0 if value else 0.0
+            continue
+        try:
+            metrics[str(name)] = float(value)
+        except (TypeError, ValueError):
+            continue
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    return {
+        "path": str(path),
+        "overall_passed": bool(payload.get("overall_passed")),
+        "scenario_id": payload.get("scenario_id"),
+        "perception_source": payload.get("perception_source"),
+        "runtime_status": summary.get("runtime_status"),
+        "sample_count": int(summary.get("sample_count") or 0),
+        "failure_reason": summary.get("failure_reason") or payload.get("failure_reason"),
+        "metrics": metrics,
+        "event_count": len(payload.get("events") or []),
+    }
+
+
 def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[str, Any]:
     runtime_dir = run_dir / "runtime_verification"
     artifacts = _closed_loop_artifacts(runtime_dir) if runtime_dir.exists() else []
     dynamic_artifacts = _dynamic_probe_artifacts(runtime_dir) if runtime_dir.exists() else []
     sensor_artifacts = _sensor_probe_artifacts(runtime_dir) if runtime_dir.exists() else []
     metric_artifacts = _metric_probe_artifacts(runtime_dir) if runtime_dir.exists() else []
+    sumo_cosim_artifacts = _sumo_cosim_artifacts(runtime_dir) if runtime_dir.exists() else []
+    novadrive_artifacts = _novadrive_artifacts(runtime_dir) if runtime_dir.exists() else []
+    calibration_scene_artifacts = _calibration_scene_artifacts(runtime_dir) if runtime_dir.exists() else []
+    camera_fiducial_artifacts = _camera_fiducial_artifacts(runtime_dir) if runtime_dir.exists() else []
     attempts: list[dict[str, Any]] = []
     ignored: list[dict[str, Any]] = []
     dynamic_attempts: list[dict[str, Any]] = []
@@ -232,6 +409,14 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
     ignored_sensor: list[dict[str, Any]] = []
     metric_attempts: list[dict[str, Any]] = []
     ignored_metric: list[dict[str, Any]] = []
+    sumo_cosim_attempts: list[dict[str, Any]] = []
+    ignored_sumo_cosim: list[dict[str, Any]] = []
+    novadrive_attempts: list[dict[str, Any]] = []
+    ignored_novadrive: list[dict[str, Any]] = []
+    calibration_scene_attempts: list[dict[str, Any]] = []
+    ignored_calibration_scene: list[dict[str, Any]] = []
+    camera_fiducial_attempts: list[dict[str, Any]] = []
+    ignored_camera_fiducial: list[dict[str, Any]] = []
 
     for path in artifacts:
         payload = _load_json(path)
@@ -252,8 +437,27 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             "reached_near_goal": reached,
             "total_delta_m": total_delta_m,
             "max_speed_mps": max_speed_mps,
+            "effective_goal": summary.get("effective_goal"),
+            "final_map_location": summary.get("final_map_location"),
+            "final_carla_waypoint": summary.get("final_carla_waypoint"),
+            "lateral_error_m": _as_float(summary.get("lateral_error_m"), math.nan),
+            "route_goal_lateral_error_m": _as_float(
+                summary.get("route_goal_lateral_error_m"), math.nan
+            ),
+            "longitudinal_error_m": _as_float(summary.get("longitudinal_error_m"), math.nan),
+            "jerk_mps3": _as_float(summary.get("jerk_mps3"), math.nan),
+            "max_jerk_mps3": _as_float(summary.get("max_jerk_mps3"), math.nan),
+            "stopped_before_goal": bool(summary.get("stopped_before_goal")),
             "sample_count": int(summary.get("sample_count") or 0),
         }
+        ros_telemetry = summary.get("ros_telemetry")
+        if isinstance(ros_telemetry, dict):
+            attempt["ros_telemetry"] = {
+                "enabled": bool(ros_telemetry.get("enabled")),
+                "error": ros_telemetry.get("error"),
+                "topic_counts": ros_telemetry.get("topic_counts") or {},
+                "tail_stats": ros_telemetry.get("tail_stats") or {},
+            }
         if valid:
             attempts.append(attempt)
         else:
@@ -262,8 +466,9 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
 
     successful = [item for item in attempts if item["moved"] and item["reached_near_goal"]]
     traffic = (run_result.get("scenario_params") or {}).get("traffic_profile") or {}
+    traffic_mode = str(traffic.get("mode", "")).lower()
     empty_scene = (
-        str(traffic.get("mode", "")).lower() in {"empty_smoke", "none", "empty"}
+        (traffic_mode in {"none", "empty"} or traffic_mode.startswith("empty_"))
         and int(traffic.get("vehicles") or 0) == 0
         and int(traffic.get("pedestrians") or 0) == 0
     )
@@ -333,6 +538,50 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             continue
         metric_attempts.append(attempt)
 
+    for path in sumo_cosim_artifacts:
+        payload = _load_json(path)
+        if payload is None:
+            ignored_sumo_cosim.append({"path": str(path), "reason": "unreadable_json"})
+            continue
+        attempt = _sumo_cosim_attempt(path, payload)
+        if attempt is None:
+            ignored_sumo_cosim.append({"path": str(path), "reason": "not_sumo_cosim_artifact"})
+            continue
+        sumo_cosim_attempts.append(attempt)
+
+    for path in novadrive_artifacts:
+        payload = _load_json(path)
+        if payload is None:
+            ignored_novadrive.append({"path": str(path), "reason": "unreadable_json"})
+            continue
+        attempt = _novadrive_attempt(path, payload)
+        if attempt is None:
+            ignored_novadrive.append({"path": str(path), "reason": "not_novadrive_artifact"})
+            continue
+        novadrive_attempts.append(attempt)
+
+    for path in calibration_scene_artifacts:
+        payload = _load_json(path)
+        if payload is None:
+            ignored_calibration_scene.append({"path": str(path), "reason": "unreadable_json"})
+            continue
+        attempt = _calibration_scene_attempt(path, payload)
+        if attempt is None:
+            ignored_calibration_scene.append({"path": str(path), "reason": "not_calibration_scene_artifact"})
+            continue
+        calibration_scene_attempts.append(attempt)
+
+    for path in camera_fiducial_artifacts:
+        payload = _load_json(path)
+        if payload is None:
+            ignored_camera_fiducial.append({"path": str(path), "reason": "unreadable_json"})
+            continue
+        attempt = _camera_fiducial_attempt(path, payload)
+        if attempt is None:
+            ignored_camera_fiducial.append({"path": str(path), "reason": "not_camera_fiducial_artifact"})
+            continue
+        camera_fiducial_attempts.append(attempt)
+
     if sensor_attempts:
         latest_by_profile: dict[str, dict[str, Any]] = {}
         superseded: list[dict[str, Any]] = []
@@ -372,6 +621,10 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
     successful_dynamic = [item for item in dynamic_attempts if item["overall_passed"]]
     successful_sensor = [item for item in sensor_attempts if item["overall_passed"]]
     successful_metric = [item for item in metric_attempts if item["overall_passed"]]
+    successful_sumo_cosim = [item for item in sumo_cosim_attempts if item["overall_passed"]]
+    successful_novadrive = [item for item in novadrive_attempts if item["overall_passed"]]
+    successful_calibration_scene = [item for item in calibration_scene_attempts if item["overall_passed"]]
+    successful_camera_fiducial = [item for item in camera_fiducial_attempts if item["overall_passed"]]
     route_completion = (len(successful) / len(attempts)) if attempts else 0.0
     route_completion_source = "real_carla_samples"
     if dynamic_attempts:
@@ -406,6 +659,18 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
         metric_sources["min_ttc_sec"] = (
             "runtime_dynamic_probe" if dynamic_attempts else "inferred_empty_scene_no_dynamic_actors"
         )
+    if attempts:
+        for metric_name in (
+            "lateral_error_m",
+            "route_goal_lateral_error_m",
+            "longitudinal_error_m",
+            "jerk_mps3",
+        ):
+            values = [_as_float(item.get(metric_name), math.nan) for item in attempts]
+            finite_values = [value for value in values if not math.isnan(value)]
+            if finite_values:
+                metrics[metric_name] = max(finite_values)
+                metric_sources[metric_name] = "real_carla_samples"
     if dynamic_attempts:
         metrics["dynamic_actor_response"] = len(successful_dynamic) / len(dynamic_attempts)
         metric_sources["dynamic_actor_response"] = "runtime_dynamic_probe"
@@ -452,6 +717,44 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
         for name, value in attempt["metrics"].items():
             metrics[name] = value
             metric_sources[name] = "runtime_metric_probe"
+    if sumo_cosim_attempts:
+        latest_sumo = sorted(sumo_cosim_attempts, key=lambda item: str(item.get("path") or ""))[-1]
+        for name, value in latest_sumo["metrics"].items():
+            metrics[name] = value
+            metric_sources[name] = "runtime_sumo_cosim_probe"
+    if novadrive_attempts:
+        latest_novadrive = sorted(novadrive_attempts, key=lambda item: str(item.get("path") or ""))[-1]
+        for name, value in latest_novadrive["metrics"].items():
+            metrics[name] = value
+            metric_sources[name] = "novadrive_runtime"
+    if calibration_scene_attempts:
+        latest_scene = sorted(calibration_scene_attempts, key=lambda item: str(item.get("path") or ""))[-1]
+        scene_metric_map = {
+            "calibration_scene_target_count": "target_count",
+            "calibration_scene_spawned_count": "spawned_count",
+            "calibration_scene_failed_count": "failed_count",
+            "calibration_scene_skipped_count": "skipped_count",
+            "calibration_scene_marker_overlay_count": "marker_overlay_count",
+            "calibration_scene_panel_overlay_line_count": "panel_overlay_line_count",
+            "calibration_scene_panel_count": "panel_count",
+            "calibration_scene_marker_payload_count": "marker_payload_count",
+        }
+        for metric_name, attempt_key in scene_metric_map.items():
+            metrics[metric_name] = _as_float(latest_scene.get(attempt_key))
+            metric_sources[metric_name] = "runtime_calibration_scene_spawn"
+    if camera_fiducial_attempts:
+        latest_camera = sorted(camera_fiducial_attempts, key=lambda item: str(item.get("path") or ""))[-1]
+        camera_metric_map = {
+            "camera_fiducial_expected_board_count": "expected_board_count",
+            "camera_fiducial_captured_image_count": "captured_image_count",
+            "camera_fiducial_detection_count": "detection_count",
+            "camera_fiducial_qr_count": "qr_count",
+            "camera_fiducial_aruco_count": "aruco_count",
+            "camera_fiducial_binary_candidate_count": "binary_fiducial_candidate_count",
+        }
+        for metric_name, attempt_key in camera_metric_map.items():
+            metrics[metric_name] = _as_float(latest_camera.get(attempt_key))
+            metric_sources[metric_name] = "runtime_camera_fiducial_probe"
 
     return {
         "generated_at": utc_now(),
@@ -472,6 +775,22 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
         "successful_metric_probe_count": len(successful_metric),
         "ignored_metric_probe_attempts": ignored_metric,
         "metric_probe_attempts": metric_attempts,
+        "sumo_cosim_attempt_count": len(sumo_cosim_attempts),
+        "successful_sumo_cosim_count": len(successful_sumo_cosim),
+        "ignored_sumo_cosim_attempts": ignored_sumo_cosim,
+        "sumo_cosim_attempts": sumo_cosim_attempts,
+        "novadrive_attempt_count": len(novadrive_attempts),
+        "successful_novadrive_count": len(successful_novadrive),
+        "ignored_novadrive_attempts": ignored_novadrive,
+        "novadrive_attempts": novadrive_attempts,
+        "calibration_scene_attempt_count": len(calibration_scene_attempts),
+        "successful_calibration_scene_count": len(successful_calibration_scene),
+        "ignored_calibration_scene_attempts": ignored_calibration_scene,
+        "calibration_scene_attempts": calibration_scene_attempts,
+        "camera_fiducial_attempt_count": len(camera_fiducial_attempts),
+        "successful_camera_fiducial_count": len(successful_camera_fiducial),
+        "ignored_camera_fiducial_attempts": ignored_camera_fiducial,
+        "camera_fiducial_attempts": camera_fiducial_attempts,
         "metrics": metrics,
         "metric_sources": metric_sources,
         "assumptions": [

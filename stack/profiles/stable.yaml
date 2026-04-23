@@ -22,6 +22,13 @@ start:
     env:
       CARLA_0915_ROOT: "{carla_root}"
     command: "python3 '{repo_root}/stack/stable/wait_for_carla_rpc.py' --host '127.0.0.1' --port '{carla_rpc_port}' --timeout-sec '{carla_startup_timeout_sec}' --carla-root '{carla_root}'"
+  - name: start-sumo-cosim
+    runner: bash
+    background: true
+    when: sumo_enabled
+    env:
+      CARLA_0915_ROOT: "{carla_root}"
+    command: "bash '{repo_root}/stack/stable/start_sumo_cosim_host.sh' --run-dir '{run_dir}' --carla-root '{carla_root}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --sumo-enabled '{sumo_enabled}' --sumo-home '{sumo_home}' --sumo-config-file '{sumo_config_file}' --sumo-net-file '{sumo_net_file}' --sumo-route-file '{sumo_route_file}' --sumo-host '{sumo_host}' --sumo-traci-port '{sumo_traci_port}' --sumo-binary '{sumo_binary}' --sumo-gui '{sumo_gui}' --sumo-step-length '{sumo_step_length}' --sumo-sync-vehicle-lights '{sumo_sync_vehicle_lights}' --sumo-sync-vehicle-color '{sumo_sync_vehicle_color}' --sumo-tls-manager '{sumo_tls_manager}' --sumo-additional-args '{sumo_additional_args}' --sumo-cosim-script '{sumo_cosim_script}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
   - name: start-autoware-bridge
     runner: bash
     background: true
@@ -47,7 +54,7 @@ start:
 stop:
   - name: stop-autoware-stack
     runner: bash
-    command: "bash '{repo_root}/stack/stable/stop_stable_stack.sh' --run-dir '{run_dir}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/stop_stable_stack.sh' --run-dir '{run_dir}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --sumo-traci-port '{sumo_traci_port}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' {execute_flag}"
 replay:
   - name: replay-rosbag
     runner: bash

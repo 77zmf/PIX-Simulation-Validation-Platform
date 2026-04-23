@@ -1,0 +1,26 @@
+gate_id: novadrive_smoke
+description: NovaDrive CARLA-only L0/L1 smoke gate without Autoware
+failure_labels:
+  - novadrive_route_completion_failure
+  - novadrive_collision_failure
+  - novadrive_control_loop_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.5
+  control_rate_hz:
+    op: ">="
+    value: 10.0
+  trajectory_valid_ratio:
+    op: ">="
+    value: 1.0
+  novadrive_runtime_passed:
+    op: ">="
+    value: 1.0
+

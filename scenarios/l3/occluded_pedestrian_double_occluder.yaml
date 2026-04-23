@@ -1,0 +1,126 @@
+scenario_id: stable_l3_occluded_pedestrian_double_occluder
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 229.78167724609375
+    y: -2.0201120376586914
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 314.2434997558594
+    y: -1.982629656791687
+    z: 0.0
+    yaw_deg: -0.03045654296875
+traffic_profile:
+  mode: l3_occluded_pedestrian_double_occluder_dummy_injection
+  vehicles: 2
+  pedestrians: 1
+  scripted_agents:
+    - right_occluding_vehicle
+    - left_occluding_vehicle
+    - occluded_crosswalk_pedestrian
+weather_profile:
+  preset: ClearSunset
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 911
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/occluded_pedestrian_double_occluder
+  carla_recorder:
+    enabled: true
+    path: carla/occluded_pedestrian_double_occluder.log
+kpi_gate: planning_control_l3_occluded_pedestrian
+labels:
+  - L3
+  - stable
+  - planning_control
+  - pedestrian
+  - occlusion
+  - double_occluder
+  - dummy_injection
+  - regression
+metadata:
+  owner: zmf
+  source_assets:
+    - scenarios/l3/stress_occluded_pedestrian.yaml
+    - ops/runtime_probes/carla_sensor_topic_probe.py
+    - ops/runtime_probes/carla_dynamic_actor_probe.py
+    - assets/sensors/carla/robobus117th_sensor_mapping.yaml
+  validation_method: Run the stable Robobus117th CARLA stack, verify sensor samples, spawn two visual occluding vehicles and one crossing pedestrian, then inject one pedestrian DummyObject to validate L3 planning/control response in a denser occlusion layout.
+  validation_command: >
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th
+    &&
+    python3 ops/runtime_probes/carla_dynamic_actor_probe.py
+    --run-dir <run_dir>
+    --kind l3_occluded_pedestrian_double_occluder
+    --perception-source dummy_injection
+    --camera-video-output <run_dir>/runtime_verification/l3_occluded_pedestrian_double_occluder.mp4
+    --camera-video-mode overview
+    --reaction-speed-ratio 0.65
+    --no-rosbag
+  expected_observable: Robobus117th sensor topics have live samples; CARLA shows two visual occluders and a crossing pedestrian; dummy perception publishes one pedestrian object; ego yields or slows with no collision and safe TTC.
+  runtime_gap: This validates planning/control with dummy perception; direct CARLA walker actor-bridge publication remains a separate closure gap.
+  rollback_impact: Remove this scenario from ops/test_campaigns/stable_l3_occlusion.yaml if double-occluder tuning destabilizes the L3 regression lane.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: "229.7817,2.0201,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_actor_object_bridge_enabled: "true"
+    carla_actor_object_bridge_poll_sec: "0.2"
+    carla_actor_object_bridge_include_walkers: "true"
+    carla_actor_object_bridge_delete_all_on_start: "true"
+    carla_actor_object_bridge_delete_all_on_stop: "true"
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info
+      - /sensing/camera/CAM_BACK/image_raw
+      - /sensing/camera/CAM_BACK/camera_info
+      - /sensing/camera/CAM_FRONT_LEFT/image_raw
+      - /sensing/camera/CAM_FRONT_LEFT/camera_info
+      - /sensing/camera/CAM_FRONT_RIGHT/image_raw
+      - /sensing/camera/CAM_FRONT_RIGHT/camera_info
+      - /sensing/camera/CAM_BACK_LEFT/image_raw
+      - /sensing/camera/CAM_BACK_LEFT/camera_info
+      - /sensing/camera/CAM_BACK_RIGHT/image_raw
+      - /sensing/camera/CAM_BACK_RIGHT/camera_info
+      - /localization/kinematic_state
+      - /localization/acceleration
+      - /vehicle/status/control_mode
+      - /vehicle/status/velocity_status
+      - /perception/object_recognition/objects

@@ -57,6 +57,9 @@ metadata:
     --run-dir <run_dir>
     --kind l2_merge
     --perception-source actor_bridge
+    --camera-video-output <run_dir>/runtime_verification/l2_merge_actor_bridge.mp4
+    --camera-video-mode overview
+    --reaction-speed-ratio 0.65
     --no-rosbag
   expected_observable: Robobus117th 6-camera and 5-lidar topics have live samples; /perception/object_recognition/objects is non-empty from CARLA actor bridge; ego yields to a merging target with no collision and safe TTC.
   rollback_impact: Remove this scenario from the stable campaign or switch its kpi_gate back to planning_control_research_gate while research metrics are still unavailable.
@@ -72,13 +75,14 @@ execution:
     autoware_sensor_model: robobus_sensor_kit
     autoware_lidar_type: robosense
     autoware_rviz: "false"
+    carla_root: /home/pixmoving/CARLA_0.9.15
     carla_map: Town01
-    carla_vehicle_type: vehicle.toyota.prius
+    carla_vehicle_type: vehicle.pixmoving.robobus
     carla_ego_vehicle_role_name: ego_vehicle
-    carla_spawn_point: ""
+    carla_spawn_point: "229.7817,2.0201,-0.5,0,0,0"
     carla_sensor_kit_name: robobus_sensor_kit_description
     carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
-    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_prius_fallback_sensor_kit_calibration.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
     carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
     carla_use_traffic_manager: "False"
     carla_render_mode: offscreen

@@ -14,10 +14,19 @@ from simctl.scenarios import load_scenario
 
 
 class ResearchConfigTests(unittest.TestCase):
-    def test_planning_control_public_road_scenario_loads(self) -> None:
+    def test_planning_control_public_road_scenario_uses_stable_actor_bridge_gate(self) -> None:
         scenario = load_scenario("scenarios/l2/planning_control_public_road_merge_regression.yaml", REPO_ROOT)
-        self.assertEqual(scenario.algorithm_profile, "planning_control_research")
-        self.assertEqual(scenario.kpi_gate, "planning_control_research_gate")
+        payload = load_yaml(REPO_ROOT / "scenarios" / "l2" / "planning_control_public_road_merge_regression.yaml")
+        gate = load_kpi_gate("planning_control_multi_actor_regression", REPO_ROOT)
+        self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_application_topology")
+        self.assertEqual(scenario.algorithm_profile, "planning_control_baseline")
+        self.assertEqual(scenario.kpi_gate, "planning_control_multi_actor_regression")
+        self.assertIn("--kind l2_multi_actor_cut_in_lead_brake", payload["metadata"]["validation_command"])
+        self.assertEqual(payload["traffic_profile"]["vehicles"], 3)
+        stable_runtime = payload["execution"]["stable_runtime"]
+        self.assertEqual(stable_runtime["carla_vehicle_type"], "vehicle.pixmoving.robobus")
+        self.assertEqual(stable_runtime["carla_actor_object_bridge_enabled"], "true")
+        self.assertIn("actor_count_observed", gate.metrics)
 
     def test_planning_control_merge_scenario_uses_executable_actor_bridge_gate(self) -> None:
         scenario = load_scenario("scenarios/l2/planning_control_merge_regression.yaml", REPO_ROOT)
@@ -43,6 +52,43 @@ class ResearchConfigTests(unittest.TestCase):
         self.assertEqual(stable_runtime["carla_spawn_point"], "229.7817,2.0201,-0.5,0,0,0")
         self.assertIn("actor_count_observed", gate.metrics)
         self.assertIn("yield_response_count", gate.metrics)
+
+    def test_l3_occluded_pedestrian_scenario_uses_executable_dummy_injection_gate(self) -> None:
+        scenario = load_scenario("scenarios/l3/stress_occluded_pedestrian.yaml", REPO_ROOT)
+        payload = load_yaml(REPO_ROOT / "scenarios" / "l3" / "stress_occluded_pedestrian.yaml")
+        gate = load_kpi_gate("planning_control_l3_occluded_pedestrian", REPO_ROOT)
+        self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_application_topology")
+        self.assertEqual(scenario.algorithm_profile, "planning_control_baseline")
+        self.assertEqual(scenario.kpi_gate, "planning_control_l3_occluded_pedestrian")
+        self.assertIn("--kind l3_occluded_pedestrian", payload["metadata"]["validation_command"])
+        self.assertIn("--perception-source dummy_injection", payload["metadata"]["validation_command"])
+        self.assertEqual(payload["traffic_profile"]["vehicles"], 1)
+        self.assertEqual(payload["traffic_profile"]["pedestrians"], 1)
+        stable_runtime = payload["execution"]["stable_runtime"]
+        self.assertEqual(stable_runtime["carla_vehicle_type"], "vehicle.pixmoving.robobus")
+        self.assertEqual(stable_runtime["carla_actor_object_bridge_enabled"], "true")
+        self.assertEqual(stable_runtime["carla_actor_object_bridge_include_walkers"], "true")
+        self.assertIn("actor_count_observed", gate.metrics)
+
+    def test_l3_expanded_occlusion_scenarios_use_executable_dummy_injection_gate(self) -> None:
+        for path, probe_kind in (
+            ("scenarios/l3/occluded_pedestrian_close_yield.yaml", "l3_occluded_pedestrian_close_yield"),
+            ("scenarios/l3/occluded_pedestrian_double_occluder.yaml", "l3_occluded_pedestrian_double_occluder"),
+        ):
+            with self.subTest(path=path):
+                scenario = load_scenario(path, REPO_ROOT)
+                payload = load_yaml(REPO_ROOT / path)
+                gate = load_kpi_gate("planning_control_l3_occluded_pedestrian", REPO_ROOT)
+
+                self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_application_topology")
+                self.assertEqual(scenario.algorithm_profile, "planning_control_baseline")
+                self.assertEqual(scenario.kpi_gate, "planning_control_l3_occluded_pedestrian")
+                self.assertIn(f"--kind {probe_kind}", payload["metadata"]["validation_command"])
+                self.assertIn("--perception-source dummy_injection", payload["metadata"]["validation_command"])
+                self.assertGreaterEqual(payload["traffic_profile"]["pedestrians"], 1)
+                self.assertEqual(payload["execution"]["stable_runtime"]["carla_vehicle_type"], "vehicle.pixmoving.robobus")
+                self.assertEqual(payload["execution"]["stable_runtime"]["carla_actor_object_bridge_enabled"], "true")
+                self.assertIn("yield_response_count", gate.metrics)
 
     def test_perception_public_road_gate_contains_planner_metrics(self) -> None:
         gate = load_kpi_gate("perception_bevfusion_public_road_gate", REPO_ROOT)

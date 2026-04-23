@@ -1,0 +1,33 @@
+gate_id: planning_control_l3_occluded_pedestrian
+description: Stable-line L3 occluded-pedestrian planning-control gate for CARLA visual actors with pedestrian perception injection
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - pedestrian_perception_failure
+  - pedestrian_yield_failure
+  - robobus_sensor_bridge_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.8
+  dynamic_actor_response:
+    op: ">="
+    value: 1.0
+  actor_count_observed:
+    op: ">="
+    value: 1
+  yield_response_count:
+    op: ">="
+    value: 1
+  sensor_topic_coverage:
+    op: ">="
+    value: 1.0
+  sensor_sample_coverage:
+    op: ">="
+    value: 1.0

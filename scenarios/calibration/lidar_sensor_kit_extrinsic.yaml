@@ -1,0 +1,109 @@
+scenario_id: lidar_sensor_kit_extrinsic
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 13.5686
+    y: -330.4619
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 20.0
+    y: -330.4619
+    z: 0.0
+    yaw_deg: 0.0
+traffic_profile:
+  mode: empty_calibration_capture
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: lidar_sensor_kit_extrinsic_calibration
+seed: 11705
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/calibration/lidar_sensor_kit_extrinsic
+  carla_recorder:
+    enabled: true
+    path: carla/calibration/lidar_sensor_kit_extrinsic.log
+kpi_gate: lidar_sensor_kit_extrinsic
+labels:
+  - calibration
+  - calibration_only
+  - lidar
+  - robobus117th
+  - stable_candidate
+  - not_driving_regression
+metadata:
+  owner: zmf
+  scene_isolation:
+    class: calibration_only
+    anchor_id: calibration_town01_far_north_proxy_anchor
+    min_distance_from_driving_test_spawn_m: 250.0
+    note: Calibration capture must not share the L0/L1/L2 planning-control driving-test road segment.
+    must_not_overlap_with:
+      - scenarios/l0/robobus117th_town01_closed_loop.yaml
+      - scenarios/l1/regression_follow_lane.yaml
+      - scenarios/l2/planning_control_merge_regression.yaml
+      - scenarios/l2/planning_control_multi_actor_cut_in_lead_brake.yaml
+      - scenarios/l2/planning_control_public_road_merge_regression.yaml
+      - scenarios/l2/robobus117th_town01_close_cut_in_actor_bridge.yaml
+  source_assets:
+    - assets/calibration/lidar_sensor_kit_truth.yaml
+    - assets/calibration/lidar_sensor_kit_initial_perturbed.yaml
+    - assets/sensors/robobus_pixrover14_application_topology.yaml
+    - assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    - assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    - ops/runtime_probes/carla_sensor_topic_probe.py
+    - ops/runtime_probes/lidar_calibration_metric_probe.py
+  validation_method: Run the stable CARLA bridge with the Robobus117th five-lidar topology, let the external automatic calibration program consume the perturbed lidar initial guess and live/recorded pointclouds, then convert calibration_result.json into KPI metrics.
+  validation_command: >
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th_bridge_only
+    &&
+    python3 ops/runtime_probes/lidar_calibration_metric_probe.py
+    --run-dir <run_dir>
+    --profile lidar_sensor_kit_extrinsic
+    --calibration-result <run_dir>/runtime_verification/calibration/lidar_sensor_kit_extrinsic/calibration_result.json
+    --require-transform-count 5
+  expected_observable: All five Robobus117th lidar pointcloud topics have live samples; the calibration program writes five estimated lidar transforms and numeric error metrics; simctl finalize reports passed or failed through the lidar_sensor_kit_extrinsic KPI gate.
+  metrics_artifact: runtime_verification/calibration/lidar_sensor_kit_extrinsic/calibration_result.json
+  truth_asset: assets/calibration/lidar_sensor_kit_truth.yaml
+  initial_guess_asset: assets/calibration/lidar_sensor_kit_initial_perturbed.yaml
+  rollback_impact: Exclude this calibration scenario from stable campaigns; it does not change the existing CARLA bridge mapping or planning-control scenarios.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: "13.5686,330.4619,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    ros_expected_topics:
+      - /clock
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync

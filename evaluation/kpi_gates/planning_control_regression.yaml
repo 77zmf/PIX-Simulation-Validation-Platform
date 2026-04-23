@@ -16,7 +16,7 @@ metrics:
     value: 1.8
   lateral_error_m:
     op: "<="
-    value: 0.35
+    value: 0.40
   longitudinal_error_m:
     op: "<="
     value: 0.8

@@ -1,0 +1,111 @@
+scenario_id: stable_l1_sumo_town01_traffic_smoke
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  spawn_point: Town01/9
+goal:
+  route_id: Town01/sumo_traffic_smoke_loop
+traffic_profile:
+  mode: sumo_carla_actor_bridge_town01_smoke
+  vehicles: 5
+  pedestrians: 0
+  source: CARLA_0.9.15 Co-Simulation/Sumo Town01 example
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260423
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/sumo_town01_traffic_smoke
+  carla_recorder:
+    enabled: true
+    path: carla/sumo_town01_traffic_smoke.log
+kpi_gate: sumo_public_road_smoke
+labels:
+  - L1
+  - stable
+  - sumo
+  - carla
+  - actor_bridge
+  - planning_control
+  - town01
+  - traffic_smoke
+metadata:
+  owner: zmf
+  source_assets:
+    - stack/stable/start_sumo_cosim_host.sh
+    - ops/runtime_probes/sumo_cosim_probe.py
+    - stack/stable/carla_actor_object_bridge.py
+    - /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
+  validation_method: Start CARLA Town01, run the official CARLA SUMO synchronization wrapper, expose SUMO background vehicles through the actor object bridge, then verify Autoware object and control topics.
+  validation_command: >
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th
+    &&
+    python3 ops/runtime_probes/sumo_cosim_probe.py
+    --run-dir <run_dir>
+    --profile town01_sumo_smoke
+    --sumo-config-file /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
+    --min-actors 1
+    --wait-sec 3
+  expected_observable: CARLA visual output shows the PIX ego vehicle and at least one SUMO-synchronized non-ego vehicle; RViz/Autoware sees non-empty object and control streams through the actor bridge.
+  rollback_impact: Disable this scenario or set stable_runtime.sumo_enabled=false; the default stable CARLA-only scenarios remain unaffected.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: "229.7817,2.0201,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_actor_object_bridge_enabled: "true"
+    carla_actor_object_bridge_poll_sec: "0.2"
+    carla_actor_object_bridge_include_walkers: "true"
+    carla_actor_object_bridge_delete_all_on_start: "false"
+    carla_actor_object_bridge_delete_all_on_stop: "true"
+    sumo_enabled: "true"
+    sumo_config_file: /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
+    sumo_host: 127.0.0.1
+    sumo_binary: sumo
+    sumo_gui: "false"
+    sumo_step_length: "0.05"
+    sumo_sync_vehicle_lights: "false"
+    sumo_sync_vehicle_color: "true"
+    sumo_tls_manager: none
+    sumo_min_actor_count: "1"
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info
+      - /localization/kinematic_state
+      - /vehicle/status/velocity_status
+      - /control/command/control_cmd
+      - /perception/object_recognition/objects

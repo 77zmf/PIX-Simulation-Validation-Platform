@@ -1,0 +1,353 @@
+scene_asset_id: calibration_workshop_bv1qk411d7ta_scene
+display_name: Dimensioned single-QR panel calibration workshop proxy scene
+owner: zmf
+line: stable_candidate
+source:
+  video_url: https://www.bilibili.com/video/BV1qK411D7TA/
+  video_title: 一分钟标定一辆车的自动驾驶标定车间长啥样？
+  publisher: 元戎启行DeepRoute
+  published_on: 2022-10-25
+  evidence_level: video_reference_plus_dimensioned_proxy
+  note: The repository records the public page metadata and a dimensioned proxy scene intent; exact workshop dimensions and target placements still require frame-level review or field confirmation.
+scene_intent:
+  scenario_family: indoor_calibration_workshop
+  primary_task: lidar_sensor_kit_extrinsic
+  calibration_mode: production_line_static_capture
+  executable_status: carla_spawnable_proxy
+  runtime_map_proxy: Town01
+  target_style: dimensioned_single_qr_panel_12_targets
+  spawner: stack/stable/carla_calibration_scene_spawner.py
+  scene_isolation:
+    class: calibration_only_closed_bay_proxy
+    anchor_id: calibration_town01_far_north_proxy_anchor
+    min_distance_from_driving_test_spawn_m: 250.0
+    must_not_overlap_with:
+      - scenarios/l0/robobus117th_town01_closed_loop.yaml
+      - scenarios/l1/regression_follow_lane.yaml
+      - scenarios/l2/planning_control_merge_regression.yaml
+      - scenarios/l2/planning_control_multi_actor_cut_in_lead_brake.yaml
+      - scenarios/l2/planning_control_public_road_merge_regression.yaml
+      - scenarios/l2/robobus117th_town01_close_cut_in_actor_bridge.yaml
+    note: The full board layout is relative to ego, so the scenario anchor isolates the complete calibration bay from driving-regression routes.
+  blocker_for_physical_fidelity: No measured indoor workshop map or calibration target coordinates have been imported yet.
+layout_proxy:
+  coordinate_frame: calibration_workshop_local
+  units: meters
+  bay_dimensions:
+    length: 32.0
+    width: 12.0
+    height: 5.5
+    status: assumption_from_calibration_bay_use_case
+  environment_model:
+    floor: flat_matte_concrete_with_painted_centerline
+    wall_finish: light_gray_non_reflective
+    lighting: uniform_overhead_industrial_led_proxy
+    target_mounting: weighted_floor_stands_and_front_rear_rails
+    traffic: closed_static_calibration_bay
+  vehicle_stop_pose:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    yaw_deg: 0.0
+    tolerance_m: 0.10
+    tolerance_yaw_deg: 0.5
+  floor_guides:
+    centerline:
+      type: painted_centerline
+      x_range_m: [-12.0, 12.0]
+      y_m: 0.0
+    wheel_stop_zone:
+      type: rectangular_stop_box
+      center_xy_m: [0.0, 0.0]
+      size_xy_m: [6.4, 2.8]
+    lidar_reference_grid:
+      type: painted_floor_reference_ticks
+      x_ticks_m: [-8.0, -4.0, 0.0, 4.0, 8.0]
+      y_ticks_m: [-4.0, -2.0, 2.0, 4.0]
+  target_mounting_contract:
+    panel_size_m: [1.6, 1.6]
+    qr_print_size_m: 1.05
+    lower_edge_height_m: 0.45
+    normal_panel_center_height_m: 1.25
+    upper_panel_center_height_m: 2.15
+    frame_width_m: 0.06
+    stand_type: twin_weighted_floor_stand_or_wall_rail
+    measured_pose_required: true
+static_calibration_targets:
+  board_asset: assets/calibration/boards/single_qr_fiducial_board.yaml
+  fiducial_board_targets:
+    - target_id: front_qr_board
+      role: frontal_range_yaw_and_camera_fiducial_reference
+      pose:
+        x: 8.5
+        y: 0.0
+        z: 1.25
+        yaw_deg: 180.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: front_rail_floor_stand
+        expected_visibility: front_camera_and_front_lidar
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-FRONT
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: front_upper_qr_board
+      role: frontal_high_camera_and_lidar_fiducial_reference
+      pose:
+        x: 8.5
+        y: 0.0
+        z: 2.15
+        yaw_deg: 180.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_rail
+      panel:
+        mount_type: front_wall_rail
+        expected_visibility: front_camera_high_overlap
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-FRONT-UPPER
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: left_qr_board
+      role: left_side_overlap_and_camera_fiducial_reference
+      pose:
+        x: 2.5
+        y: 4.4
+        z: 1.25
+        yaw_deg: -90.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: side_floor_stand
+        expected_visibility: left_camera_and_left_lidar
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-LEFT
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: left_rear_qr_board
+      role: left_rear_overlap_and_lidar_fiducial_reference
+      pose:
+        x: -3.5
+        y: 4.4
+        z: 1.25
+        yaw_deg: -90.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: side_floor_stand
+        expected_visibility: rear_left_overlap
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-LEFT-REAR
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: right_qr_board
+      role: right_side_overlap_and_camera_fiducial_reference
+      pose:
+        x: 2.5
+        y: -4.4
+        z: 1.25
+        yaw_deg: 90.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: side_floor_stand
+        expected_visibility: right_camera_and_right_lidar
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-RIGHT
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: right_rear_qr_board
+      role: right_rear_overlap_and_lidar_fiducial_reference
+      pose:
+        x: -3.5
+        y: -4.4
+        z: 1.25
+        yaw_deg: 90.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: side_floor_stand
+        expected_visibility: rear_right_overlap
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-RIGHT-REAR
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: rear_qr_board
+      role: rear_lidar_and_camera_fiducial_reference
+      pose:
+        x: -7.5
+        y: 0.0
+        z: 1.25
+        yaw_deg: 0.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: rear_rail_floor_stand
+        expected_visibility: rear_camera_and_rear_lidar
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-REAR
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: rear_upper_qr_board
+      role: rear_high_camera_and_lidar_fiducial_reference
+      pose:
+        x: -7.5
+        y: 0.0
+        z: 2.15
+        yaw_deg: 0.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_rail
+      panel:
+        mount_type: rear_wall_rail
+        expected_visibility: rear_camera_high_overlap
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-REAR-UPPER
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: front_left_qr_corner_board
+      role: multi_sensor_corner_fiducial_constraint
+      pose:
+        x: 6.2
+        y: 3.1
+        z: 1.25
+        yaw_deg: -135.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: corner_floor_stand
+        expected_visibility: front_left_camera_lidar_overlap
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-FL
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: front_right_qr_corner_board
+      role: multi_sensor_corner_fiducial_constraint
+      pose:
+        x: 6.2
+        y: -3.1
+        z: 1.25
+        yaw_deg: 135.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: corner_floor_stand
+        expected_visibility: front_right_camera_lidar_overlap
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-FR
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: rear_left_qr_corner_board
+      role: rear_overlap_fiducial_constraint
+      pose:
+        x: -5.8
+        y: 3.1
+        z: 1.25
+        yaw_deg: -45.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: corner_floor_stand
+        expected_visibility: rear_left_camera_lidar_overlap
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-RL
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+    - target_id: rear_right_qr_corner_board
+      role: rear_overlap_fiducial_constraint
+      pose:
+        x: -5.8
+        y: -3.1
+        z: 1.25
+        yaw_deg: 45.0
+      size_m: [1.6, 1.6]
+      material: matte_rigid_single_qr_panel_on_floor_stand
+      panel:
+        mount_type: corner_floor_stand
+        expected_visibility: rear_right_camera_lidar_overlap
+        measured_pose_status: proxy_dimensioned
+      marker:
+        type: qr_code
+        family: single_qr_fiducial_board
+        marker_id: AUTO-CALIB-RR
+        proxy_rendering: carla_debug_overlay_on_static_board
+        status: proxy_until_textured_qr_board_asset_exists
+      status: assumed
+capture_contract:
+  ego_motion: static_or_low_speed_creep
+  minimum_capture_duration_sec: 30
+  fiducial_board_style: dimensioned_single_qr_panel
+  marker_count_per_board: 1
+  opencv_detector: qrcode_detector_or_binary_fiducial_fallback
+  required_static_targets: 12
+  required_panel_geometry:
+    panel_count: 12
+    measured_corner_count_per_panel: 4
+    expected_panel_size_m: [1.6, 1.6]
+    expected_qr_size_m: 1.05
+  expected_lidar_board_hit_targets: 8
+  expected_camera_visible_targets: 4
+  required_lidar_topics:
+    - /sensing/lidar/top/pointcloud_before_sync
+    - /sensing/lidar/rear_top/pointcloud_before_sync
+    - /sensing/lidar/rear/pointcloud_before_sync
+    - /sensing/lidar/left/pointcloud_before_sync
+    - /sensing/lidar/right/pointcloud_before_sync
+  required_output: runtime_verification/calibration/lidar_sensor_kit_extrinsic/calibration_result.json
+validation_hook:
+  scenario: scenarios/calibration/lidar_workshop_bv1qk411d7ta.yaml
+  gate: evaluation/kpi_gates/lidar_sensor_kit_extrinsic.yaml
+  metric_probe: ops/runtime_probes/lidar_calibration_metric_probe.py
+  scene_spawner: stack/stable/carla_calibration_scene_spawner.py
+missing_inputs:
+  - Measured target dimensions and positions from the actual workshop.
+  - CARLA or UE textured asset pack for real printable single-QR boards, lighting, and indoor bay walls.
+  - QR detector adapter if the external calibration program remains AprilTag16h5-only.
+  - Confirmation whether the external calibration algorithm expects static capture, low-speed creep, or multiple stop poses.
+  - Physical survey of panel corner coordinates after installation.
+rollback:
+  action: Exclude the video-derived workshop scenario and keep the generic lidar_sensor_kit_extrinsic scenario.
+  impact: Existing lidar calibration interface and planning-control scenarios remain unchanged.

@@ -80,8 +80,11 @@ def _entry_by_step(logs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return {str(entry.get("step")): entry for entry in logs}
 
 
-def _process_steps_to_check(logs: list[dict[str, Any]]) -> tuple[str, ...]:
-    steps = list(EXPECTED_START_STEPS)
+def _process_steps_to_check(
+    logs: list[dict[str, Any]],
+    expected_start_steps: list[str] | tuple[str, ...] | None = None,
+) -> tuple[str, ...]:
+    steps = list(EXPECTED_START_STEPS if expected_start_steps is None else expected_start_steps)
     for entry in logs:
         step = str(entry.get("step") or "")
         if entry.get("status") == "started" and step and step not in steps:
@@ -89,12 +92,15 @@ def _process_steps_to_check(logs: list[dict[str, Any]]) -> tuple[str, ...]:
     return tuple(steps)
 
 
-def _probe_processes(logs: list[dict[str, Any]]) -> dict[str, Any]:
+def _probe_processes(
+    logs: list[dict[str, Any]],
+    expected_start_steps: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
     entries = _entry_by_step(logs)
     failures: list[str] = []
     checks: list[dict[str, Any]] = []
 
-    for step_name in _process_steps_to_check(logs):
+    for step_name in _process_steps_to_check(logs, expected_start_steps=expected_start_steps):
         entry = entries.get(step_name)
         if entry is None:
             failures.append(step_name)
@@ -191,7 +197,7 @@ def _probe_ros_graph(
     rmw_implementation: str = "",
 ) -> dict[str, Any]:
     command = _ros_topic_command(ros_domain_id, rmw_implementation=rmw_implementation)
-    topics_to_check = tuple(expected_topics or EXPECTED_ROS_TOPICS)
+    topics_to_check = tuple(EXPECTED_ROS_TOPICS if expected_topics is None else expected_topics)
     if not _ros2_available() or command is None:
         return {
             "available": False,
@@ -240,10 +246,11 @@ def probe_runtime_health(
     slot: RuntimeSlot,
     logs: list[dict[str, Any]],
     runtime_namespace: str,
+    expected_process_steps: list[str] | None = None,
     expected_ros_topics: list[str] | None = None,
     rmw_implementation: str = "",
 ) -> dict[str, Any]:
-    process_check = _probe_processes(logs)
+    process_check = _probe_processes(logs, expected_start_steps=expected_process_steps)
     port_check = _probe_tcp_port(slot.carla_rpc_port)
     ros_graph = _probe_ros_graph(
         slot.ros_domain_id,

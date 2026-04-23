@@ -3,10 +3,12 @@ set -euo pipefail
 
 STRICT=0
 VISUAL=0
+SUMO=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --strict) STRICT=1; shift ;;
     --visual) VISUAL=1; shift ;;
+    --sumo) SUMO=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -168,6 +170,26 @@ if [[ "$VISUAL" -eq 1 ]]; then
     pass "visual DISPLAY target is available from current shell"
   else
     warn "For NoMachine visual runs over SSH, export DISPLAY=:0 and XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority if present."
+  fi
+fi
+
+if [[ "$SUMO" -eq 1 ]]; then
+  echo
+  echo "Checking optional SUMO co-simulation tools"
+  check_cmd "sumo" sumo
+  check_cmd "netconvert" netconvert
+  if [[ -n "${SUMO_HOME:-}" && -d "${SUMO_HOME}" ]]; then
+    pass "SUMO_HOME exists: ${SUMO_HOME}"
+  elif [[ -d /usr/share/sumo ]]; then
+    pass "SUMO_HOME candidate exists: /usr/share/sumo"
+  else
+    fail "SUMO_HOME missing"
+  fi
+  CARLA_COSIM_SCRIPT="${CARLA_ROOT}/Co-Simulation/Sumo/run_synchronization.py"
+  if [[ -f "${CARLA_COSIM_SCRIPT}" ]]; then
+    pass "CARLA SUMO co-sim script found: ${CARLA_COSIM_SCRIPT}"
+  else
+    fail "CARLA SUMO co-sim script missing: ${CARLA_COSIM_SCRIPT}"
   fi
 fi
 

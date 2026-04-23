@@ -149,3 +149,23 @@ Prefer the smallest changes that improve repeatability this week:
 - `simctl digest`
 
 If the user asks for design changes, prefer repository-local changes that reinforce this command chain.
+
+## 10. Default branch-test requests
+
+When the user says to test a branch, PR, tag, or commit, treat it as an actionable validation request.
+Do not require a full test plan from the user before starting, unless the local worktree has conflicting uncommitted changes.
+
+Default behavior:
+
+1. Protect the current worktree first with `git status --short --branch`.
+2. Resolve and switch to the requested branch, PR, tag, or commit without overwriting unrelated local changes.
+3. Inspect the diff against the appropriate base branch, usually `origin/main`, and classify the change surface.
+4. Select the smallest relevant validation set from `docs/BRANCH_TESTING_WORKFLOW_CN.md` and `docs/CODEX_TASK_ROUTING_CN.md`.
+5. Run Mac/local-safe checks first: unit tests, schema checks, `simctl` dry-run or mock batch, report generation, digest checks, and asset checks as relevant.
+6. If the branch affects real runtime behavior, state exactly which `simctl --execute` command still needs the company Ubuntu 22.04 host.
+7. Return a concise verdict: `passed`, `failed`, or `blocked`, with command evidence, artifact paths, remaining host-only validation, and rollback note.
+
+Mac/local validation must not be presented as stable closed-loop acceptance.
+Stable acceptance still requires Ubuntu host evidence through:
+
+`run_result -> KPI gate -> report -> replay`

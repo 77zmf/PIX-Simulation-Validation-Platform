@@ -1,0 +1,77 @@
+calibration_asset_id: lidar_sensor_kit_truth
+display_name: Robobus117th five-lidar ground-truth extrinsics
+owner: zmf
+line: stable
+source:
+  sensor_catalog: assets/sensors/robobus_pixrover14_application_topology.yaml
+  carla_mapping: assets/sensors/carla/robobus117th_sensor_mapping.yaml
+  calibration_file: assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+  parameter_set: /home/pixmoving/pix/parameter_sets/PixRover1.2-1.5_117th_d53377bf684e_20260416T100429Z
+coordinate_contract:
+  parent_frame: sensor_kit_base_link
+  units: meters_and_radians
+  visibility: evaluator_only
+  calibration_program_access: forbidden
+lidars:
+  lidar_ft_base_link:
+    role: front_top
+    model: RoboSense M1Plus
+    topic: /sensing/lidar/top/pointcloud_before_sync
+    transform:
+      x: 2.459244
+      y: -0.022552
+      z: 1.845668
+      roll: 0.013367
+      pitch: 0.009416
+      yaw: 0.011880
+  lidar_rt_base_link:
+    role: rear_top
+    model: RoboSense M1Plus
+    topic: /sensing/lidar/rear_top/pointcloud_before_sync
+    transform:
+      x: 0.639244
+      y: -0.022552
+      z: 1.918435
+      roll: 3.149122
+      pitch: 3.116553
+      yaw: 0.004481
+  lidar_rear_base_link:
+    role: rear_or_supplemental
+    model: RoboSense E1R
+    topic: /sensing/lidar/rear/pointcloud_before_sync
+    assignment_status: inferred_from_parameter_frame_name
+    transform:
+      x: -0.361756
+      y: -0.047552
+      z: 0.393303
+      roll: -3.103470
+      pitch: -0.023888
+      yaw: 3.144756
+  lidar_fl_base_link:
+    role: front_left
+    model: RoboSense Airy
+    topic: /sensing/lidar/left/pointcloud_before_sync
+    transform:
+      x: 2.700244
+      y: 0.905448
+      z: 1.420394
+      roll: -3.111087
+      pitch: 0.010704
+      yaw: 1.164140
+  lidar_fr_base_link:
+    role: front_right
+    model: RoboSense Airy
+    topic: /sensing/lidar/right/pointcloud_before_sync
+    transform:
+      x: 2.701244
+      y: -0.927552
+      z: 1.404461
+      roll: -0.016523
+      pitch: -3.124793
+      yaw: 2.011744
+validation_use:
+  metric_probe: ops/runtime_probes/lidar_calibration_metric_probe.py
+  required_transform_count: 5
+rollback:
+  action: Exclude scenarios/calibration/lidar_sensor_kit_extrinsic.yaml from required stable campaigns.
+  impact: Keeps existing planning-control scenarios unchanged.

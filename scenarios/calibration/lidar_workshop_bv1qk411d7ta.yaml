@@ -1,0 +1,172 @@
+scenario_id: lidar_workshop_bv1qk411d7ta
+stack: stable
+map_id: calibration_workshop_proxy
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 13.5686
+    y: -330.4619
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 20.0
+    y: -330.4619
+    z: 0.0
+    yaw_deg: 0.0
+traffic_profile:
+  mode: indoor_calibration_workshop_proxy
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: ClearNoon
+  lighting_model: indoor_uniform_proxy
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: lidar_sensor_kit_extrinsic_calibration
+seed: 11706
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/calibration/lidar_workshop_bv1qk411d7ta
+  carla_recorder:
+    enabled: true
+    path: carla/calibration/lidar_workshop_bv1qk411d7ta.log
+kpi_gate: lidar_sensor_kit_extrinsic
+labels:
+  - calibration
+  - calibration_only
+  - lidar
+  - workshop_proxy
+  - video_reference
+  - robobus117th
+  - stable_candidate
+  - not_driving_regression
+metadata:
+  owner: zmf
+  scene_isolation:
+    class: calibration_only
+    anchor_id: calibration_town01_far_north_proxy_anchor
+    min_distance_from_driving_test_spawn_m: 250.0
+    note: Calibration boards are spawned relative to the ego vehicle and must stay outside the L0/L1/L2 planning-control road-test segment.
+    must_not_overlap_with:
+      - scenarios/l0/robobus117th_town01_closed_loop.yaml
+      - scenarios/l1/regression_follow_lane.yaml
+      - scenarios/l2/planning_control_merge_regression.yaml
+      - scenarios/l2/planning_control_multi_actor_cut_in_lead_brake.yaml
+      - scenarios/l2/planning_control_public_road_merge_regression.yaml
+      - scenarios/l2/robobus117th_town01_close_cut_in_actor_bridge.yaml
+  source_video:
+    url: https://www.bilibili.com/video/BV1qK411D7TA/
+    title: 一分钟标定一辆车的自动驾驶标定车间长啥样？
+    publisher: 元戎启行DeepRoute
+    published_on: 2022-10-25
+  external_calibration_program:
+    repository: https://github.com/pixmoving-moveit/camera_to_lidar_autoCalib
+    imported_board_asset: assets/calibration/boards/single_qr_fiducial_board.yaml
+    board_format_note: Simulation proxy uses one QRCodeDetector-readable QR code per dimensioned panel; the referenced external program's AprilTag16h5 detector needs a QR adapter before native consumption.
+  source_assets:
+    - assets/calibration/calibration_workshop_bv1qk411d7ta_scene.yaml
+    - assets/calibration/boards/single_qr_fiducial_board.yaml
+    - assets/calibration/lidar_sensor_kit_truth.yaml
+    - assets/calibration/lidar_sensor_kit_initial_perturbed.yaml
+    - assets/sensors/robobus_pixrover14_application_topology.yaml
+    - assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    - assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    - ops/runtime_probes/carla_sensor_topic_probe.py
+    - ops/runtime_probes/camera_fiducial_board_opencv_probe.py
+    - ops/runtime_probes/lidar_fiducial_board_hit_probe.py
+    - ops/runtime_probes/lidar_camera_projection_probe.py
+    - ops/runtime_probes/lidar_calibration_metric_probe.py
+  validation_method: Run the stable CARLA bridge with the Robobus117th five-lidar topology in a proxy calibration-workshop capture, spawn twelve dimensioned single-QR calibration panels with frame and stand/rail metadata, verify lidar rays hit board surfaces, verify camera board detection with OpenCV QR detection or binary fiducial fallback, project saved lidar board-hit samples onto captured camera images, then require the external calibration program to write lidar calibration metrics from the workshop-style target layout.
+  validation_command: >
+    python3 stack/stable/carla_calibration_scene_spawner.py
+    --run-dir <run_dir>
+    --scene-file /home/pixmoving/PIX-Simulation-Validation-Platform/assets/calibration/calibration_workshop_bv1qk411d7ta_scene.yaml
+    --carla-port 2000
+    --ego-vehicle-role-name ego_vehicle
+    --delete-existing
+    --debug-draw
+    &&
+    python3 ops/runtime_probes/lidar_fiducial_board_hit_probe.py
+    --run-dir <run_dir>
+    --scene-spawn-artifact <run_dir>/runtime_verification/calibration_scene/calibration_workshop_bv1qk411d7ta_scene_spawn.json
+    --sensor-calibration assets/calibration/lidar_sensor_kit_truth.yaml
+    --capture-from-carla
+    --carla-port 2000
+    --ego-vehicle-role-name ego_vehicle
+    --lidar-frame-count 5
+    --min-boards-hit 3
+    --min-lidars-hit 3
+    --min-total-hit-count 100
+    &&
+    python3 ops/runtime_probes/camera_fiducial_board_opencv_probe.py
+    --run-dir <run_dir>
+    --capture-from-carla
+    --carla-port 2000
+    --ego-vehicle-role-name ego_vehicle
+    --expected-board-count 12
+    --min-detections 1
+    &&
+    python3 ops/runtime_probes/lidar_camera_projection_probe.py
+    --run-dir <run_dir>
+    --scene-spawn-artifact <run_dir>/runtime_verification/calibration_scene/calibration_workshop_bv1qk411d7ta_scene_spawn.json
+    --image-dir <run_dir>/runtime_verification/calibration/camera_fiducial_board_detection/images
+    --min-in-frame-count 20
+    --min-projected-views 1
+    &&
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th_bridge_only
+    &&
+    python3 ops/runtime_probes/lidar_calibration_metric_probe.py
+    --run-dir <run_dir>
+    --profile lidar_sensor_kit_extrinsic
+    --calibration-result <run_dir>/runtime_verification/calibration/lidar_sensor_kit_extrinsic/calibration_result.json
+    --require-transform-count 5
+  expected_observable: All five lidar topics have live samples; the video-derived workshop proxy scene has twelve dimensioned single-QR calibration panels with one unique QR payload per panel; the lidar board-hit probe captures CARLA ray-cast pointclouds and reports points on board surfaces; OpenCV detects at least one camera-visible calibration board; lidar board-hit samples project into at least one captured camera image; the external calibration program writes five estimated lidar transforms and numeric error metrics for KPI evaluation.
+  metrics_artifact: runtime_verification/calibration/lidar_sensor_kit_extrinsic/calibration_result.json
+  camera_detection_artifact: runtime_verification/calibration/camera_fiducial_board_detection/detection_result.json
+  lidar_board_hit_artifact: runtime_verification/metric_probe_lidar_fiducial_board_hits_*/lidar_fiducial_board_hits.json
+  lidar_camera_projection_artifact: runtime_verification/metric_probe_lidar_camera_projection_*/lidar_projection_contact_sheet.png
+  scene_asset: assets/calibration/calibration_workshop_bv1qk411d7ta_scene.yaml
+  scene_spawner: stack/stable/carla_calibration_scene_spawner.py
+  truth_asset: assets/calibration/lidar_sensor_kit_truth.yaml
+  initial_guess_asset: assets/calibration/lidar_sensor_kit_initial_perturbed.yaml
+  executable_scope: carla_spawnable_proxy_until_indoor_workshop_assets_exist
+  missing_inputs:
+    - Exact target geometry and positions visible in the source video.
+    - Textured CARLA/UE assets for physically printed single-QR calibration boards.
+    - QR-code detector adapter if the external calibration program remains AprilTag16h5-only.
+    - Confirmation of the external calibration program's capture motion requirements.
+  rollback_impact: Exclude this video-derived workshop scenario and keep scenarios/calibration/lidar_sensor_kit_extrinsic.yaml as the generic lidar calibration gate.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: "13.5686,330.4619,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    ros_expected_topics:
+      - /clock
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync

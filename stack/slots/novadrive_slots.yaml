@@ -1,0 +1,18 @@
+stack_id: novadrive
+description: NovaDrive CARLA-only slot catalog without Autoware processes
+slots:
+  - slot_id: novadrive-slot-01
+    carla_rpc_port: 2100
+    traffic_manager_port: 8100
+    ros_domain_id: 31
+    runtime_namespace: /simctl/novadrive/slot01
+    gpu_id: "0"
+    cpu_affinity: 0-7
+  - slot_id: novadrive-slot-02
+    carla_rpc_port: 2110
+    traffic_manager_port: 8110
+    ros_domain_id: 32
+    runtime_namespace: /simctl/novadrive/slot02
+    gpu_id: "0"
+    cpu_affinity: 8-15
+

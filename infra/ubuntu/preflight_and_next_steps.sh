@@ -228,7 +228,35 @@ else
   add_note "For NoMachine visual runs over SSH, try: export DISPLAY=:0 XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority"
 fi
 
-for port in 2000 2010 2020 2030 8000 8010 8020 8030; do
+SUMO_STEP="bash '${REPO_ROOT}/infra/ubuntu/prepare_sumo_runtime.sh' --execute"
+if command -v sumo >/dev/null 2>&1; then
+  pass "sumo available: $(command -v sumo)"
+else
+  warn "sumo missing; required only for SUMO-enabled scenarios"
+  add_step "$SUMO_STEP"
+fi
+if command -v netconvert >/dev/null 2>&1; then
+  pass "netconvert available: $(command -v netconvert)"
+else
+  warn "netconvert missing; required for SUMO public-road asset conversion"
+  add_step "$SUMO_STEP"
+fi
+if [[ -n "${SUMO_HOME:-}" && -d "${SUMO_HOME}" ]]; then
+  pass "SUMO_HOME exists: ${SUMO_HOME}"
+elif [[ -d /usr/share/sumo ]]; then
+  pass "SUMO_HOME candidate exists: /usr/share/sumo"
+else
+  warn "SUMO_HOME missing; export SUMO_HOME=/usr/share/sumo after installing SUMO"
+fi
+CARLA_SUMO_SYNC="${CARLA_RUNTIME_ROOT}/Co-Simulation/Sumo/run_synchronization.py"
+if [[ -f "${CARLA_SUMO_SYNC}" ]]; then
+  pass "CARLA SUMO co-sim script found"
+else
+  warn "CARLA SUMO co-sim script missing at ${CARLA_SUMO_SYNC}"
+  add_note "If using a CARLA source checkout for co-simulation scripts, set stable_runtime.sumo_cosim_script."
+fi
+
+for port in 2000 2010 2020 2030 8000 8010 8020 8030 9000 9010 9020 9030; do
   check_port "$port"
 done
 

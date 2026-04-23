@@ -1,0 +1,35 @@
+gate_id: novadrive_l2_merge
+description: NovaDrive L2 merge/cut-in direct-CARLA gate without Autoware
+failure_labels:
+  - novadrive_route_completion_failure
+  - novadrive_collision_failure
+  - novadrive_ttc_failure
+  - novadrive_distance_failure
+  - novadrive_control_loop_failure
+  - novadrive_perception_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.80
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.8
+  min_distance_m:
+    op: ">="
+    value: 5.0
+  control_rate_hz:
+    op: ">="
+    value: 10.0
+  perception_frame_rate_hz:
+    op: ">="
+    value: 5.0
+  trajectory_valid_ratio:
+    op: ">="
+    value: 1.0
+  novadrive_runtime_passed:
+    op: ">="
+    value: 1.0
+

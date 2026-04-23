@@ -1,0 +1,75 @@
+campaign_id: stable_l3_occlusion
+description: Stable-line L3 occluded-pedestrian campaign for Robobus117th CARLA visual actors with pedestrian dummy-perception validation.
+owner: zmf
+default_run_root: runs/campaign_stable_l3_occlusion
+default_slot: stable-slot-01
+stop_after_each: true
+report: true
+validation_path: simctl campaign --config ops/test_campaigns/stable_l3_occlusion.yaml --slot stable-slot-01 --execute
+rollback_impact: Remove this campaign config or run scenarios/l3/stress_occluded_pedestrian.yaml manually with simctl run followed by simctl validate --finalize --report.
+scenarios:
+  - id: stable_l3_occluded_pedestrian
+    path: scenarios/l3/stress_occluded_pedestrian.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - dummy_injection
+      - pedestrian
+      - occlusion
+      - L3
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=1
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l3_occluded_pedestrian_close_yield
+    path: scenarios/l3/occluded_pedestrian_close_yield.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - dummy_injection
+      - pedestrian
+      - occlusion
+      - close_yield
+      - L3
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=1
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l3_occluded_pedestrian_double_occluder
+    path: scenarios/l3/occluded_pedestrian_double_occluder.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - dummy_injection
+      - pedestrian
+      - occlusion
+      - double_occluder
+      - L3
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=1
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8

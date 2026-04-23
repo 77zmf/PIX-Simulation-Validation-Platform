@@ -1,0 +1,19 @@
+profile_id: novadrive_direct_carla
+type: ads_full_stack
+description: NovaDrive self-owned ADS stack that controls CARLA directly without Autoware
+runtime:
+  interface: carla_rpc_apply_control
+  autoware_dependency: false
+perception:
+  phase1: carla_truth
+  phase2: bevfusion
+world_model:
+  frame_id: carla_world
+planning:
+  behavior: rule_based_merge_yield
+  trajectory: reference_line
+control:
+  lateral: pure_pursuit
+  longitudinal: pid
+acceptance_gate: novadrive_l2_merge
+

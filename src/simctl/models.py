@@ -19,6 +19,7 @@ class CommandStep:
     background: bool = False
     cwd: str | None = None
     env: dict[str, str] = field(default_factory=dict)
+    when: str | None = None
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any], *, where: str) -> "CommandStep":
@@ -30,6 +31,7 @@ class CommandStep:
             background=bool(payload.get("background", False)),
             cwd=str(payload["cwd"]) if payload.get("cwd") else None,
             env={str(k): str(v) for k, v in payload.get("env", {}).items()},
+            when=str(payload["when"]) if payload.get("when") else None,
         )
 
 
@@ -194,7 +196,7 @@ class ScenarioConfig:
             where=str(scenario_path),
         )
         stack = str(payload["stack"])
-        if stack not in {"stable"}:
+        if stack not in {"stable", "novadrive"}:
             raise ValueError(f"{scenario_path} has unsupported stack '{stack}'")
         return cls(
             scenario_id=str(payload["scenario_id"]),

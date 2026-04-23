@@ -1,0 +1,79 @@
+scenario_id: novadrive_l2_merge
+stack: novadrive
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 229.78167724609375
+    y: -2.0201120376586914
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 314.2434997558594
+    y: -1.982629656791687
+    z: 0.0
+    yaw_deg: 0.0
+traffic_profile:
+  mode: novadrive_l2_merge
+  vehicles: 1
+  pedestrians: 0
+  novadrive_actors:
+    - name: merging_audi_tt
+      type_id: vehicle.audi.tt
+      start:
+        x: 252.0
+        y: 5.5
+        z: 0.15
+      final_y: 2.0
+      speed_x_mps: 2.4
+      yaw_deg: 0.0
+weather_profile:
+  preset: CloudyNoon
+sensor_profile: ground_truth_control_baseline
+algorithm_profile: novadrive_direct_carla
+seed: 20260421
+recording:
+  rosbag2:
+    enabled: false
+  carla_recorder:
+    enabled: false
+kpi_gate: novadrive_l2_merge
+labels:
+  - L2
+  - novadrive
+  - no_autoware
+  - merge
+metadata:
+  owner: zmf
+  validation_method: Run NovaDrive direct-CARLA L2 merge and finalize runtime evidence.
+  validation_command: python3 -m novadrive.evaluation.validate_run --run-dir <run_dir>
+  expected_observable: Ego slows or yields for a merging actor without collision while maintaining safe TTC.
+  rollback_impact: Remove this scenario from NovaDrive campaigns; no stable Autoware scenario is affected.
+execution:
+  mode: external
+  stable_runtime:
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_startup_timeout_sec: "90"
+    novadrive_runtime_mode: carla
+    novadrive_perception_source: carla_truth
+    novadrive_tick_sec: "0.05"
+    novadrive_max_duration_sec: "48"
+  novadrive:
+    perception_source: carla_truth
+    target_speed_mps: 4.5
+    max_duration_sec: 48
+    start_carla:
+      x: 229.78167724609375
+      y: 2.0201120376586914
+      z: 0.0
+    goal_carla:
+      x: 314.2434997558594
+      y: 1.982629656791687
+      z: 0.0
+

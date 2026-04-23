@@ -1,0 +1,90 @@
+scenario_id: stable_l2_sumo_public_road_traffic_draft
+stack: stable
+map_id: gy_qyhx_gsh20260310
+asset_bundle: site_gy_qyhx_gsh20260310_sumo_draft
+ego_init:
+  route_anchor: gy_qyhx_gsh/public_road_merge_entry
+goal:
+  route_id: gy_qyhx_gsh/public_road_merge_loop
+traffic_profile:
+  mode: sumo_public_road_actor_bridge_draft
+  vehicles: 5
+  pedestrians: 0
+  source: external_sumo_net_routes_required
+weather_profile:
+  preset: CloudyNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260424
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/sumo_public_road_traffic_draft
+  carla_recorder:
+    enabled: true
+    path: carla/sumo_public_road_traffic_draft.log
+kpi_gate: sumo_public_road_smoke
+labels:
+  - L2
+  - stable
+  - public_road
+  - sumo
+  - draft
+  - actor_bridge
+  - planning_control
+metadata:
+  owner: zmf
+  executable_status: blocked_until_sumo_assets_exist
+  source_assets:
+    - assets/manifests/site_gy_qyhx_gsh20260310.yaml
+    - assets/manifests/site_gy_qyhx_gsh20260310_sumo_draft.yaml
+    - assets/sumo/site_gy_qyhx_gsh20260310/README.md
+  missing_inputs:
+    - ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.net.xml
+    - ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.rou.xml
+    - ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.sumocfg
+  validation_method: Promote this draft only after public-road SUMO network, routes, projection, and CARLA map alignment are present; then reuse the SUMO co-sim probe and actor-bridge object visibility gate.
+  validation_command: >
+    python3 ops/runtime_probes/sumo_cosim_probe.py
+    --run-dir <run_dir>
+    --profile public_road_sumo_draft
+    --sumo-config-file /home/pixmoving/artifacts/assets/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.sumocfg
+    --min-actors 1
+  expected_observable: Once assets exist, CARLA visual output shows SUMO traffic on the public-road site route and Autoware receives non-empty object/control streams through the actor bridge.
+  rollback_impact: Keep using scenarios/l1/sumo_town01_traffic_smoke.yaml until the public-road SUMO assets pass intake.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/site_gy_qyhx_gsh20260310
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: gy_qyhx_gsh20260310
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_actor_object_bridge_enabled: "true"
+    carla_actor_object_bridge_delete_all_on_start: "false"
+    carla_actor_object_bridge_delete_all_on_stop: "true"
+    sumo_enabled: "true"
+    sumo_config_file: /home/pixmoving/artifacts/assets/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.sumocfg
+    sumo_net_file: /home/pixmoving/artifacts/assets/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.net.xml
+    sumo_route_file: /home/pixmoving/artifacts/assets/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.rou.xml
+    sumo_binary: sumo
+    sumo_gui: "false"
+    sumo_step_length: "0.05"
+    sumo_min_actor_count: "1"
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /perception/object_recognition/objects
+      - /control/command/control_cmd

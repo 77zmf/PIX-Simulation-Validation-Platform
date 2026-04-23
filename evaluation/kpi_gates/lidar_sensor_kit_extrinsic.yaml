@@ -1,0 +1,69 @@
+gate_id: lidar_sensor_kit_extrinsic
+description: Stable-candidate gate for Robobus117th five-lidar automatic extrinsic calibration
+failure_labels:
+  - lidar_calibration_gate_failure
+  - robobus_sensor_bridge_failure
+metrics:
+  calibration_converged:
+    op: "=="
+    value: 1.0
+  calibrated_lidar_count:
+    op: ">="
+    value: 5.0
+  lidar_extrinsic_translation_error_m:
+    op: "<="
+    value: 0.05
+  lidar_extrinsic_rotation_error_deg:
+    op: "<="
+    value: 0.5
+  lidar_pairwise_registration_rmse_m:
+    op: "<="
+    value: 0.08
+  calibration_scene_target_count:
+    op: ">="
+    value: 12.0
+  calibration_scene_spawned_count:
+    op: ">="
+    value: 12.0
+  calibration_scene_failed_count:
+    op: "<="
+    value: 0.0
+  calibration_scene_panel_count:
+    op: ">="
+    value: 12.0
+  calibration_scene_marker_payload_count:
+    op: ">="
+    value: 12.0
+  calibration_scene_marker_overlay_count:
+    op: ">="
+    value: 12.0
+  calibration_scene_panel_overlay_line_count:
+    op: ">="
+    value: 120.0
+  camera_fiducial_expected_board_count:
+    op: ">="
+    value: 12.0
+  camera_fiducial_captured_image_count:
+    op: ">="
+    value: 4.0
+  camera_fiducial_detection_count:
+    op: ">="
+    value: 1.0
+  lidar_board_hit_count:
+    op: ">="
+    value: 100.0
+  lidar_board_hit_board_count:
+    op: ">="
+    value: 8.0
+  lidar_board_hit_lidar_count:
+    op: ">="
+    value: 5.0
+  lidar_board_hit_coverage:
+    op: ">="
+    value: 0.66
+  sensor_topic_coverage:
+    op: ">="
+    value: 1.0
+  sensor_sample_coverage:
+    op: ">="
+    value: 1.0

@@ -1,0 +1,77 @@
+calibration_asset_id: lidar_sensor_kit_initial_perturbed
+display_name: Robobus117th five-lidar initial guess for automatic calibration
+owner: zmf
+line: stable_candidate
+source_truth: assets/calibration/lidar_sensor_kit_truth.yaml
+coordinate_contract:
+  parent_frame: sensor_kit_base_link
+  units: meters_and_radians
+  visibility: calibration_program_input
+perturbation_policy:
+  translation_delta_m: bounded_per_axis_under_0_08
+  rotation_delta_deg: bounded_per_axis_under_1_0
+  purpose: Ensure the calibration program has to recover from a known nonzero initial error.
+lidars:
+  lidar_ft_base_link:
+    role: front_top
+    model: RoboSense M1Plus
+    topic: /sensing/lidar/top/pointcloud_before_sync
+    transform:
+      x: 2.519244
+      y: -0.047552
+      z: 1.865668
+      roll: 0.022094
+      pitch: 0.004180
+      yaw: 0.026842
+  lidar_rt_base_link:
+    role: rear_top
+    model: RoboSense M1Plus
+    topic: /sensing/lidar/rear_top/pointcloud_before_sync
+    transform:
+      x: 0.579244
+      y: 0.012448
+      z: 1.888435
+      roll: 3.140395
+      pitch: 3.128770
+      yaw: -0.010481
+  lidar_rear_base_link:
+    role: rear_or_supplemental
+    model: RoboSense E1R
+    topic: /sensing/lidar/rear/pointcloud_before_sync
+    assignment_status: inferred_from_parameter_frame_name
+    transform:
+      x: -0.321756
+      y: -0.087552
+      z: 0.418303
+      roll: -3.094743
+      pitch: -0.031742
+      yaw: 3.131666
+  lidar_fl_base_link:
+    role: front_left
+    model: RoboSense Airy
+    topic: /sensing/lidar/left/pointcloud_before_sync
+    transform:
+      x: 2.755244
+      y: 0.875448
+      z: 1.450394
+      roll: -3.119814
+      pitch: 0.024666
+      yaw: 1.151050
+  lidar_fr_base_link:
+    role: front_right
+    model: RoboSense Airy
+    topic: /sensing/lidar/right/pointcloud_before_sync
+    transform:
+      x: 2.646244
+      y: -0.892552
+      z: 1.374461
+      roll: -0.007796
+      pitch: -3.136136
+      yaw: 2.027452
+output_contract:
+  expected_result: runtime_verification/calibration/lidar_sensor_kit_extrinsic/calibration_result.json
+  required_metrics:
+    - lidar_extrinsic_translation_error_m
+    - lidar_extrinsic_rotation_error_deg
+    - lidar_pairwise_registration_rmse_m
+  required_status: converged

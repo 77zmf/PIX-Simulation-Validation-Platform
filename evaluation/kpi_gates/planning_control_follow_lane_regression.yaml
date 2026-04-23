@@ -1,0 +1,30 @@
+gate_id: planning_control_follow_lane_regression
+description: Follow-lane regression gate for PIX robobus route-goal closure with lane-center envelope
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - route_goal_closure_failure
+  - lane_envelope_failure
+  - control_stability_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.98
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.8
+  route_goal_lateral_error_m:
+    op: "<="
+    value: 0.80
+  lateral_error_m:
+    op: "<="
+    value: 0.75
+  longitudinal_error_m:
+    op: "<="
+    value: 0.8
+  jerk_mps3:
+    op: "<="
+    value: 2.5

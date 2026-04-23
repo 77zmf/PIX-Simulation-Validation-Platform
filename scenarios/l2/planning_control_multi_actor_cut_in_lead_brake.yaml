@@ -61,6 +61,8 @@ metadata:
     --run-dir <run_dir>
     --kind l2_multi_actor_cut_in_lead_brake
     --perception-source actor_bridge
+    --camera-video-output <run_dir>/runtime_verification/l2_multi_actor_cut_in_lead_brake.mp4
+    --camera-video-mode overview
     --no-rosbag
   expected_observable: Robobus117th sensor topics have live samples; actor bridge publishes multiple non-ego actors; ego yields or slows for lead-brake plus side cut-in traffic with no collision and safe TTC.
   rollback_impact: Remove this scenario from ops/test_campaigns/stable_perception_control.yaml if multi-actor behavior destabilizes the stable regression lane.

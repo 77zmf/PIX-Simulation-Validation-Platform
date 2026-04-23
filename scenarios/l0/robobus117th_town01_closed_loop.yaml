@@ -10,10 +10,10 @@ ego_init:
     yaw_deg: 0.0
 goal:
   pose:
-    x: 314.2434997558594
+    x: 295.0
     y: -1.982629656791687
     z: 0.0
-    yaw_deg: -0.03045654296875
+    yaw_deg: 0.0
 traffic_profile:
   mode: empty_smoke
   vehicles: 0
@@ -44,7 +44,7 @@ metadata:
     - assets/vehicles/robobus117th/blueprint_source_manifest.yaml
     - ops/runtime_probes/carla_closed_loop_route_probe.py
     - github.com/pixmoving-moveit/parameter:PixRover1.2-1.5/117th
-  validation_method: CARLA 0.9.15 + Autoware planning simulator closed-loop smoke
+  validation_method: CARLA 0.9.15 + Autoware planning simulator closed-loop smoke on the stable straight Town01 segment
   validation_command: >
     python3 ops/runtime_probes/carla_sensor_topic_probe.py
     --run-dir <run_dir>
@@ -54,7 +54,7 @@ metadata:
     --run-dir <run_dir>
     --camera-video-output <run_dir>/runtime_verification/closed_loop_route_sync.mp4
     --camera-video-mode ego_chase
-  expected_observable: All 6 cameras, 5 lidars, IMU, GNSS, localization and vehicle status topics have live samples; Autoware accepts route points, publishes trajectory/control, and the PIX robobus ego reaches the Town01 goal without collision in an empty L0 smoke scene.
+  expected_observable: All 6 cameras, 5 lidars, IMU, GNSS, localization and vehicle status topics have live samples; Autoware accepts route points, publishes trajectory/control, and the PIX robobus ego reaches the shortened straight Town01 smoke goal without collision in an empty L0 scene. Longer Town01 route-follow remains an L1 steering/route-follow regression target.
   rollback_impact: Disable this scenario or switch execution.mode back to stub; it does not modify runtime assets.
 execution:
   mode: external

@@ -1,0 +1,38 @@
+bundle_id: site_gy_qyhx_gsh20260310_sumo_draft
+site_id: gy_qyhx_gsh
+description: Draft SUMO traffic asset contract for the March 10 2026 public-road site proxy bundle
+source:
+  type: derived_from_site_proxy
+  parent_manifest: assets/manifests/site_gy_qyhx_gsh20260310.yaml
+  status: blocked_until_sumo_network_assets_exist
+  required_inputs:
+    - OpenDRIVE map export or SUMO-compatible road network
+    - SUMO routes for public-road merge traffic
+    - SUMO configuration file referencing the network and routes
+maps:
+  lanelet2:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/lanelet2_map.osm
+    fallback_repo_path: ${REPO_ROOT}/lanelet2_map.osm
+  projector:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/map_projector_info.yaml
+  pointcloud_dir:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/pointcloud_map.pcd
+  pointcloud_metadata:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/pointcloud_map_metadata.yaml
+  sumo_net:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.net.xml
+  sumo_routes:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.rou.xml
+  sumo_config:
+    path: ${SIM_ASSET_ROOT}/site_gy_qyhx_gsh20260310/sumo/site_gy_qyhx_gsh20260310.sumocfg
+metadata:
+  executable_status: draft_blocked_until_sumo_assets_exist
+  parent_bundle: site_gy_qyhx_gsh20260310
+  expected_conversion_method: prefer_opendrive_or_native_sumo_net_over_lanelet2_best_effort
+  owner: zmf
+  tags:
+    - site_proxy
+    - public_road
+    - sumo
+    - draft
+    - asset_intake

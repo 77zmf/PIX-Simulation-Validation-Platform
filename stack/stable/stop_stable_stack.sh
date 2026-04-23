@@ -4,6 +4,7 @@ set -euo pipefail
 RUN_DIR=""
 CARLA_PORT=""
 TRAFFIC_MANAGER_PORT=""
+SUMO_TRACI_PORT=""
 ROS_DOMAIN_ID=""
 RMW_IMPLEMENTATION_ARG=""
 EXECUTE=0
@@ -13,6 +14,7 @@ while [[ $# -gt 0 ]]; do
     --run-dir) RUN_DIR="$2"; shift 2 ;;
     --carla-port) CARLA_PORT="$2"; shift 2 ;;
     --traffic-manager-port) TRAFFIC_MANAGER_PORT="$2"; shift 2 ;;
+    --sumo-traci-port) SUMO_TRACI_PORT="$2"; shift 2 ;;
     --ros-domain-id) ROS_DOMAIN_ID="$2"; shift 2 ;;
     --rmw-implementation) RMW_IMPLEMENTATION_ARG="$2"; shift 2 ;;
     -Execute|--execute) EXECUTE=1; shift ;;
@@ -30,6 +32,7 @@ echo "RunDir: ${RUN_DIR}"
 echo "PidDir: ${PID_DIR}"
 echo "CARLA RPC Port: ${CARLA_PORT}"
 echo "Traffic Manager Port: ${TRAFFIC_MANAGER_PORT}"
+echo "SUMO TraCI Port: ${SUMO_TRACI_PORT}"
 echo "ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}"
 echo "RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION_ARG}"
 
@@ -44,6 +47,19 @@ collect_process_tree() {
 
 collect_unique_stop_pids() {
   printf '%s\n' "$@" | awk 'NF' | awk '!seen[$0]++'
+}
+
+matching_pids() {
+  local pattern="$1"
+  ps -eo pid=,cmd= \
+    | awk -v pattern="$pattern" '$0 ~ pattern {print $1}' \
+    | awk '!seen[$0]++'
+}
+
+collect_stable_auxiliary_ros_pids() {
+  matching_pids '/opt/ros/humble/lib/topic_tools/relay /sensing/camera'
+  matching_pids '/opt/ros/humble/lib/image_transport/republish raw compressed'
+  matching_pids '/opt/ros/humble/lib/robot_state_publisher/robot_state_publisher .*__node:=robot_state_publisher'
 }
 
 stop_pid_group() {
@@ -137,14 +153,18 @@ if [[ "$EXECUTE" -eq 1 ]]; then
     pid="$(tr -d '\r\n' < "$pid_file")"
     if [[ -n "$pid" ]]; then
       ROOT_PIDS+=("$pid")
-      stop_pid_group "$pid" TERM
     fi
     if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
       mapfile -t TREE_PIDS < <(collect_process_tree "$pid")
       STOP_PIDS+=("${TREE_PIDS[@]}")
     fi
   done
+  mapfile -t AUXILIARY_ROS_PIDS < <(collect_stable_auxiliary_ros_pids)
+  STOP_PIDS+=("${AUXILIARY_ROS_PIDS[@]:-}")
   mapfile -t STOP_PIDS < <(collect_unique_stop_pids "${STOP_PIDS[@]:-}")
+  for pid in "${ROOT_PIDS[@]:-}"; do
+    stop_pid_group "$pid" TERM
+  done
   stop_pid_list TERM "${STOP_PIDS[@]:-}"
 
   sleep 3
@@ -162,9 +182,11 @@ if [[ "$EXECUTE" -eq 1 ]]; then
 
   stop_port_listeners "$CARLA_PORT" TERM
   stop_port_listeners "$TRAFFIC_MANAGER_PORT" TERM
+  stop_port_listeners "$SUMO_TRACI_PORT" TERM
   sleep 1
   stop_port_listeners "$CARLA_PORT" KILL
   stop_port_listeners "$TRAFFIC_MANAGER_PORT" KILL
+  stop_port_listeners "$SUMO_TRACI_PORT" KILL
 
   for pid_file in "${PID_FILES[@]}"; do
     rm -f "$pid_file"

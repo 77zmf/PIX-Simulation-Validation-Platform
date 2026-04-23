@@ -1,0 +1,26 @@
+gate_id: sumo_public_road_smoke
+description: Stable-line SUMO-CARLA co-simulation smoke gate with Autoware actor-bridge object visibility
+failure_labels:
+  - sumo_cosim_failure
+  - sumo_actor_visibility_failure
+  - actor_bridge_perception_failure
+  - ego_control_command_failure
+metrics:
+  sumo_cosim_alive:
+    op: ">="
+    value: 1.0
+  sumo_route_loaded:
+    op: ">="
+    value: 1.0
+  sumo_actor_count:
+    op: ">="
+    value: 1.0
+  sumo_step_samples:
+    op: ">="
+    value: 1.0
+  autoware_object_stream_seen:
+    op: ">="
+    value: 1.0
+  ego_control_command_seen:
+    op: ">="
+    value: 1.0

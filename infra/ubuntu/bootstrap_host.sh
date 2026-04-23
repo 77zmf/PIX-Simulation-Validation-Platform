@@ -4,11 +4,13 @@ set -euo pipefail
 EXECUTE=0
 WITH_VISUAL_TOOLS=0
 WITH_CARLA_ASSET_TOOLS=0
+WITH_SUMO=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -Execute|--execute) EXECUTE=1; shift ;;
     --with-visual-tools) WITH_VISUAL_TOOLS=1; shift ;;
     --with-carla-asset-tools) WITH_CARLA_ASSET_TOOLS=1; shift ;;
+    --with-sumo) WITH_SUMO=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -17,6 +19,7 @@ echo "Preparing company Ubuntu host for Autoware Universe + CARLA"
 echo "EXECUTE=${EXECUTE}"
 echo "WITH_VISUAL_TOOLS=${WITH_VISUAL_TOOLS}"
 echo "WITH_CARLA_ASSET_TOOLS=${WITH_CARLA_ASSET_TOOLS}"
+echo "WITH_SUMO=${WITH_SUMO}"
 
 if dpkg --audit | grep -q .; then
   echo "[FAIL] dpkg audit reports broken packages. Fix host package state before continuing." >&2
@@ -50,6 +53,13 @@ if [[ "$WITH_CARLA_ASSET_TOOLS" -eq 1 ]]; then
   )
 fi
 
+if [[ "$WITH_SUMO" -eq 1 ]]; then
+  COMMANDS+=(
+    "sudo apt-get install -y sumo sumo-tools sumo-doc"
+    "python3 -m pip install --user traci sumolib"
+  )
+fi
+
 for cmd in "${COMMANDS[@]}"; do
   echo "$cmd"
   if [[ "$EXECUTE" -eq 1 ]]; then
@@ -64,4 +74,5 @@ echo
 echo "Next operator-controlled steps:"
 echo "- verify or install CARLA 0.9.15 runtime under CARLA_0915_ROOT"
 echo "- verify or create AUTOWARE_WS and import autoware.repos"
+echo "- for SUMO co-simulation, run: bash infra/ubuntu/prepare_sumo_runtime.sh --execute"
 echo "- keep planning/control and E2E shadow validation on the same UE4.26 runtime baseline"

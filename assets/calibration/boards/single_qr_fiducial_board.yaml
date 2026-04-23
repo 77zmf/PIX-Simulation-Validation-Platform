@@ -1,0 +1,49 @@
+board_asset_id: single_qr_fiducial_board
+display_name: One-QR fiducial calibration board
+owner: zmf
+line: stable_candidate
+source:
+  requested_by: simulation_calibration_workshop
+  original_program_reference: https://github.com/pixmoving-moveit/camera_to_lidar_autoCalib
+  note: This simulation proxy intentionally uses one QR code per physical calibration board. The referenced external repository currently uses an AprilTag16h5 board; a QR detector or mapping adapter is required before this is treated as that program's native board format.
+opencv_contract:
+  detector: QRCodeDetector
+  marker_type: qr_code
+  marker_num: 1
+  payload_template: "PXC:{target_id}"
+  qr_version: 2
+  error_correction: L
+  quiet_zone_modules: 4
+  marker_size_m: 1.05
+physical_panel:
+  panel_type: rigid_square_calibration_panel
+  panel_size_m: [1.6, 1.6]
+  printable_area_m: [1.2, 1.2]
+  panel_thickness_m: 0.035
+  frame_width_m: 0.06
+  backing_color: matte_white
+  marker_color: matte_black
+  recommended_mount: weighted_floor_stand_or_wall_rail
+  flatness_tolerance_m: 0.006
+  placement_tolerance_m: 0.02
+  placement_tolerance_yaw_deg: 0.2
+  measured_corner_required: true
+layout:
+  coordinate_frame: board_local
+  axes: x normal from board to sensor, y board-right, z board-up
+  board_size_m: [1.6, 1.6]
+  status: dimensioned_single_qr_panel_proxy
+  markers:
+    - marker_role: target_unique_qr
+      local_yz_m: [0.0, 0.0]
+      size_m: 1.05
+rendering:
+  carla_proxy: static prop panel plus CARLA debug overlay for frame, stand, and QR modules
+  texture_asset_status: not_imported_yet
+  opencv_detection_mode: qr_code_or_binary_fiducial_fallback
+validation:
+  camera_probe: ops/runtime_probes/camera_fiducial_board_opencv_probe.py
+  lidar_hit_probe: ops/runtime_probes/lidar_fiducial_board_hit_probe.py
+rollback:
+  action: Point calibration_workshop_bv1qk411d7ta_scene.yaml back to camera_to_lidar_autocalib_apriltag16h5_board.yaml if the external calibration program must remain AprilTag-only.
+  impact: Generic lidar calibration assets and KPI gates remain unchanged.

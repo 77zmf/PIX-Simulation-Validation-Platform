@@ -1,0 +1,47 @@
+board_asset_id: camera_to_lidar_autocalib_apriltag16h5_board
+display_name: Camera-to-lidar autoCalib AprilTag16h5 board
+owner: pixmoving-moveit
+line: stable_candidate
+source:
+  repository: https://github.com/pixmoving-moveit/camera_to_lidar_autoCalib
+  config_file: config/calib_board_config.yaml
+  detector_file: src/detaruco.cpp
+  imported_for: PIX simulation camera-lidar calibration board proxy
+opencv_contract:
+  dictionary: DICT_APRILTAG_16h5
+  marker_length_m: 0.51
+  marker_scale: 2.2
+  marker_shift_m: 0.15
+  marker_num: 5
+  marker_order: [5, 6, 14, 1, 8]
+layout:
+  coordinate_frame: board_local
+  axes: x normal from board to sensor, y board-right, z board-up
+  board_size_m: [2.4, 1.6]
+  status: imported_proxy_layout_until_print_template_is_confirmed
+  markers:
+    - marker_id: 5
+      local_yz_m: [-0.68, 0.34]
+      size_m: 0.51
+    - marker_id: 6
+      local_yz_m: [0.0, 0.34]
+      size_m: 0.51
+    - marker_id: 14
+      local_yz_m: [0.68, 0.34]
+      size_m: 0.51
+    - marker_id: 1
+      local_yz_m: [-0.34, -0.34]
+      size_m: 0.51
+    - marker_id: 8
+      local_yz_m: [0.34, -0.34]
+      size_m: 0.51
+rendering:
+  carla_proxy: static.prop.advertisement plus CARLA debug overlay
+  texture_asset_status: not_imported_yet
+  opencv_detection_mode: aruco_or_binary_fiducial_fallback
+validation:
+  camera_probe: ops/runtime_probes/camera_fiducial_board_opencv_probe.py
+  lidar_hit_probe: ops/runtime_probes/lidar_fiducial_board_hit_probe.py
+rollback:
+  action: Remove this board asset from calibration_workshop_bv1qk411d7ta_scene.yaml.
+  impact: Generic lidar calibration assets and KPI gates remain unchanged.

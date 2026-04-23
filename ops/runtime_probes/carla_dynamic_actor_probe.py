@@ -55,6 +55,7 @@ class ActorSpec:
     cut_in_duration: float
     static_target: bool = False
     activation_sec: float = 0.0
+    perception_visible: bool = True
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,7 @@ class ProbeConfig:
     static_target: bool = False
     safe_distance_m: float = 5.0
     safe_ttc_sec: float = 2.0
+    min_actor_observed_count: int | None = None
     actors: tuple[ActorSpec, ...] = ()
 
 
@@ -101,8 +103,10 @@ PROBES: dict[str, ProbeConfig] = {
         target_type="vehicle.audi.tt",
         target_start={"x": 252.0, "y": 5.5, "z": 0.15, "yaw": 0.0},
         target_final_y=2.0,
-        target_speed_x=2.4,
-        cut_in_duration=9.0,
+        # Keep the merged actor in the ego lane long enough to create a real
+        # planning/control interaction instead of a far-away non-event.
+        target_speed_x=0.0,
+        cut_in_duration=7.0,
         max_duration=48.0,
         safe_ttc_sec=1.8,
     ),
@@ -120,7 +124,7 @@ PROBES: dict[str, ProbeConfig] = {
         kind="l2_multi_actor_cut_in_lead_brake",
         classification="l2_multi_actor_cut_in_lead_brake_with_perception_pipeline",
         target_type="vehicle.audi.tt",
-        target_start={"x": 286.0, "y": 2.0, "z": 0.15, "yaw": 0.0},
+        target_start={"x": 270.0, "y": 2.0, "z": 0.15, "yaw": 0.0},
         target_final_y=2.0,
         target_speed_x=0.0,
         cut_in_duration=0.0,
@@ -131,7 +135,7 @@ PROBES: dict[str, ProbeConfig] = {
             ActorSpec(
                 name="lead_brake",
                 target_type="vehicle.audi.tt",
-                start={"x": 286.0, "y": 2.0, "z": 0.15, "yaw": 0.0},
+                start={"x": 270.0, "y": 2.0, "z": 0.15, "yaw": 0.0},
                 final_y=2.0,
                 speed_x=0.0,
                 cut_in_duration=0.0,
@@ -153,6 +157,115 @@ PROBES: dict[str, ProbeConfig] = {
                 final_y=-5.8,
                 speed_x=1.8,
                 cut_in_duration=0.0,
+            ),
+        ),
+    ),
+    "l3_occluded_pedestrian": ProbeConfig(
+        kind="l3_occluded_pedestrian",
+        classification="l3_occluded_pedestrian_visual_actor_with_pedestrian_dummy_injection",
+        target_type="walker.pedestrian.0001",
+        target_start={"x": 285.0, "y": 6.0, "z": 0.15, "yaw": 180.0},
+        target_final_y=2.0,
+        target_speed_x=0.0,
+        cut_in_duration=7.0,
+        max_duration=65.0,
+        safe_ttc_sec=1.8,
+        min_actor_observed_count=1,
+        actors=(
+            ActorSpec(
+                name="occluding_vehicle",
+                target_type="vehicle.audi.tt",
+                start={"x": 260.0, "y": 6.0, "z": 0.15, "yaw": 0.0},
+                final_y=6.0,
+                speed_x=0.0,
+                cut_in_duration=0.0,
+                static_target=True,
+                perception_visible=False,
+            ),
+            ActorSpec(
+                name="crossing_pedestrian",
+                target_type="walker.pedestrian.0001",
+                start={"x": 285.0, "y": 6.0, "z": 0.15, "yaw": 180.0},
+                final_y=2.0,
+                speed_x=0.0,
+                cut_in_duration=7.0,
+                activation_sec=8.0,
+            ),
+        ),
+    ),
+    "l3_occluded_pedestrian_close_yield": ProbeConfig(
+        kind="l3_occluded_pedestrian_close_yield",
+        classification="l3_occluded_pedestrian_close_yield_visual_actor_with_pedestrian_dummy_injection",
+        target_type="walker.pedestrian.0001",
+        target_start={"x": 278.0, "y": 6.0, "z": 0.15, "yaw": 180.0},
+        target_final_y=2.0,
+        target_speed_x=0.0,
+        cut_in_duration=6.0,
+        max_duration=65.0,
+        safe_ttc_sec=1.8,
+        min_actor_observed_count=1,
+        actors=(
+            ActorSpec(
+                name="occluding_vehicle",
+                target_type="vehicle.audi.tt",
+                start={"x": 260.0, "y": 6.0, "z": 0.15, "yaw": 0.0},
+                final_y=6.0,
+                speed_x=0.0,
+                cut_in_duration=0.0,
+                static_target=True,
+                perception_visible=False,
+            ),
+            ActorSpec(
+                name="close_crossing_pedestrian",
+                target_type="walker.pedestrian.0001",
+                start={"x": 278.0, "y": 6.0, "z": 0.15, "yaw": 180.0},
+                final_y=2.0,
+                speed_x=0.0,
+                cut_in_duration=6.0,
+                activation_sec=6.0,
+            ),
+        ),
+    ),
+    "l3_occluded_pedestrian_double_occluder": ProbeConfig(
+        kind="l3_occluded_pedestrian_double_occluder",
+        classification="l3_occluded_pedestrian_double_occluder_visual_actor_with_pedestrian_dummy_injection",
+        target_type="walker.pedestrian.0001",
+        target_start={"x": 286.0, "y": 6.0, "z": 0.15, "yaw": 180.0},
+        target_final_y=2.0,
+        target_speed_x=0.0,
+        cut_in_duration=7.0,
+        max_duration=65.0,
+        safe_ttc_sec=1.8,
+        min_actor_observed_count=1,
+        actors=(
+            ActorSpec(
+                name="right_occluding_vehicle",
+                target_type="vehicle.audi.tt",
+                start={"x": 260.0, "y": 6.0, "z": 0.15, "yaw": 0.0},
+                final_y=6.0,
+                speed_x=0.0,
+                cut_in_duration=0.0,
+                static_target=True,
+                perception_visible=False,
+            ),
+            ActorSpec(
+                name="left_occluding_vehicle",
+                target_type="vehicle.audi.tt",
+                start={"x": 268.0, "y": -5.6, "z": 0.15, "yaw": 0.0},
+                final_y=-5.6,
+                speed_x=0.0,
+                cut_in_duration=0.0,
+                static_target=True,
+                perception_visible=False,
+            ),
+            ActorSpec(
+                name="crossing_pedestrian",
+                target_type="walker.pedestrian.0001",
+                start={"x": 286.0, "y": 6.0, "z": 0.15, "yaw": 180.0},
+                final_y=2.0,
+                speed_x=0.0,
+                cut_in_duration=7.0,
+                activation_sec=8.0,
             ),
         ),
     ),
@@ -187,13 +300,14 @@ def pose_yaml(pose: dict[str, float]) -> str:
     )
 
 
-def route_yaml(goal: dict[str, float]) -> str:
+def route_yaml(goal: dict[str, float], *, allow_goal_modification: bool = True) -> str:
     q = q_from_yaw(goal.get("yaw_deg", 0.0))
+    allow_goal_modification_yaml = "true" if allow_goal_modification else "false"
     return (
-        "{header: {frame_id: map}, option: {allow_goal_modification: true}, "
+        "{header: {frame_id: map}, option: {allow_goal_modification: %s}, "
         "goal: {position: {x: %.9f, y: %.9f, z: %.3f}, orientation: {x: 0.0, y: 0.0, z: %.12f, w: %.12f}}, "
         "waypoints: []}"
-        % (goal["x"], goal["y"], goal.get("z", 0.0), q["z"], q["w"])
+        % (allow_goal_modification_yaml, goal["x"], goal["y"], goal.get("z", 0.0), q["z"], q["w"])
     )
 
 
@@ -252,7 +366,10 @@ def load_runtime_modules() -> dict[str, Any]:
 def sample_actor(actor: Any) -> dict[str, Any]:
     transform = actor.get_transform()
     velocity = actor.get_velocity()
-    control = actor.get_control()
+    try:
+        control = actor.get_control()
+    except Exception:
+        control = object()
     speed = math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z)
     return {
         "x": transform.location.x,
@@ -283,15 +400,58 @@ def wait_for_ego(client: Any, timeout_sec: int = 20) -> tuple[Any, Any]:
     raise RuntimeError(f"Cannot identify ego vehicle after retry from {last_seen}")
 
 
-def make_dummy_msg(modules: dict[str, Any], node: Any, action: int, x: float, map_y: float, yaw_deg: float, vx: float, vy: float) -> Any:
+def dummy_object_profile(target_type: str) -> dict[str, Any]:
+    if target_type.startswith("walker.") or "pedestrian" in target_type:
+        return {
+            "classification": "PEDESTRIAN",
+            "shape": "CYLINDER",
+            "dimensions": {"x": 0.6, "y": 0.6, "z": 2.0},
+            "uuid": [0x4C, 0x33, 0x50, 0x45, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0, 0xB0, 0xC0],
+        }
+    return {
+        "classification": "CAR",
+        "shape": "BOUNDING_BOX",
+        "dimensions": {"x": 4.5, "y": 2.0, "z": 1.7},
+        "uuid": [0x43, 0x43, 0x43, 0x43, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0, 0xB0, 0xC0],
+    }
+
+
+def dummy_yaw_deg(spec: ActorSpec, motion: dict[str, float]) -> float:
+    vx = float(motion.get("vx") or 0.0)
+    map_vy = -float(motion.get("vy") or 0.0)
+    if abs(vx) + abs(map_vy) > 0.01:
+        return math.degrees(math.atan2(map_vy, vx))
+    return float(spec.start.get("yaw", 0.0))
+
+
+def dummy_injection_actor(actor_specs: tuple[ActorSpec, ...]) -> ActorSpec | None:
+    visible_specs = [spec for spec in actor_specs if spec.perception_visible]
+    if len(visible_specs) != 1:
+        return None
+    return visible_specs[0]
+
+
+def make_dummy_msg(
+    modules: dict[str, Any],
+    node: Any,
+    action: int,
+    x: float,
+    map_y: float,
+    yaw_deg: float,
+    vx: float,
+    vy: float,
+    *,
+    target_type: str = "vehicle.audi.tt",
+) -> Any:
     DummyObject = modules["DummyObject"]
     ObjectClassification = modules["ObjectClassification"]
     Shape = modules["Shape"]
     Vector3 = modules["Vector3"]
+    profile = dummy_object_profile(target_type)
     msg = DummyObject()
     msg.header.frame_id = "map"
     msg.header.stamp = node.get_clock().now().to_msg()
-    msg.id.uuid = [0x43, 0x43, 0x43, 0x43, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0, 0xB0, 0xC0]
+    msg.id.uuid = profile["uuid"]
     msg.action = action
     if action == DummyObject.DELETEALL:
         return msg
@@ -309,10 +469,15 @@ def make_dummy_msg(modules: dict[str, Any], node: Any, action: int, x: float, ma
     msg.initial_state.pose_covariance.covariance[35] = 0.05
     msg.initial_state.twist_covariance.twist.linear.x = float(vx)
     msg.initial_state.twist_covariance.twist.linear.y = float(vy)
-    msg.classification.label = ObjectClassification.CAR
+    msg.classification.label = getattr(
+        ObjectClassification,
+        profile["classification"],
+        getattr(ObjectClassification, "UNKNOWN", 0),
+    )
     msg.classification.probability = 1.0
-    msg.shape.type = Shape.BOUNDING_BOX
-    msg.shape.dimensions = Vector3(x=4.5, y=2.0, z=1.7)
+    msg.shape.type = getattr(Shape, profile["shape"], Shape.BOUNDING_BOX)
+    dimensions = profile["dimensions"]
+    msg.shape.dimensions = Vector3(x=dimensions["x"], y=dimensions["y"], z=dimensions["z"])
     msg.max_velocity = max(0.1, float(abs(vx) + abs(vy)))
     msg.min_velocity = 0.0
     return msg
@@ -332,6 +497,44 @@ def probe_actor_specs(config: ProbeConfig) -> tuple[ActorSpec, ...]:
             static_target=config.static_target,
         ),
     )
+
+
+def expected_perception_actor_count(actor_specs: tuple[ActorSpec, ...]) -> int:
+    return sum(1 for spec in actor_specs if spec.perception_visible)
+
+
+def find_actor_blueprint(blueprint_library: Any, target_type: str) -> Any:
+    try:
+        return blueprint_library.find(target_type)
+    except Exception:
+        if target_type.startswith("walker.pedestrian."):
+            matches = list(blueprint_library.filter("walker.pedestrian.*"))
+            if matches:
+                return matches[0]
+        raise
+
+
+def spawn_actor_with_fallbacks(world: Any, carla: Any, blueprint: Any, spec: ActorSpec) -> Any | None:
+    starts = [
+        spec.start,
+        {**spec.start, "z": spec.start["z"] + 0.5},
+        {**spec.start, "z": spec.start["z"] + 1.0},
+        {**spec.start, "x": spec.start["x"] - 5.0, "z": spec.start["z"] + 1.0},
+        {**spec.start, "x": spec.start["x"] + 5.0, "z": spec.start["z"] + 1.0},
+        {**spec.start, "y": spec.start["y"] + 1.0, "z": spec.start["z"] + 1.0},
+        {**spec.start, "y": spec.start["y"] - 1.0, "z": spec.start["z"] + 1.0},
+    ]
+    for params in starts:
+        actor = world.try_spawn_actor(
+            blueprint,
+            carla.Transform(
+                carla.Location(x=params["x"], y=params["y"], z=params["z"]),
+                carla.Rotation(yaw=params["yaw"]),
+            ),
+        )
+        if actor is not None:
+            return actor
+    return None
 
 
 def actor_motion(spec: ActorSpec, elapsed: float) -> dict[str, float]:
@@ -593,8 +796,9 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     last_spectator_view: dict[str, float] | None = None
     last_camera_view: dict[str, float] | None = None
     use_dummy_injection = args.perception_source == "dummy_injection"
-    if config.actors and use_dummy_injection:
-        raise SystemExit("Multi-actor probes require --perception-source actor_bridge.")
+    dummy_spec = dummy_injection_actor(actor_specs) if use_dummy_injection else None
+    if use_dummy_injection and config.actors and dummy_spec is None:
+        raise SystemExit("Dummy injection multi-actor probes require exactly one perception-visible actor.")
 
     try:
         if args.record_rosbag:
@@ -625,15 +829,12 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
 
         bp_lib = world.get_blueprint_library()
         for spec in actor_specs:
-            target_bp = bp_lib.find(spec.target_type)
-            target_bp.set_attribute("role_name", f"{config.kind}_{spec.name}")
-            target = world.try_spawn_actor(
-                target_bp,
-                carla.Transform(
-                    carla.Location(x=spec.start["x"], y=spec.start["y"], z=spec.start["z"]),
-                    carla.Rotation(yaw=spec.start["yaw"]),
-                ),
-            )
+            target_bp = find_actor_blueprint(bp_lib, spec.target_type)
+            has_attribute = getattr(target_bp, "has_attribute", None)
+            if not callable(has_attribute) or target_bp.has_attribute("role_name"):
+                role_name = f"{config.kind}_{spec.name}" if spec.perception_visible else f"pix_visual_only_{spec.name}"
+                target_bp.set_attribute("role_name", role_name)
+            target = spawn_actor_with_fallbacks(world, carla, target_bp, spec)
             if target is None:
                 raise RuntimeError(f"Failed to spawn target {spec.name} for {config.kind} at {spec.start}")
             target.set_simulate_physics(False)
@@ -659,16 +860,18 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             node = rclpy.create_node(f"pix_{config.kind}_dummy_perception_probe")
             pub = node.create_publisher(DummyObject, "/simulation/dummy_perception_publisher/object_info", 10)
             time.sleep(0.5)
+            injection_spec = dummy_spec or actor_specs[0]
             pub.publish(
                 make_dummy_msg(
                     modules,
                     node,
                     DummyObject.ADD,
-                    actor_specs[0].start["x"],
-                    -actor_specs[0].start["y"],
+                    injection_spec.start["x"],
+                    -injection_spec.start["y"],
+                    float(injection_spec.start.get("yaw", 0.0)),
+                    injection_spec.speed_x,
                     0.0,
-                    actor_specs[0].speed_x,
-                    0.0,
+                    target_type=injection_spec.target_type,
                 )
             )
             rclpy.spin_once(node, timeout_sec=0.05)
@@ -708,6 +911,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         target_in_lane = any(spec.static_target and abs(spec.start["y"] - START_CARLA["y"]) < 0.7 for spec in actor_specs)
         last_object_check_index = -1
         sample_period = args.sample_period
+        primary_target_is_perception_visible = False
 
         for index in range(int(config.max_duration / sample_period)):
             elapsed = time.time() - start_t
@@ -725,8 +929,12 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 actor.set_target_velocity(carla.Vector3D(motion["vx"], motion["vy"], 0.0))
                 motions.append({"spec": spec, "motion": motion})
             if use_dummy_injection and node is not None and pub is not None and motions:
-                primary_motion = motions[0]["motion"]
-                primary_spec = motions[0]["spec"]
+                injected_motion = next(
+                    (item for item in motions if dummy_spec is not None and item["spec"].name == dummy_spec.name),
+                    motions[0],
+                )
+                primary_motion = injected_motion["motion"]
+                primary_spec = injected_motion["spec"]
                 pub.publish(
                     make_dummy_msg(
                         modules,
@@ -734,9 +942,10 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                         DummyObject.MODIFY,
                         primary_motion["x"],
                         -primary_motion["y"],
-                        0.0,
+                        dummy_yaw_deg(primary_spec, primary_motion),
                         primary_spec.speed_x,
                         -primary_motion["vy"],
+                        target_type=primary_spec.target_type,
                     )
                 )
                 rclpy.spin_once(node, timeout_sec=0.02)
@@ -753,13 +962,15 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 distance = math.sqrt(dx * dx + dy * dy)
                 closing_speed = ego_sample["speed_mps"] - spec.speed_x if dx > 0 else None
                 ttc = distance / closing_speed if closing_speed and closing_speed > 0.1 else None
-                min_distance = distance if min_distance is None else min(min_distance, distance)
-                if ttc is not None:
-                    min_ttc = ttc if min_ttc is None else min(min_ttc, ttc)
+                if spec.perception_visible:
+                    min_distance = distance if min_distance is None else min(min_distance, distance)
+                    if ttc is not None:
+                        min_ttc = ttc if min_ttc is None else min(min_ttc, ttc)
                 enriched = {**target_sample, "name": spec.name, "distance_m": distance, "ttc_sec": ttc}
                 target_samples.append(enriched)
-                if primary_target_sample is None:
+                if primary_target_sample is None or (spec.perception_visible and not primary_target_is_perception_visible):
                     primary_target_sample = enriched
+                    primary_target_is_perception_visible = spec.perception_visible
             if args.spectator_mode != "none":
                 last_spectator_view = apply_spectator_view(
                     world=world,
@@ -804,7 +1015,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                     "target_in_lane": target_in_lane,
                 }
             )
-            if not objects_nonempty and index > 10 and index - last_object_check_index >= 10:
+            if index > 10 and index - last_object_check_index >= 10:
                 object_sample = object_topic_sample(env)
                 object_check_count += 1
                 object_nonempty_check_count += int(bool(object_sample["nonempty"]))
@@ -865,7 +1076,11 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             },
         }
         safety_passed = summary["collision_count"] == 0 and (summary["min_distance_m"] or 0) >= config.safe_distance_m and summary["min_ttc_sec"] >= config.safe_ttc_sec
-        actor_count_passed = not config.actors or summary["actor_count_observed"] >= min(2, len(actor_handles))
+        expected_actor_count = expected_perception_actor_count(actor_specs)
+        min_actor_observed_count = config.min_actor_observed_count
+        if min_actor_observed_count is None:
+            min_actor_observed_count = min(2, expected_actor_count)
+        actor_count_passed = expected_actor_count == 0 or summary["actor_count_observed"] >= min_actor_observed_count
         response_passed = objects_nonempty and actor_count_passed and summary["autoware_reacted"] and summary["moved"] and summary["target_in_lane"]
         result = {
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -891,6 +1106,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                     "cut_in_duration_sec": spec.cut_in_duration,
                     "static_target": spec.static_target,
                     "activation_sec": spec.activation_sec,
+                    "perception_visible": spec.perception_visible,
                 }
                 for spec in actor_specs
             ],
@@ -904,14 +1120,16 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 "actor_bridge_expected": args.perception_source == "actor_bridge",
                 "objects_topic_nonempty_after_injection": objects_nonempty,
                 "actor_count_observed": max_object_count,
-                "expected_actor_count": len(actor_handles),
+                "expected_actor_count": expected_actor_count,
             },
             "recording": {"rosbag_dir": str(bag_dir), "carla_recorder": carla_recorder},
             "diagnostics": {
                 "safe_distance_threshold_m": config.safe_distance_m,
                 "safe_ttc_threshold_sec": config.safe_ttc_sec,
                 "reaction_speed_ratio_threshold": args.reaction_speed_ratio,
-                "expected_actor_count": len(actor_handles),
+                "expected_actor_count": expected_actor_count,
+                "spawned_actor_count": len(actor_handles),
+                "min_actor_observed_count": min_actor_observed_count,
             },
             "verdict": {
                 "overall_passed": safety_passed and response_passed,

@@ -1,0 +1,39 @@
+campaign_id: stable_sumo_traffic
+description: Stable-line SUMO-CARLA co-simulation campaign for traffic-flow smoke and public-road asset intake.
+owner: zmf
+default_run_root: runs/campaign_stable_sumo_traffic
+default_slot: stable-slot-01
+stop_after_each: true
+report: true
+validation_path: simctl campaign --config ops/test_campaigns/stable_sumo_traffic.yaml --slot stable-slot-01 --execute
+rollback_impact: Disable this campaign and continue using ops/test_campaigns/stable_perception_control.yaml for CARLA-only validation.
+scenarios:
+  - id: stable_l1_sumo_town01_traffic_smoke
+    path: scenarios/l1/sumo_town01_traffic_smoke.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - sumo
+      - town01
+      - actor_bridge
+    expected_observables:
+      - sumo_cosim_alive=1.0
+      - sumo_route_loaded=1.0
+      - sumo_actor_count>=1
+      - autoware_object_stream_seen=1.0
+      - ego_control_command_seen=1.0
+  - id: stable_l2_sumo_public_road_traffic_draft
+    path: scenarios/l2/sumo_public_road_traffic_draft.yaml
+    validation: false
+    finalize: false
+    execute: false
+    tags:
+      - stable
+      - sumo
+      - public_road
+      - draft
+      - asset_intake
+    expected_observables:
+      - blocked_until_public_road_sumo_net_routes_sumocfg_exist
