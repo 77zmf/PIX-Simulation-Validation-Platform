@@ -1,0 +1,226 @@
+name: personal-dingtalk-sync
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+    types: [opened, synchronize, reopened, ready_for_review, closed]
+  workflow_run:
+    workflows: ["checks"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  notify:
+    name: Notify DingTalk
+    if: github.repository == '77zmf/PIX-Simulation-Validation-Platform'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Check DingTalk secrets
+        id: dingtalk
+        shell: bash
+        env:
+          DINGTALK_ROBOT_TOKEN: ${{ secrets.DINGTALK_ROBOT_TOKEN }}
+          DINGTALK_ROBOT_SECRET: ${{ secrets.DINGTALK_ROBOT_SECRET }}
+        run: |
+          if [[ -z "${DINGTALK_ROBOT_TOKEN}" || -z "${DINGTALK_ROBOT_SECRET}" ]]; then
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "::warning::DINGTALK_ROBOT_TOKEN or DINGTALK_ROBOT_SECRET is missing; DingTalk notification skipped."
+          else
+            echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Checkout
+        if: steps.dingtalk.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: Build DingTalk message
+        if: steps.dingtalk.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          event_name = os.environ["GITHUB_EVENT_NAME"]
+          event_path = Path(os.environ["GITHUB_EVENT_PATH"])
+          event = json.loads(event_path.read_text())
+          repo = os.environ["GITHUB_REPOSITORY"]
+          server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
+          run_id = os.environ["GITHUB_RUN_ID"]
+          run_url = f"{server_url}/{repo}/actions/runs/{run_id}"
+
+          def git_lines(*args):
+              try:
+                  output = subprocess.check_output(["git", *args], text=True, stderr=subprocess.DEVNULL)
+              except subprocess.CalledProcessError:
+                  return []
+              return [line for line in output.splitlines() if line.strip()]
+
+          def short_sha(value):
+              return value[:12] if value else ""
+
+          title = "远程仓库同步"
+          branch = os.environ.get("GITHUB_REF_NAME", "")
+          sha = os.environ.get("GITHUB_SHA", "")
+          actor = os.environ.get("GITHUB_ACTOR", "")
+          link = run_url
+          status_line = ""
+          commit_lines = []
+          files = []
+
+          if event_name == "push":
+              before = event.get("before", "")
+              after = event.get("after", sha)
+              branch = event.get("ref", "").replace("refs/heads/", "") or branch
+              link = event.get("compare") or f"{server_url}/{repo}/commit/{after}"
+              sha = after
+              if before and before.strip("0"):
+                  files = git_lines("diff", "--name-only", before, after)
+              else:
+                  files = git_lines("show", "--name-only", "--pretty=", after)
+              for commit in event.get("commits", [])[-5:]:
+                  msg = (commit.get("message") or "").splitlines()[0]
+                  commit_lines.append(f"- `{short_sha(commit.get('id', ''))}` {msg}")
+              status_line = f"push 到 `{branch}`"
+
+          elif event_name == "pull_request":
+              pr = event["pull_request"]
+              number = pr["number"]
+              title = f"PR 同步 #{number}"
+              branch = f"{pr['head']['ref']} -> {pr['base']['ref']}"
+              link = pr["html_url"]
+              sha = pr["head"]["sha"]
+              actor = pr["user"]["login"]
+              base_ref = pr["base"]["ref"]
+              subprocess.run(["git", "fetch", "origin", base_ref, "--depth=50"], check=False)
+              files = git_lines("diff", "--name-only", f"origin/{base_ref}...HEAD")
+              status_line = f"{event.get('action', 'updated')}：{pr['title']}"
+
+          elif event_name == "workflow_run":
+              workflow = event["workflow_run"]
+              title = "CI 结果同步"
+              branch = workflow.get("head_branch") or branch
+              sha = workflow.get("head_sha") or sha
+              actor = (workflow.get("actor") or {}).get("login", actor)
+              link = workflow.get("html_url") or run_url
+              conclusion = workflow.get("conclusion") or "unknown"
+              status_line = f"`{workflow.get('name', 'workflow')}` completed: `{conclusion}`"
+              files = git_lines("show", "--name-only", "--pretty=", sha)
+
+          else:
+              title = "手动同步"
+              link = run_url
+              status_line = "workflow_dispatch 手动触发"
+              files = git_lines("show", "--name-only", "--pretty=", sha)
+
+          scopes = []
+          scope_rules = [
+              ("src/simctl/", "simctl 控制面"),
+              ("scenarios/", "场景"),
+              ("evaluation/kpi_gates/", "KPI gate"),
+              ("assets/", "资产"),
+              ("stack/", "stable runtime"),
+              ("infra/", "Ubuntu/infra"),
+              ("ops/", "ops 自动化"),
+              ("tests/", "测试"),
+              ("docs/", "文档"),
+              (".github/workflows/", "GitHub Actions"),
+          ]
+          for prefix, label in scope_rules:
+              if any(path.startswith(prefix) for path in files):
+                  scopes.append(label)
+          if not scopes and files:
+              scopes.append("其他")
+          if not scopes:
+              scopes.append("未检测到文件变更")
+
+          shown_files = files[:12]
+          file_lines = "\n".join(f"- `{path}`" for path in shown_files) or "- 无"
+          if len(files) > len(shown_files):
+              file_lines += f"\n- ... 另有 {len(files) - len(shown_files)} 个文件"
+          commit_block = "\n".join(commit_lines) if commit_lines else "- 见链接"
+
+          text = f"""【{title}】
+
+          仓库：`{repo}`
+          事件：`{event_name}`
+          状态：{status_line}
+          分支：`{branch}`
+          提交：`{short_sha(sha)}`
+          触发人：`{actor}`
+          链接：{link}
+
+          变更范围：{", ".join(scopes)}
+          变更文件：{len(files)}
+
+          重点文件：
+          {file_lines}
+
+          提交摘要：
+          {commit_block}
+
+          验证口径：Mac/GitHub Actions 只作为控制面与轻量检查；影响 stable runtime 的变更仍需公司 Ubuntu 22.04 host 执行 `simctl --execute`，并以 `run_result -> KPI gate -> report -> replay` 收口。
+          """
+
+          Path("dingtalk_title.txt").write_text(title + " - " + repo, encoding="utf-8")
+          Path("dingtalk_text.md").write_text("\n".join(line.strip() for line in text.splitlines()), encoding="utf-8")
+          PY
+
+      - name: Send DingTalk notification
+        if: steps.dingtalk.outputs.enabled == 'true'
+        shell: bash
+        env:
+          DINGTALK_ROBOT_TOKEN: ${{ secrets.DINGTALK_ROBOT_TOKEN }}
+          DINGTALK_ROBOT_SECRET: ${{ secrets.DINGTALK_ROBOT_SECRET }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import hmac
+          import json
+          import os
+          import time
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          token = os.environ["DINGTALK_ROBOT_TOKEN"]
+          secret = os.environ["DINGTALK_ROBOT_SECRET"]
+          timestamp = str(int(time.time() * 1000))
+          string_to_sign = f"{timestamp}\n{secret}"
+          sign = urllib.parse.quote_plus(
+              base64.b64encode(
+                  hmac.new(secret.encode("utf-8"), string_to_sign.encode("utf-8"), hashlib.sha256).digest()
+              ).decode("utf-8")
+          )
+          url = f"https://oapi.dingtalk.com/robot/send?access_token={token}&timestamp={timestamp}&sign={sign}"
+          payload = {
+              "msgtype": "markdown",
+              "markdown": {
+                  "title": Path("dingtalk_title.txt").read_text(encoding="utf-8").strip(),
+                  "text": Path("dingtalk_text.md").read_text(encoding="utf-8"),
+              },
+          }
+          request = urllib.request.Request(
+              url,
+              data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+              method="POST",
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              body = response.read().decode("utf-8")
+          result = json.loads(body)
+          if result.get("errcode") != 0:
+              raise SystemExit(f"DingTalk send failed: {body}")
+          print("DingTalk notification sent.")
+          PY
