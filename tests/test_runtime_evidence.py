@@ -28,6 +28,11 @@ class RuntimeEvidenceTests(unittest.TestCase):
                             "reached_near_goal": False,
                             "total_delta_m": 81.7,
                             "max_speed_mps": 3.9,
+                            "max_speed_kph": 14.04,
+                            "target_speed_mps": 11.111111,
+                            "target_speed_kph": 40.0,
+                            "target_speed_reached": False,
+                            "target_speed_deficit_mps": 6.711111,
                             "sample_count": 400,
                             "last_location": {"x": 311.5, "y": 1.64},
                             "final_map_location": {"x": 311.5, "y": -1.64},
@@ -92,6 +97,10 @@ class RuntimeEvidenceTests(unittest.TestCase):
             self.assertEqual(summary["metrics"]["route_completion"], 0.0)
             self.assertEqual(summary["metrics"]["collision_count"], 0.0)
             self.assertEqual(summary["metrics"]["min_ttc_sec"], 999.0)
+            self.assertEqual(summary["metrics"]["max_speed_mps"], 3.9)
+            self.assertAlmostEqual(summary["metrics"]["max_speed_kph"], 14.04)
+            self.assertEqual(summary["metrics"]["target_speed_reached"], 0.0)
+            self.assertAlmostEqual(summary["metrics"]["target_speed_deficit_mps"], 6.711111)
             self.assertEqual(summary["metrics"]["lateral_error_m"], 0.34)
             self.assertEqual(summary["metrics"]["route_goal_lateral_error_m"], 0.05)
             self.assertEqual(summary["metrics"]["longitudinal_error_m"], 2.73)
@@ -103,6 +112,183 @@ class RuntimeEvidenceTests(unittest.TestCase):
                 summary["attempts"][0]["ros_telemetry"]["tail_stats"]["tail_control_velocity_mps"]["mean"],
                 0.5,
             )
+
+    def test_closed_loop_route_completion_uses_route_required_service_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_l1_follow_lane"
+            runtime_dir = run_dir / "runtime_verification"
+            runtime_dir.mkdir(parents=True)
+            (runtime_dir / "closed_loop_route_sync_20260428T063146.json").write_text(
+                json.dumps(
+                    {
+                        "goal": {"x": 314.0, "y": -2.0},
+                        "service_calls": [
+                            {
+                                "step": "initialize_localization",
+                                "returncode": 0,
+                                "output": "InitializeLocalization_Response(status=ResponseStatus(success=True, code=0, message=''))",
+                            },
+                            {
+                                "step": "set_route_points",
+                                "returncode": 0,
+                                "output": "SetRoutePoints_Response(status=ResponseStatus(success=True, code=0, message=''))",
+                            },
+                            {
+                                "step": "change_to_autonomous",
+                                "returncode": 0,
+                                "output": (
+                                    "ChangeOperationMode_Response(status="
+                                    "ResponseStatus(success=False, code=1, "
+                                    "message='The target mode is not available.'))"
+                                ),
+                            },
+                        ],
+                        "summary": {
+                            "moved": True,
+                            "reached_near_goal": True,
+                            "route_service_calls_successful": True,
+                            "all_service_calls_successful": False,
+                            "route_required_service_steps": [
+                                "initialize_localization",
+                                "set_route_points",
+                            ],
+                            "total_delta_m": 83.7,
+                            "max_speed_mps": 7.6,
+                            "sample_count": 441,
+                            "last_location": {"x": 313.5, "y": 1.81},
+                            "lateral_error_m": 0.17,
+                            "route_goal_lateral_error_m": 0.17,
+                            "longitudinal_error_m": 0.70,
+                            "jerk_mps3": 3.37,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            run_result = {
+                "scenario_params": {
+                    "traffic_profile": {
+                        "mode": "empty_route_follow",
+                        "vehicles": 0,
+                        "pedestrians": 0,
+                    }
+                }
+            }
+
+            summary = collect_runtime_evidence(run_dir, run_result)
+
+            self.assertEqual(summary["attempt_count"], 1)
+            self.assertEqual(summary["successful_attempt_count"], 1)
+            self.assertEqual(summary["metrics"]["route_completion"], 1.0)
+            self.assertEqual(summary["metric_sources"]["route_completion"], "real_carla_samples")
+            self.assertEqual(summary["ignored_attempts"], [])
+            self.assertEqual(
+                summary["attempts"][0]["optional_service_failures"][0]["step"],
+                "change_to_autonomous",
+            )
+
+    def test_closed_loop_route_diagnostic_metrics_survive_service_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_l2_sumo_route_failed"
+            runtime_dir = run_dir / "runtime_verification"
+            runtime_dir.mkdir(parents=True)
+            (runtime_dir / "closed_loop_route_sync_20260426T142018.json").write_text(
+                json.dumps(
+                    {
+                        "goal": {"x": 314.0, "y": -2.0},
+                        "service_calls": [
+                            {
+                                "step": "initialize_localization",
+                                "returncode": 0,
+                                "output": "success: False",
+                            },
+                            {
+                                "step": "set_route_points",
+                                "returncode": 0,
+                                "output": "success: False",
+                            },
+                        ],
+                        "summary": {
+                            "moved": False,
+                            "reached_near_goal": False,
+                            "total_delta_m": 0.0,
+                            "max_speed_mps": 0.0,
+                            "max_speed_kph": 0.0,
+                            "sample_count": 600,
+                            "last_location": {"x": 230.26, "y": -6.64, "speed_mps": 0.0},
+                            "final_map_location": {"x": 230.26, "y": 6.64},
+                            "effective_goal": {"x": 314.24, "y": -1.98},
+                            "final_carla_waypoint": {"lane_id": -1, "carla_lateral_error_m": 4.61},
+                            "lateral_error_m": 4.61,
+                            "route_goal_lateral_error_m": 8.63,
+                            "longitudinal_error_m": 83.98,
+                            "jerk_mps3": 0.0,
+                            "stopped_before_goal": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            summary = collect_runtime_evidence(run_dir, {"scenario_params": {"traffic_profile": {"vehicles": 60}}})
+
+            self.assertEqual(summary["attempt_count"], 0)
+            self.assertEqual(summary["successful_attempt_count"], 0)
+            self.assertEqual(summary["ignored_attempts"][0]["reason"], "service_call_failed")
+            self.assertEqual(
+                summary["ignored_attempts"][0]["service_calls"][0]["step"],
+                "initialize_localization",
+            )
+            self.assertIn(
+                "success: False",
+                summary["ignored_attempts"][0]["service_calls"][0]["output_summary"],
+            )
+            self.assertEqual(summary["metrics"]["route_completion"], 0.0)
+            self.assertEqual(
+                summary["metric_sources"]["route_completion"],
+                "real_carla_samples_diagnostic_service_failed",
+            )
+            self.assertEqual(summary["metrics"]["max_speed_mps"], 0.0)
+            self.assertEqual(summary["metrics"]["lateral_error_m"], 4.61)
+            self.assertEqual(summary["metrics"]["route_goal_lateral_error_m"], 8.63)
+            self.assertEqual(summary["metrics"]["longitudinal_error_m"], 83.98)
+            self.assertEqual(summary["metrics"]["jerk_mps3"], 0.0)
+            self.assertEqual(
+                summary["metric_sources"]["lateral_error_m"],
+                "real_carla_samples_diagnostic",
+            )
+
+    def test_planning_roadtest_metric_probe_is_folded_into_runtime_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_l2_roadtest_replay"
+            probe_dir = run_dir / "runtime_verification" / "metric_probe_planning_roadtest_replay_20260428T120000"
+            probe_dir.mkdir(parents=True)
+            (probe_dir / "metric_probe_planning_roadtest_replay_20260428T120000.json").write_text(
+                json.dumps(
+                    {
+                        "profile": "trajectory_jump",
+                        "overall_passed": False,
+                        "blocked_reason": "thresholds_failed:trajectory_jump_max_m",
+                        "missing_metrics": [],
+                        "missing_topics": [],
+                        "sample_missing_topics": [],
+                        "metrics": {
+                            "planning_validator_invalid_count": 101.0,
+                            "trajectory_jump_max_m": 1761.972,
+                            "trajectory_silence_sec": 0.0,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            summary = collect_runtime_evidence(run_dir, {"scenario_params": {"traffic_profile": {"vehicles": 0}}})
+
+            self.assertEqual(summary["metric_probe_attempt_count"], 1)
+            self.assertEqual(summary["successful_metric_probe_count"], 0)
+            self.assertEqual(summary["metrics"]["trajectory_jump_max_m"], 1761.972)
+            self.assertEqual(summary["metrics"]["planning_validator_invalid_count"], 101.0)
+            self.assertEqual(summary["metric_sources"]["trajectory_jump_max_m"], "runtime_metric_probe")
 
     def test_public_road_multi_actor_merge_accepts_multi_actor_probe(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -162,6 +348,227 @@ class RuntimeEvidenceTests(unittest.TestCase):
             self.assertEqual(summary["metrics"]["route_completion"], 1.0)
             self.assertEqual(summary["metrics"]["actor_count_observed"], 3.0)
             self.assertEqual(summary["metric_sources"]["dynamic_actor_response"], "runtime_dynamic_probe")
+
+    def test_dynamic_probe_with_adapi_success_false_is_service_call_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_l2_merge"
+            probe_dir = run_dir / "runtime_verification" / "l2_merge_actor_bridge_20260424T133307"
+            probe_dir.mkdir(parents=True)
+            (probe_dir / "l2_merge_actor_bridge_20260424T133307.json").write_text(
+                json.dumps(
+                    {
+                        "classification": "l2_merge_actor_with_perception_pipeline:actor_bridge",
+                        "service_calls": [
+                            {
+                                "step": "change_to_autonomous",
+                                "returncode": 0,
+                                "output": (
+                                    "ChangeOperationMode_Response(status="
+                                    "ResponseStatus(success=False, code=1, "
+                                    "message='The target mode is not available.'))"
+                                ),
+                            }
+                        ],
+                        "summary": {
+                            "sample_count": 240,
+                            "moved": False,
+                            "collision_count": 0,
+                            "min_distance_m": 22.2,
+                            "min_ttc_sec": 999.0,
+                            "autoware_reacted": False,
+                            "total_delta_m": 0.0,
+                            "actor_count_spawned": 1,
+                            "actor_count_observed": 1,
+                            "object_pipeline_nonempty_duration_ratio": 1.0,
+                        },
+                        "object_pipeline": {
+                            "perception_source": "actor_bridge",
+                            "dummy_object_injected": False,
+                            "objects_topic_nonempty_after_injection": True,
+                        },
+                        "verdict": {
+                            "overall_passed": False,
+                            "safety_passed": True,
+                            "autoware_dynamic_actor_response_passed": False,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            run_result = {
+                "scenario_params": {
+                    "traffic_profile": {
+                        "mode": "merge_regression_actor_bridge",
+                        "vehicles": 1,
+                        "pedestrians": 0,
+                    }
+                }
+            }
+
+            summary = collect_runtime_evidence(run_dir, run_result)
+
+            self.assertEqual(summary["dynamic_probe_attempt_count"], 0)
+            self.assertEqual(summary["ignored_dynamic_probe_attempts"][0]["reason"], "service_call_failed")
+            self.assertEqual(
+                summary["ignored_dynamic_probe_attempts"][0]["invalid_steps"],
+                ["change_to_autonomous"],
+            )
+
+    def test_dynamic_probe_ignores_superseded_service_failures_after_retry_success(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_l2_merge_retry"
+            probe_dir = run_dir / "runtime_verification" / "l2_merge_actor_bridge_20260424T181006"
+            probe_dir.mkdir(parents=True)
+            (probe_dir / "l2_merge_actor_bridge_20260424T181006.json").write_text(
+                json.dumps(
+                    {
+                        "classification": "l2_merge_actor_with_perception_pipeline:actor_bridge",
+                        "service_calls": [
+                            {
+                                "step": "change_to_autonomous",
+                                "returncode": 0,
+                                "superseded_by_success": True,
+                                "output": (
+                                    "ChangeOperationMode_Response(status="
+                                    "ResponseStatus(success=False, code=1, "
+                                    "message='The target mode is not available.'))"
+                                ),
+                            },
+                            {
+                                "step": "change_to_autonomous",
+                                "returncode": 0,
+                                "output": (
+                                    "ChangeOperationMode_Response(status="
+                                    "ResponseStatus(success=True, code=0, message=''))"
+                                ),
+                            },
+                        ],
+                        "summary": {
+                            "sample_count": 240,
+                            "moved": True,
+                            "collision_count": 0,
+                            "min_distance_m": 22.2,
+                            "min_ttc_sec": 12.0,
+                            "autoware_reacted": True,
+                            "total_delta_m": 12.0,
+                            "actor_count_spawned": 1,
+                            "actor_count_observed": 1,
+                            "object_pipeline_nonempty_duration_ratio": 1.0,
+                            "control_setup_passed": True,
+                            "control_setup_failures": [],
+                        },
+                        "object_pipeline": {
+                            "perception_source": "actor_bridge",
+                            "dummy_object_injected": False,
+                            "objects_topic_nonempty_after_injection": True,
+                        },
+                        "verdict": {
+                            "overall_passed": True,
+                            "safety_passed": True,
+                            "autoware_dynamic_actor_response_passed": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            run_result = {
+                "scenario_params": {
+                    "traffic_profile": {
+                        "mode": "merge_regression_actor_bridge",
+                        "vehicles": 1,
+                        "pedestrians": 0,
+                    }
+                }
+            }
+
+            summary = collect_runtime_evidence(run_dir, run_result)
+
+            self.assertEqual(summary["dynamic_probe_attempt_count"], 1)
+            self.assertEqual(summary["ignored_dynamic_probe_attempts"], [])
+            self.assertEqual(summary["metrics"]["route_completion"], 1.0)
+            self.assertEqual(summary["metrics"]["dynamic_actor_response"], 1.0)
+
+    def test_dynamic_probe_accepts_enable_control_failure_when_autonomous_later_succeeds(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_l3_close_yield"
+            probe_dir = (
+                run_dir
+                / "runtime_verification"
+                / "l3_occluded_pedestrian_close_yield_dummy_injection_20260424T182410"
+            )
+            probe_dir.mkdir(parents=True)
+            (probe_dir / "l3_occluded_pedestrian_close_yield_dummy_injection_20260424T182410.json").write_text(
+                json.dumps(
+                    {
+                        "classification": "l3_occluded_pedestrian_close_yield_visual_actor_with_pedestrian_dummy_injection",
+                        "service_calls": [
+                            {
+                                "step": "enable_autoware_control",
+                                "returncode": 0,
+                                "output": (
+                                    "ChangeOperationMode_Response(status="
+                                    "ResponseStatus(success=False, code=1, "
+                                    "message='The mode change is blocked by the system.'))"
+                                ),
+                            },
+                            {
+                                "step": "change_to_autonomous",
+                                "returncode": 0,
+                                "output": (
+                                    "ChangeOperationMode_Response(status="
+                                    "ResponseStatus(success=True, code=0, message=''))"
+                                ),
+                            },
+                        ],
+                        "summary": {
+                            "sample_count": 153,
+                            "moved": True,
+                            "collision_count": 0,
+                            "min_distance_m": 9.36,
+                            "min_ttc_sec": 5.79,
+                            "autoware_reacted": True,
+                            "total_delta_m": 38.8,
+                            "actor_count_spawned": 2,
+                            "actor_count_observed": 0,
+                            "object_pipeline_nonempty_duration_ratio": 0.0,
+                            "control_setup_passed": False,
+                            "control_setup_failures": [
+                                {"step": "enable_autoware_control", "reason": "service_status_false"}
+                            ],
+                        },
+                        "object_pipeline": {
+                            "perception_source": "dummy_injection",
+                            "dummy_object_injected": True,
+                            "objects_topic_nonempty_after_injection": False,
+                        },
+                        "verdict": {
+                            "overall_passed": False,
+                            "safety_passed": True,
+                            "autoware_dynamic_actor_response_passed": False,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            run_result = {
+                "scenario_params": {
+                    "traffic_profile": {
+                        "mode": "l3_occluded_pedestrian_close_yield_dummy_injection",
+                        "vehicles": 1,
+                        "pedestrians": 1,
+                    }
+                }
+            }
+
+            summary = collect_runtime_evidence(run_dir, run_result)
+
+            self.assertEqual(summary["dynamic_probe_attempt_count"], 1)
+            self.assertEqual(summary["ignored_dynamic_probe_attempts"], [])
+            self.assertEqual(summary["metrics"]["route_completion"], 1.0)
+            self.assertEqual(summary["metrics"]["collision_count"], 0.0)
+            self.assertEqual(summary["metrics"]["min_ttc_sec"], 5.79)
+            self.assertEqual(summary["metrics"]["dynamic_actor_response"], 0.0)
+            self.assertEqual(summary["metrics"]["actor_count_observed"], 0.0)
 
     def test_sumo_cosim_probe_metrics_are_collected(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -323,6 +730,76 @@ class RuntimeEvidenceTests(unittest.TestCase):
             self.assertEqual(summary["metrics"]["dynamic_actor_response"], 1.0)
             self.assertEqual(summary["metrics"]["actor_count_observed"], 1.0)
 
+    def test_dynamic_probe_safety_failure_does_not_mask_response_or_execution(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_l3_occluded_pedestrian_close_yield"
+            probe_dir = (
+                run_dir
+                / "runtime_verification"
+                / "l3_occluded_pedestrian_close_yield_dummy_injection_20260424T150154"
+            )
+            probe_dir.mkdir(parents=True)
+            (probe_dir / "l3_occluded_pedestrian_close_yield_dummy_injection_20260424T150154.json").write_text(
+                json.dumps(
+                    {
+                        "classification": (
+                            "l3_occluded_pedestrian_close_yield_visual_actor_with_"
+                            "pedestrian_dummy_injection"
+                        ),
+                        "service_calls": [{"step": "change_to_autonomous", "returncode": 0}],
+                        "summary": {
+                            "sample_count": 313,
+                            "moved": True,
+                            "collision_count": 0,
+                            "min_distance_m": 0.44,
+                            "min_ttc_sec": 0.26,
+                            "autoware_reacted": True,
+                            "reaction_reason": "near_stop",
+                            "target_in_lane": True,
+                            "total_delta_m": 83.9,
+                            "actor_count_spawned": 2,
+                            "actor_count_observed": 1,
+                            "object_pipeline_nonempty_duration_ratio": 0.19,
+                            "control_setup_passed": True,
+                            "failure_reasons": ["safety_gate_failed"],
+                        },
+                        "object_pipeline": {
+                            "perception_source": "dummy_injection",
+                            "dummy_object_injected": True,
+                            "objects_topic_nonempty_after_injection": True,
+                        },
+                        "verdict": {
+                            "overall_passed": False,
+                            "safety_passed": False,
+                            "autoware_dynamic_actor_response_passed": True,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            run_result = {
+                "scenario_params": {
+                    "traffic_profile": {
+                        "mode": "l3_occluded_pedestrian_close_yield_dummy_injection",
+                        "vehicles": 1,
+                        "pedestrians": 1,
+                    }
+                }
+            }
+
+            summary = collect_runtime_evidence(run_dir, run_result)
+
+            self.assertEqual(summary["dynamic_probe_attempt_count"], 1)
+            self.assertEqual(summary["successful_dynamic_probe_count"], 0)
+            self.assertEqual(summary["metrics"]["route_completion"], 1.0)
+            self.assertEqual(
+                summary["metric_sources"]["route_completion"],
+                "runtime_dynamic_probe_execution",
+            )
+            self.assertEqual(summary["metrics"]["dynamic_actor_response"], 1.0)
+            self.assertEqual(summary["metrics"]["yield_response_count"], 1.0)
+            self.assertEqual(summary["metrics"]["min_ttc_sec"], 0.26)
+
     def test_lidar_calibration_metric_probe_is_collected(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             run_dir = Path(tempdir) / "run_lidar_calibration"
@@ -363,6 +840,38 @@ class RuntimeEvidenceTests(unittest.TestCase):
             self.assertEqual(
                 summary["metric_sources"]["lidar_extrinsic_translation_error_m"],
                 "runtime_metric_probe",
+            )
+
+    def test_metric_probe_preserves_scope_and_assumptions(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_stub_audit"
+            probe_dir = run_dir / "runtime_verification" / "metric_probe_codex_stub_smoke"
+            probe_dir.mkdir(parents=True)
+            (probe_dir / "metric_probe_codex_stub_smoke.json").write_text(
+                json.dumps(
+                    {
+                        "profile": "codex_stub_smoke",
+                        "scope": "stub_only",
+                        "overall_passed": True,
+                        "assumptions": ["not_ubuntu_runtime_acceptance"],
+                        "metrics": {
+                            "route_completion": 1.0,
+                            "collision_count": 0.0,
+                            "min_ttc_sec": 999.0,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            summary = collect_runtime_evidence(run_dir, {"scenario_params": {"traffic_profile": {}}})
+
+            self.assertEqual(summary["metric_probe_attempt_count"], 1)
+            self.assertEqual(summary["successful_metric_probe_count"], 1)
+            self.assertEqual(summary["metric_probe_attempts"][0]["scope"], "stub_only")
+            self.assertIn(
+                "not_ubuntu_runtime_acceptance",
+                summary["metric_probe_attempts"][0]["assumptions"],
             )
 
     def test_calibration_scene_and_camera_fiducial_evidence_are_collected(self) -> None:

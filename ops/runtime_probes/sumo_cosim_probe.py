@@ -9,6 +9,7 @@ spawn actors or control the ego vehicle.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -104,32 +105,10 @@ def _sumo_log_path(run_dir: Path) -> Path | None:
     return None
 
 
-def _sumo_log_probe(run_dir: Path) -> dict[str, Any]:
-    path = _sumo_log_path(run_dir)
-    if path is None:
-        return {
-            "available": False,
-            "path": "",
-            "connected": False,
-            "step_sample_count": 0,
-            "max_total_vehicles": 0,
-            "max_active_vehicles": 0,
-        }
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError as exc:
-        return {
-            "available": False,
-            "path": str(path),
-            "error": str(exc),
-            "connected": False,
-            "step_sample_count": 0,
-            "max_total_vehicles": 0,
-            "max_active_vehicles": 0,
-        }
-
+def _summarize_sumo_log(path: Path, text: str) -> dict[str, Any]:
+    normalized = text.replace("\r", "\n")
     samples: list[dict[str, float | int]] = []
-    for match in SUMO_STEP_RE.finditer(text):
+    for match in SUMO_STEP_RE.finditer(normalized):
         samples.append(
             {
                 "sim_time_sec": float(match.group("sim_time")),
@@ -157,12 +136,51 @@ def _sumo_log_probe(run_dir: Path) -> dict[str, Any]:
     }
 
 
+def _sumo_log_probe(run_dir: Path, max_wait_sec: float = 0.0, poll_sec: float = 0.5) -> dict[str, Any]:
+    path = _sumo_log_path(run_dir)
+    if path is None:
+        return {
+            "available": False,
+            "path": "",
+            "connected": False,
+            "step_sample_count": 0,
+            "max_total_vehicles": 0,
+            "max_active_vehicles": 0,
+        }
+    deadline = time.monotonic() + max(0.0, max_wait_sec)
+    while True:
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            return {
+                "available": False,
+                "path": str(path),
+                "error": str(exc),
+                "connected": False,
+                "step_sample_count": 0,
+                "max_total_vehicles": 0,
+                "max_active_vehicles": 0,
+            }
+        payload = _summarize_sumo_log(path, text)
+        payload["wait_timeout_sec"] = float(max_wait_sec)
+        payload["poll_interval_sec"] = float(poll_sec)
+        if (
+            payload["step_sample_count"] > 0
+            or payload["fatal_markers"]
+            or time.monotonic() >= deadline
+        ):
+            return payload
+        time.sleep(max(0.05, poll_sec))
+
+
 def _add_carla_python_paths(carla_root: str) -> None:
+    if importlib.util.find_spec("carla") is not None:
+        return
     root = Path(carla_root).expanduser()
     candidates = [
-        root / "PythonAPI" / "carla",
         root / "PythonAPI" / "carla" / "dist" / "carla-0.9.15-py3.10-linux-x86_64.egg",
         root / "PythonAPI" / "carla" / "dist" / "carla-0.9.15-py3.7-linux-x86_64.egg",
+        root / "PythonAPI" / "carla",
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -194,7 +212,6 @@ def _carla_actor_probe(args: argparse.Namespace) -> dict[str, Any]:
         client = carla.Client(args.carla_host, args.carla_port)
         client.set_timeout(args.carla_timeout_sec)
         world = client.get_world()
-        vehicles = list(world.get_actors().filter("vehicle.*"))
     except Exception as exc:
         return {
             "available": True,
@@ -204,16 +221,46 @@ def _carla_actor_probe(args: argparse.Namespace) -> dict[str, Any]:
             "sumo_actor_count": 0,
         }
 
+    vehicles: list[Any] = []
     non_ego: list[Any] = []
     role_matches: list[Any] = []
-    for actor in vehicles:
-        role_name = str(actor.attributes.get("role_name", ""))
-        if role_name != args.ego_role_name:
-            non_ego.append(actor)
-        if args.sumo_role_prefix and args.sumo_role_prefix.lower() in role_name.lower():
-            role_matches.append(actor)
+    selected: list[Any] = []
+    attempts = 0
+    wait_sec = float(getattr(args, "carla_actor_wait_sec", 5.0))
+    poll_sec = float(getattr(args, "carla_actor_poll_sec", 0.2))
+    deadline = time.monotonic() + max(0.0, wait_sec)
+    while True:
+        attempts += 1
+        try:
+            tick = getattr(world, "tick", None)
+            if callable(tick):
+                tick()
+        except Exception:
+            pass
+        try:
+            vehicles = list(world.get_actors().filter("vehicle.*"))
+        except Exception as exc:
+            return {
+                "available": True,
+                "passed": False,
+                "error": f"carla_actor_query_failed:{exc}",
+                "actor_count": 0,
+                "sumo_actor_count": 0,
+                "actor_poll_attempts": attempts,
+            }
+        non_ego = []
+        role_matches = []
+        for actor in vehicles:
+            role_name = str(actor.attributes.get("role_name", ""))
+            if role_name != args.ego_role_name:
+                non_ego.append(actor)
+            if args.sumo_role_prefix and args.sumo_role_prefix.lower() in role_name.lower():
+                role_matches.append(actor)
+        selected = role_matches if role_matches else non_ego
+        if len(selected) >= args.min_actors or time.monotonic() >= deadline:
+            break
+        time.sleep(max(0.0, poll_sec))
 
-    selected = role_matches if role_matches else non_ego
     actor_details = []
     for actor in selected[: args.max_actor_details]:
         actor_details.append(
@@ -231,6 +278,8 @@ def _carla_actor_probe(args: argparse.Namespace) -> dict[str, Any]:
         "actor_count": len(vehicles),
         "non_ego_actor_count": len(non_ego),
         "sumo_actor_count": len(selected),
+        "actor_poll_attempts": attempts,
+        "actor_wait_sec": wait_sec,
         "role_prefix": args.sumo_role_prefix,
         "role_prefix_matched": bool(role_matches),
         "used_non_ego_fallback": not role_matches,
@@ -355,7 +404,11 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     run_dir = Path(args.run_dir).resolve()
     process_probe = _sumo_process_probe(run_dir)
     route_probe = _route_loaded(args)
-    log_probe = _sumo_log_probe(run_dir)
+    log_probe = _sumo_log_probe(
+        run_dir,
+        max_wait_sec=args.log_wait_timeout_sec,
+        poll_sec=args.log_poll_sec,
+    )
     if args.actor_source == "carla-rpc":
         carla_probe = _carla_actor_probe(args)
     else:
@@ -445,6 +498,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--carla-port", type=int, default=int(os.environ.get("SIMCTL_CARLA_RPC_PORT", "2000")))
     parser.add_argument("--carla-root", default=os.environ.get("CARLA_ROOT", os.environ.get("CARLA_0915_ROOT", str(Path.home() / "CARLA_0.9.15"))))
     parser.add_argument("--carla-timeout-sec", type=float, default=5.0)
+    parser.add_argument("--carla-actor-wait-sec", type=float, default=5.0)
+    parser.add_argument("--carla-actor-poll-sec", type=float, default=0.2)
     parser.add_argument(
         "--actor-source",
         choices=["log", "carla-rpc"],
@@ -459,6 +514,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--object-topic", default="/perception/object_recognition/objects")
     parser.add_argument("--control-topic", default="/control/command/control_cmd")
     parser.add_argument("--ros-timeout-sec", type=float, default=8.0)
+    parser.add_argument("--log-wait-timeout-sec", type=float, default=12.0)
+    parser.add_argument("--log-poll-sec", type=float, default=0.5)
     parser.add_argument(
         "--control-topic-presence-ok",
         action=argparse.BooleanOptionalAction,

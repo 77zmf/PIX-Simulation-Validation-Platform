@@ -1,0 +1,165 @@
+scenario_id: stable_l2_sumo_dense_route_follow
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 250.0
+    y: -2.0201120376586914
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 314.2434997558594
+    y: -1.982629656791687
+    z: 0.0
+    yaw_deg: -0.03045654296875
+traffic_profile:
+  mode: sumo_dense_route_follow_actor_bridge
+  vehicles: 60
+  pedestrians: 0
+  source: CARLA_0.9.15 Co-Simulation/Sumo Town01 example, 100 scheduled SUMO vehicles
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260426
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/sumo_dense_route_follow
+  carla_recorder:
+    enabled: true
+    path: carla/sumo_dense_route_follow.log
+kpi_gate: sumo_dense_route_follow_bughunt
+labels:
+  - L2
+  - stable
+  - sumo
+  - carla
+  - actor_bridge
+  - planning_control
+  - town01
+  - dense_traffic
+  - route_follow
+  - bughunt
+metadata:
+  owner: zmf
+  source_assets:
+    - scenarios/l1/regression_follow_lane.yaml
+    - scenarios/l2/sumo_town01_dense_traffic.yaml
+    - ops/runtime_probes/sumo_cosim_probe.py
+    - ops/runtime_probes/carla_actor_visual_capture.py
+    - ops/runtime_probes/carla_sensor_topic_probe.py
+    - ops/runtime_probes/carla_closed_loop_route_probe.py
+    - /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
+    - /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/rou/Town01.rou.xml
+    - /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/net/Town01.net.xml
+  validation_method: Start CARLA Town01 with dense SUMO traffic, verify SUMO/CARLA actor synchronization and Autoware object/control streams, reserve the ego start ahead of the early SUMO flow near x=228m, wait long enough for CARLA actors to catch up with SUMO's active vehicle count, capture dense NPC visual evidence, then drive the PIX robobus along the follow-lane route to produce planning/control bug evidence under traffic pressure.
+  validation_command: >
+    python3 ops/runtime_probes/sumo_cosim_probe.py
+    --run-dir <run_dir>
+    --profile town01_sumo_dense_route_follow
+    --sumo-config-file /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
+    --actor-source carla-rpc
+    --min-actors 12
+    --wait-sec 25
+    --log-wait-timeout-sec 45
+    --carla-actor-wait-sec 25
+    --carla-actor-poll-sec 0.5
+    &&
+    python3 ops/runtime_probes/carla_actor_visual_capture.py
+    --run-dir <run_dir>
+    --profile town01_sumo_dense_route_follow_visual
+    --carla-root /home/pixmoving/CARLA_0.9.15
+    --carla-port 2000
+    --ego-role-name ego_vehicle
+    --npc-role-name sumo_driver
+    --npc-role-prefix sumo
+    --min-npcs 8
+    --min-captures 12
+    --max-npcs 12
+    --image-width 960
+    --image-height 540
+    --actor-poll-timeout-sec 35
+    --worker-timeout-sec 360
+    &&
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th_presence_smoke
+    &&
+    python3 ops/runtime_probes/carla_closed_loop_route_probe.py
+    --run-dir <run_dir>
+    --goal-tolerance-m 0.8
+    --max-duration-sec 180
+    --sample-period 0.2
+    --ego-start-clear-radius-m 45
+    --ego-start-clear-duration-sec 70
+    --skip-ego-reset
+    --camera-video-output <run_dir>/runtime_verification/sumo_dense_route_follow.mp4
+    --camera-video-mode ego_chase
+  expected_observable: SUMO reports at least 12 synchronized NPC vehicles, CARLA visual evidence captures at least eight SUMO NPCs, Autoware object/control streams are alive, ego starts on the validated Town01 lane away from immediate SUMO overlap, and the PIX robobus either reaches the follow-lane goal or generates a KPI-gated planning/control bugpack.
+  rollback_impact: Remove this scenario from ops/test_campaigns/stable_planning_control_bughunt.yaml or set stable_runtime.sumo_enabled=false; existing CARLA-only planning/control scenarios remain unchanged.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    autoware_rviz_config: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/autoware_launch/share/autoware_launch/rviz/planning_bev.rviz
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_actor_health_check: "true"
+    carla_spawn_point: "250.0000,2.0201,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_actor_object_bridge_enabled: "true"
+    carla_actor_object_bridge_poll_sec: "0.2"
+    carla_actor_object_bridge_include_walkers: "true"
+    carla_actor_object_bridge_delete_all_on_start: "false"
+    carla_actor_object_bridge_delete_all_on_stop: "true"
+    sumo_enabled: "true"
+    sumo_config_file: /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
+    sumo_net_file: /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/net/Town01.net.xml
+    sumo_route_file: /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/rou/Town01.rou.xml
+    sumo_host: 127.0.0.1
+    sumo_binary: sumo
+    sumo_gui: "false"
+    sumo_step_length: "0.05"
+    sumo_sync_vehicle_lights: "false"
+    sumo_sync_vehicle_color: "true"
+    sumo_tls_manager: none
+    sumo_carla_client_timeout_sec: "180.0"
+    carla_bridge_timeout: "180"
+    sumo_min_actor_count: "12"
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info
+      - /localization/kinematic_state
+      - /vehicle/status/velocity_status
+      - /planning/scenario_planning/trajectory
+      - /control/command/control_cmd
+      - /control/command/actuation_cmd
+      - /perception/object_recognition/objects

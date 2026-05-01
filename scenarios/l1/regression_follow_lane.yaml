@@ -55,9 +55,10 @@ metadata:
     --run-dir <run_dir>
     --goal-tolerance-m 0.8
     --max-duration-sec 150
+    --disable-goal-modification
     --camera-video-output <run_dir>/runtime_verification/l1_follow_lane_route_sync.mp4
     --camera-video-mode ego_chase
-  expected_observable: Robobus117th sensor topics have live samples; Autoware accepts the long route, publishes trajectory/control, and the PIX robobus reaches the effective route goal near x=314m with bounded route-goal lateral error, lane-center envelope, longitudinal error, and jerk metrics.
+  expected_observable: Robobus117th sensor topics have live samples; Autoware accepts the long route without goal modification, publishes trajectory/control, and the PIX robobus reaches the requested route goal near x=314m with bounded route-goal lateral error, lane-center envelope, longitudinal error, and jerk metrics.
   rollback_impact: Keep scenarios/l0/robobus117th_town01_closed_loop.yaml as the smoke gate and exclude this L1 scenario from required stable campaigns until steering/route-follow calibration passes.
 execution:
   mode: external

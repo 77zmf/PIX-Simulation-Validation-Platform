@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -73,10 +74,22 @@ ROBOBUS117TH_L0_CLOSED_LOOP_TOPICS: tuple[TopicSpec, ...] = tuple(
     if spec.group not in {"actor_bridge", "perception"}
 )
 
+ROBOBUS117TH_PRESENCE_SMOKE_TOPICS: tuple[TopicSpec, ...] = tuple(
+    TopicSpec(
+        spec.topic,
+        spec.group,
+        required=spec.required,
+        sample_required=False,
+        sample_field=spec.sample_field,
+    )
+    for spec in ROBOBUS117TH_TOPICS
+)
+
 PROFILES: dict[str, tuple[TopicSpec, ...]] = {
     "robobus117th": ROBOBUS117TH_TOPICS,
     "robobus117th_bridge_only": ROBOBUS117TH_BRIDGE_ONLY_TOPICS,
     "robobus117th_l0_closed_loop": ROBOBUS117TH_L0_CLOSED_LOOP_TOPICS,
+    "robobus117th_presence_smoke": ROBOBUS117TH_PRESENCE_SMOKE_TOPICS,
 }
 
 
@@ -181,7 +194,7 @@ def _check_topic(spec: TopicSpec, topic_types: dict[str, str], timeout_sec: floa
     return result
 
 
-def run_probe(args: argparse.Namespace) -> dict[str, Any]:
+def run_probe_once(args: argparse.Namespace) -> dict[str, Any]:
     specs = PROFILES[args.profile]
     topic_types = _topic_types(args.discovery_timeout_sec)
     max_workers = max(1, min(args.max_workers, len(specs)))
@@ -231,6 +244,31 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def run_probe(args: argparse.Namespace) -> dict[str, Any]:
+    attempts = max(1, int(getattr(args, "attempts", 1)))
+    retry_sleep_sec = max(0.0, float(getattr(args, "retry_sleep_sec", 0.0)))
+    attempt_summaries: list[dict[str, Any]] = []
+    payload: dict[str, Any] | None = None
+    for attempt in range(1, attempts + 1):
+        payload = run_probe_once(args)
+        payload["attempt"] = attempt
+        payload["max_attempts"] = attempts
+        attempt_summaries.append(
+            {
+                "attempt": attempt,
+                "overall_passed": payload["overall_passed"],
+                "summary": payload["summary"],
+            }
+        )
+        if payload["overall_passed"] or attempt == attempts:
+            break
+        time.sleep(retry_sleep_sec)
+
+    assert payload is not None
+    payload["attempts"] = attempt_summaries
+    return payload
+
+
 def write_artifacts(run_dir: Path, payload: dict[str, Any]) -> dict[str, str]:
     stamp = _utc_stamp()
     output_dir = run_dir / "runtime_verification" / f"sensor_topics_{stamp}"
@@ -259,17 +297,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--topic-timeout-sec", type=float, default=8.0)
     parser.add_argument("--discovery-timeout-sec", type=float, default=8.0)
     parser.add_argument("--max-workers", type=int, default=6)
+    parser.add_argument("--attempts", type=int, default=3)
+    parser.add_argument("--retry-sleep-sec", type=float, default=5.0)
+    parser.add_argument(
+        "--continue-on-failure",
+        action="store_true",
+        help="Return zero after writing failed evidence so later validation probes can still run.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    os.environ.setdefault("ROS2CLI_DISABLE_DAEMON", "1")
     parser = build_parser()
     args = parser.parse_args(argv)
     payload = run_probe(args)
     paths = write_artifacts(Path(args.run_dir).resolve(), payload)
     payload.update(paths)
     print(json.dumps(payload, indent=2, ensure_ascii=False))
-    return 0 if payload["overall_passed"] else 1
+    return 0 if payload["overall_passed"] or args.continue_on_failure else 1
 
 
 if __name__ == "__main__":

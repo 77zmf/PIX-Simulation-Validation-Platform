@@ -7,6 +7,10 @@ stop_after_each: true
 report: true
 validation_path: simctl campaign --config ops/test_campaigns/stable_sumo_traffic.yaml --slot stable-slot-01 --execute
 rollback_impact: Disable this campaign and continue using ops/test_campaigns/stable_perception_control.yaml for CARLA-only validation.
+blocked_followups:
+  - id: stable_l2_sumo_public_road_traffic_draft
+    path: scenarios/l2/sumo_public_road_traffic_draft.yaml
+    reason: blocked_until_public_road_sumo_net_routes_sumocfg_exist
 scenarios:
   - id: stable_l1_sumo_town01_traffic_smoke
     path: scenarios/l1/sumo_town01_traffic_smoke.yaml
@@ -24,16 +28,27 @@ scenarios:
       - sumo_actor_count>=1
       - autoware_object_stream_seen=1.0
       - ego_control_command_seen=1.0
-  - id: stable_l2_sumo_public_road_traffic_draft
-    path: scenarios/l2/sumo_public_road_traffic_draft.yaml
-    validation: false
-    finalize: false
-    execute: false
+      - carla_actor_visual_ego_seen=1.0
+      - carla_actor_visual_npc_count>=1
+      - carla_actor_visual_capture_count>=3
+  - id: stable_l2_sumo_town01_dense_traffic
+    path: scenarios/l2/sumo_town01_dense_traffic.yaml
+    validation: true
+    finalize: true
+    execute: true
     tags:
       - stable
       - sumo
-      - public_road
-      - draft
-      - asset_intake
+      - town01
+      - actor_bridge
+      - dense_traffic
+      - planning_control
     expected_observables:
-      - blocked_until_public_road_sumo_net_routes_sumocfg_exist
+      - sumo_cosim_alive=1.0
+      - sumo_route_loaded=1.0
+      - sumo_actor_count>=12
+      - autoware_object_stream_seen=1.0
+      - ego_control_command_seen=1.0
+      - carla_actor_visual_ego_seen=1.0
+      - carla_actor_visual_npc_count>=8
+      - carla_actor_visual_capture_count>=12

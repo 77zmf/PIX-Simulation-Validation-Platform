@@ -86,3 +86,18 @@ def release_slot_lock(repo_root: Path, stack_id: str, slot_id: str) -> bool:
         return False
     path.unlink()
     return True
+
+
+def release_slot_lock_for_run_dir(repo_root: Path, stack_id: str, run_dir: Path) -> bool:
+    target = str(run_dir.resolve())
+    released = False
+    for path in slot_lock_dir(repo_root, stack_id).glob("*.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        locked_run_dir = str(payload.get("run_dir") or "")
+        if locked_run_dir and str(Path(locked_run_dir).resolve()) == target:
+            path.unlink()
+            released = True
+    return released

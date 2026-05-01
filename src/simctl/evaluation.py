@@ -57,8 +57,68 @@ def evaluate_metrics(metrics: dict[str, float], gate: KpiGate) -> dict[str, Any]
     return {
         "passed": not violations,
         "violations": violations,
-        "failure_labels": gate.failure_labels if violations else [],
+        "failure_labels": _failure_labels_for_violations(gate.failure_labels, violations),
     }
+
+
+def _failure_labels_for_violations(
+    configured_labels: list[str],
+    violations: list[dict[str, Any]],
+) -> list[str]:
+    if not violations:
+        return []
+    if not configured_labels:
+        return []
+
+    labels: list[str] = []
+    for violation in violations:
+        for label in _labels_for_metric(str(violation.get("metric") or ""), configured_labels):
+            if label not in labels:
+                labels.append(label)
+    return labels or configured_labels
+
+
+def _labels_for_metric(metric: str, configured_labels: list[str]) -> list[str]:
+    label_keywords = _failure_label_keywords(metric)
+    for keyword in label_keywords:
+        matches: list[str] = []
+        for label in configured_labels:
+            if keyword in label and label not in matches:
+                matches.append(label)
+        if matches:
+            return matches
+    return []
+
+
+def _failure_label_keywords(metric: str) -> list[str]:
+    if metric == "route_completion":
+        return ["route_completion", "route"]
+    if metric == "collision_count":
+        return ["collision"]
+    if metric == "min_ttc_sec":
+        return ["yield", "planning_control", "collision", "safety"]
+    if metric == "dynamic_actor_response":
+        return ["yield", "planning_control", "actor_bridge", "perception"]
+    if metric in {"actor_count_observed", "actor_count_spawned", "object_pipeline_nonempty_duration_ratio"}:
+        return ["actor_bridge", "perception", "pedestrian_perception"]
+    if metric in {"sensor_topic_coverage", "sensor_sample_coverage"}:
+        return ["sensor", "robobus_sensor_bridge"]
+    if metric in {"lateral_error_m", "route_goal_lateral_error_m", "longitudinal_error_m", "jerk_mps3"}:
+        return ["route_completion", "planning_control", "control"]
+    if metric in {"robobus_blueprint_found", "robobus_ego_actor_seen", "robobus_actor_type_match"}:
+        return ["blueprint", "robobus_blueprint"]
+    if metric.startswith("robobus_bbox") or metric == "robobus_pose_height_plausible":
+        return ["bbox", "collision", "robobus_bbox"]
+    if metric.startswith("robobus_wheel") or metric in {
+        "robobus_front_tread_match",
+        "robobus_rear_tread_match",
+        "robobus_front_steer_limit_match",
+        "robobus_rear_steer_limit_match",
+    }:
+        return ["wheel", "geometry", "steer"]
+    if metric.startswith("robobus_attached_"):
+        return ["sensor_attachment", "sensor"]
+    return [metric]
 
 
 def synthetic_metrics(gate: KpiGate, outcome: str) -> dict[str, float]:

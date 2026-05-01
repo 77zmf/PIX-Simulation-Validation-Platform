@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -32,13 +33,108 @@ def _distance_with_optional_y_flip(a: tuple[float, float], b: tuple[float, float
 
 def _service_calls_valid(evidence: dict[str, Any]) -> tuple[bool, list[str]]:
     invalid_steps: list[str] = []
-    for call in evidence.get("service_calls") or []:
+    service_calls = [call for call in evidence.get("service_calls") or [] if isinstance(call, dict)]
+    autonomous_succeeded = any(
+        str(call.get("step") or call.get("name") or "") == "change_to_autonomous"
+        and call.get("returncode") in (None, 0)
+        and not re.search(
+            r"\bsuccess\s*[:=]\s*False\b",
+            str(call.get("output") or ""),
+            flags=re.IGNORECASE,
+        )
+        for call in service_calls
+        if not call.get("superseded_by_success")
+    )
+    for call in service_calls:
         if not isinstance(call, dict):
             continue
+        if call.get("superseded_by_success"):
+            continue
+        step = str(call.get("step") or call.get("name") or "unknown")
         rc = call.get("returncode")
         if rc not in (None, 0):
-            invalid_steps.append(str(call.get("step") or call.get("name") or "unknown"))
+            invalid_steps.append(step)
+            continue
+        output = str(call.get("output") or "")
+        if re.search(r"\bsuccess\s*[:=]\s*False\b", output, flags=re.IGNORECASE):
+            if step == "enable_autoware_control" and autonomous_succeeded:
+                continue
+            invalid_steps.append(step)
     return not invalid_steps, invalid_steps
+
+
+def _route_service_calls_valid(evidence: dict[str, Any]) -> tuple[bool, list[str]]:
+    """Validate only the route-critical service steps for closed-loop route probes.
+
+    The route probe records optional operation-mode attempts as diagnostics, but
+    its route verdict depends on initialization and route publication. Treating
+    every failed optional mode transition as a hard route evidence failure hides
+    real CARLA samples that already reached the route goal.
+    """
+
+    summary = evidence.get("summary") if isinstance(evidence.get("summary"), dict) else {}
+    if summary.get("route_service_calls_successful") is True:
+        return True, []
+
+    required_steps = {
+        str(step)
+        for step in (summary.get("route_required_service_steps") or [])
+        if str(step)
+    }
+    if not required_steps:
+        return _service_calls_valid(evidence)
+
+    invalid_steps: list[str] = []
+    service_calls = [call for call in evidence.get("service_calls") or [] if isinstance(call, dict)]
+    for step in sorted(required_steps):
+        step_calls = [
+            call
+            for call in service_calls
+            if str(call.get("step") or call.get("name") or "") == step
+            and not call.get("superseded_by_success")
+        ]
+        if not step_calls:
+            invalid_steps.append(step)
+            continue
+        step_succeeded = False
+        for call in step_calls:
+            if call.get("returncode") not in (None, 0):
+                continue
+            output = str(call.get("output") or "")
+            if re.search(r"\bsuccess\s*[:=]\s*False\b", output, flags=re.IGNORECASE):
+                continue
+            step_succeeded = True
+            break
+        if not step_succeeded:
+            invalid_steps.append(step)
+    return not invalid_steps, invalid_steps
+
+
+def _service_call_output_summary(output: Any, *, limit: int = 500) -> str:
+    compact = " ".join(str(output or "").split())
+    match = re.search(r"status=.*", compact)
+    if match:
+        compact = match.group(0)
+    return compact[:limit]
+
+
+def _invalid_service_call_summaries(
+    service_calls: list[dict[str, Any]], invalid_steps: list[str]
+) -> list[dict[str, Any]]:
+    invalid_set = set(invalid_steps)
+    summaries: list[dict[str, Any]] = []
+    for call in service_calls:
+        step = str(call.get("step") or call.get("name") or "unknown")
+        if step not in invalid_set:
+            continue
+        summaries.append(
+            {
+                "step": step,
+                "returncode": call.get("returncode"),
+                "output_summary": _service_call_output_summary(call.get("output")),
+            }
+        )
+    return summaries
 
 
 def _goal_reached(evidence: dict[str, Any], last_location: dict[str, Any] | None) -> bool:
@@ -172,6 +268,7 @@ def _dynamic_probe_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any
         "l3_occluded_pedestrian_close_yield",
         "l3_occluded_pedestrian",
         "l2_multi_actor_cut_in_lead_brake",
+        "l2_crosswalk_vru_yield",
         "l2_close_cut_in",
         "l2_merge",
         "l2_cut_in",
@@ -180,6 +277,8 @@ def _dynamic_probe_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any
         if path.stem == known_kind or path.stem.startswith(f"{known_kind}_"):
             kind = known_kind
             break
+    control_setup_passed = valid if valid else bool(summary.get("control_setup_passed", valid))
+    control_setup_failures = [] if valid else (summary.get("control_setup_failures") or [])
     attempt = {
         "path": str(path),
         "valid": valid,
@@ -202,8 +301,15 @@ def _dynamic_probe_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any
         "object_pipeline_nonempty_duration_ratio": _as_float(
             summary.get("object_pipeline_nonempty_duration_ratio"), math.nan
         ),
+        "control_setup_passed": control_setup_passed,
+        "control_setup_failures": control_setup_failures,
+        "failure_reasons": summary.get("failure_reasons") or [],
         "total_delta_m": _as_float(summary.get("total_delta_m")),
         "max_speed_mps": _as_float(summary.get("max_speed_mps")),
+        "min_speed_after_target_in_lane_mps": _as_float(
+            summary.get("min_speed_after_target_in_lane_mps"), math.nan
+        ),
+        "final_speed_mps": _as_float(summary.get("final_speed_mps"), math.nan),
         "sample_count": int(summary.get("sample_count") or 0),
         "reaction_reason": summary.get("reaction_reason"),
         "rosbag_dir": recording.get("rosbag_dir"),
@@ -212,6 +318,23 @@ def _dynamic_probe_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any
     if not valid:
         attempt["invalid_steps"] = invalid_steps
     return attempt
+
+
+def _dynamic_probe_execution_completed(attempt: dict[str, Any]) -> bool:
+    """Whether a dynamic-actor probe executed far enough to produce KPI evidence.
+
+    `overall_passed` includes safety and response verdicts. Using it as route
+    completion hides the actual failure mode: a safety failure would also be
+    reported as route_completion=0 and dynamic_actor_response=0. Keep execution
+    completion separate so gates fail on the specific KPI that broke.
+    """
+
+    return (
+        bool(attempt.get("valid", True))
+        and bool(attempt.get("control_setup_passed", True))
+        and int(attempt.get("sample_count") or 0) > 0
+        and bool(attempt.get("moved"))
+    )
 
 
 def _sensor_probe_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -262,6 +385,8 @@ def _metric_probe_attempt(path: Path, payload: dict[str, Any]) -> dict[str, Any]
         "sample_missing_topics": payload.get("sample_missing_topics") or [],
         "blocked_reason": payload.get("blocked_reason"),
         "metrics_file": payload.get("metrics_file"),
+        "scope": payload.get("scope"),
+        "assumptions": payload.get("assumptions") or [],
         "non_numeric_metrics": non_numeric_metrics,
     }
 
@@ -402,6 +527,7 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
     calibration_scene_artifacts = _calibration_scene_artifacts(runtime_dir) if runtime_dir.exists() else []
     camera_fiducial_artifacts = _camera_fiducial_artifacts(runtime_dir) if runtime_dir.exists() else []
     attempts: list[dict[str, Any]] = []
+    diagnostic_attempts: list[dict[str, Any]] = []
     ignored: list[dict[str, Any]] = []
     dynamic_attempts: list[dict[str, Any]] = []
     ignored_dynamic: list[dict[str, Any]] = []
@@ -423,11 +549,13 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
         if payload is None:
             ignored.append({"path": str(path), "reason": "unreadable_json"})
             continue
-        valid, invalid_steps = _service_calls_valid(payload)
+        valid, invalid_steps = _route_service_calls_valid(payload)
+        all_service_calls_valid, all_invalid_steps = _service_calls_valid(payload)
         summary = payload.get("summary") or {}
         last_location = summary.get("last_location") or payload.get("end_location")
         total_delta_m = _as_float(summary.get("total_delta_m"))
         max_speed_mps = _as_float(summary.get("max_speed_mps"))
+        max_speed_kph = _as_float(summary.get("max_speed_kph"), max_speed_mps * 3.6)
         moved = bool(summary.get("moved")) or total_delta_m > 5.0
         reached = _goal_reached(payload, last_location if isinstance(last_location, dict) else None)
         attempt = {
@@ -437,6 +565,7 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             "reached_near_goal": reached,
             "total_delta_m": total_delta_m,
             "max_speed_mps": max_speed_mps,
+            "max_speed_kph": max_speed_kph,
             "effective_goal": summary.get("effective_goal"),
             "final_map_location": summary.get("final_map_location"),
             "final_carla_waypoint": summary.get("final_carla_waypoint"),
@@ -450,6 +579,11 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             "stopped_before_goal": bool(summary.get("stopped_before_goal")),
             "sample_count": int(summary.get("sample_count") or 0),
         }
+        if summary.get("target_speed_mps") is not None:
+            attempt["target_speed_mps"] = _as_float(summary.get("target_speed_mps"), math.nan)
+            attempt["target_speed_kph"] = _as_float(summary.get("target_speed_kph"), math.nan)
+            attempt["target_speed_reached"] = 1.0 if summary.get("target_speed_reached") is True else 0.0
+            attempt["target_speed_deficit_mps"] = _as_float(summary.get("target_speed_deficit_mps"), math.nan)
         ros_telemetry = summary.get("ros_telemetry")
         if isinstance(ros_telemetry, dict):
             attempt["ros_telemetry"] = {
@@ -458,11 +592,29 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
                 "topic_counts": ros_telemetry.get("topic_counts") or {},
                 "tail_stats": ros_telemetry.get("tail_stats") or {},
             }
+        if valid and not all_service_calls_valid:
+            service_calls = [call for call in payload.get("service_calls") or [] if isinstance(call, dict)]
+            optional_failures = _invalid_service_call_summaries(service_calls, all_invalid_steps)
+            if optional_failures:
+                attempt["optional_service_failures"] = optional_failures
         if valid:
             attempts.append(attempt)
         else:
             attempt["invalid_steps"] = invalid_steps
-            ignored.append({"path": str(path), "reason": "service_call_failed", "invalid_steps": invalid_steps})
+            service_calls = [call for call in payload.get("service_calls") or [] if isinstance(call, dict)]
+            invalid_service_calls = _invalid_service_call_summaries(service_calls, invalid_steps)
+            if invalid_service_calls:
+                attempt["invalid_service_calls"] = invalid_service_calls
+            if int(attempt.get("sample_count") or 0) > 0:
+                diagnostic_attempts.append(attempt)
+            ignored_entry = {
+                "path": str(path),
+                "reason": "service_call_failed",
+                "invalid_steps": invalid_steps,
+            }
+            if invalid_service_calls:
+                ignored_entry["service_calls"] = invalid_service_calls
+            ignored.append(ignored_entry)
 
     successful = [item for item in attempts if item["moved"] and item["reached_near_goal"]]
     traffic = (run_result.get("scenario_params") or {}).get("traffic_profile") or {}
@@ -619,6 +771,10 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
         ignored_metric.extend(superseded)
 
     successful_dynamic = [item for item in dynamic_attempts if item["overall_passed"]]
+    completed_dynamic = [item for item in dynamic_attempts if _dynamic_probe_execution_completed(item)]
+    responsive_dynamic = [
+        item for item in dynamic_attempts if item.get("autoware_dynamic_actor_response_passed")
+    ]
     successful_sensor = [item for item in sensor_attempts if item["overall_passed"]]
     successful_metric = [item for item in metric_attempts if item["overall_passed"]]
     successful_sumo_cosim = [item for item in sumo_cosim_attempts if item["overall_passed"]]
@@ -626,15 +782,23 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
     successful_calibration_scene = [item for item in calibration_scene_attempts if item["overall_passed"]]
     successful_camera_fiducial = [item for item in camera_fiducial_attempts if item["overall_passed"]]
     route_completion = (len(successful) / len(attempts)) if attempts else 0.0
-    route_completion_source = "real_carla_samples"
+    route_completion_source = (
+        "real_carla_samples"
+        if attempts
+        else (
+            "real_carla_samples_diagnostic_service_failed"
+            if diagnostic_attempts
+            else "no_closed_loop_route_attempts"
+        )
+    )
     if dynamic_attempts:
-        dynamic_completion = len(successful_dynamic) / len(dynamic_attempts)
+        dynamic_completion = len(completed_dynamic) / len(dynamic_attempts)
         if attempts:
             route_completion = min(route_completion, dynamic_completion)
-            route_completion_source = "real_carla_samples_and_runtime_dynamic_probe"
+            route_completion_source = "real_carla_samples_and_runtime_dynamic_probe_execution"
         else:
             route_completion = dynamic_completion
-            route_completion_source = "runtime_dynamic_probe"
+            route_completion_source = "runtime_dynamic_probe_execution"
 
     collision_count = 0.0 if empty_scene else math.nan
     min_ttc_sec = EMPTY_SCENE_TTC_SEC if empty_scene else math.nan
@@ -659,20 +823,51 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
         metric_sources["min_ttc_sec"] = (
             "runtime_dynamic_probe" if dynamic_attempts else "inferred_empty_scene_no_dynamic_actors"
         )
-    if attempts:
+    closed_loop_metric_attempts = attempts or diagnostic_attempts
+    closed_loop_metric_source = (
+        "real_carla_samples" if attempts else "real_carla_samples_diagnostic"
+    )
+    if closed_loop_metric_attempts:
+        max_speed_values = [
+            _as_float(item.get("max_speed_mps"), math.nan) for item in closed_loop_metric_attempts
+        ]
+        finite_max_speed_values = [value for value in max_speed_values if not math.isnan(value)]
+        if finite_max_speed_values:
+            metrics["max_speed_mps"] = max(finite_max_speed_values)
+            metrics["max_speed_kph"] = metrics["max_speed_mps"] * 3.6
+            metric_sources["max_speed_mps"] = closed_loop_metric_source
+            metric_sources["max_speed_kph"] = closed_loop_metric_source
+        target_speed_attempts = [
+            item for item in closed_loop_metric_attempts if "target_speed_reached" in item
+        ]
+        if target_speed_attempts:
+            metrics["target_speed_reached"] = max(
+                _as_float(item.get("target_speed_reached"), 0.0) for item in target_speed_attempts
+            )
+            deficits = [
+                _as_float(item.get("target_speed_deficit_mps"), math.nan)
+                for item in target_speed_attempts
+            ]
+            finite_deficits = [value for value in deficits if not math.isnan(value)]
+            if finite_deficits:
+                metrics["target_speed_deficit_mps"] = min(finite_deficits)
+                metric_sources["target_speed_deficit_mps"] = closed_loop_metric_source
+            metric_sources["target_speed_reached"] = closed_loop_metric_source
         for metric_name in (
             "lateral_error_m",
             "route_goal_lateral_error_m",
             "longitudinal_error_m",
             "jerk_mps3",
         ):
-            values = [_as_float(item.get(metric_name), math.nan) for item in attempts]
+            values = [
+                _as_float(item.get(metric_name), math.nan) for item in closed_loop_metric_attempts
+            ]
             finite_values = [value for value in values if not math.isnan(value)]
             if finite_values:
                 metrics[metric_name] = max(finite_values)
-                metric_sources[metric_name] = "real_carla_samples"
+                metric_sources[metric_name] = closed_loop_metric_source
     if dynamic_attempts:
-        metrics["dynamic_actor_response"] = len(successful_dynamic) / len(dynamic_attempts)
+        metrics["dynamic_actor_response"] = len(responsive_dynamic) / len(dynamic_attempts)
         metric_sources["dynamic_actor_response"] = "runtime_dynamic_probe"
         observed_counts = [
             _as_float(item.get("actor_count_observed"), math.nan)
@@ -691,7 +886,7 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             metrics["actor_count_spawned"] = max(finite_spawned_counts)
             metric_sources["actor_count_spawned"] = "runtime_dynamic_probe"
         metrics["yield_response_count"] = float(
-            sum(1 for item in dynamic_attempts if item.get("autoware_dynamic_actor_response_passed"))
+            len(responsive_dynamic)
         )
         metric_sources["yield_response_count"] = "runtime_dynamic_probe"
         nonempty_ratios = [

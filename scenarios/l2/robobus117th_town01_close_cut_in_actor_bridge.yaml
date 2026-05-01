@@ -51,6 +51,7 @@ metadata:
     python3 ops/runtime_probes/carla_sensor_topic_probe.py
     --run-dir <run_dir>
     --profile robobus117th
+    --continue-on-failure
     &&
     python3 ops/runtime_probes/carla_dynamic_actor_probe.py
     --run-dir <run_dir>
@@ -58,6 +59,7 @@ metadata:
     --perception-source actor_bridge
     --camera-video-output <run_dir>/runtime_verification/l2_close_cut_in_actor_bridge.mp4
     --camera-video-mode overview
+    --reaction-speed-ratio 0.65
     --no-rosbag
   expected_observable: All 6 camera image topics, 5 lidar pointcloud topics, IMU, and GNSS have live samples; /perception/object_recognition/objects is non-empty without probe-local DummyObject injection; ego slows for the cut-in target with no collision and safe TTC.
   rollback_impact: Disable carla_actor_object_bridge_enabled or switch back to scenarios/l0/robobus117th_town01_closed_loop.yaml.

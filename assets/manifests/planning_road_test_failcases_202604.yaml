@@ -1,0 +1,161 @@
+asset_id: planning_road_test_failcases_202604
+bundle_id: planning_road_test_failcases_202604
+site_id: roadtest_gy_qyhx_202604
+description: External Mac-local road-test failcase index for planning/control simulation improvement. Large MCAP, logs, videos, and maps remain outside Git.
+owner: planning-control
+data_root: /Users/cyber/Documents/zmf_test-data
+source:
+  type: external_mac_road_test_failcases
+  path: /Users/cyber/Documents/zmf_test-data
+  status: external_reference_only
+maps:
+  lanelet2:
+    path: /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260421_1452_trajectory_jump/vector_map_lanelet2_main_20260421.tgz
+  projector:
+    path: /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260421_1452_trajectory_jump/map_projector_info.yaml
+  pointcloud_dir:
+    path: unavailable://pointcloud-not-included
+metadata:
+  mode: external_road_test_index
+  executable_status: draft_blocked_until_replay_probe_or_public_road_carla_route
+  owner: planning-control
+  tags:
+    - planning_control
+    - road_test
+    - replay
+    - failcase
+    - draft
+git_policy:
+  commit_large_artifacts: false
+  committed_scope: manifest-only
+  reason: Raw MCAP/log/video/map artifacts are large and should be referenced by stable scenario manifests instead of stored in Git.
+source_tools:
+  - /Users/cyber/Documents/zmf_test-data/share/oss-failcase-handoff/scripts/analyze_planning_event.py
+  - /Users/cyber/Documents/zmf_test-data/pix-mcap-macos-arm64
+cases:
+  - case_id: planning_20260421145245_trajectory_jump
+    vehicle: 117th
+    event_time_cst: "2026-04-21 14:52:20-14:53:05"
+    symptom: trajectory_jump
+    local_evidence_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260421_1452_trajectory_jump
+    oss_pull: oss-failcase pull 117th planning_20260421145245@trajectory_jump
+    event_mcap: event_20260421145220-45.mcap.zst
+    map_archive: vector_map_lanelet2_main_20260421.tgz
+    simulation_target: route_churn_lane_change_trajectory_jump
+    key_observations:
+      - planning validator invalid segment 14:52:42.584-14:52:52.719 CST
+      - path and trajectory first-point jumps around 1761m
+      - lane-change candidate/reference timing overlaps the invalid segment
+      - emergency command stayed false
+    candidate_scenario: scenarios/l2/planning_control_roadtest_trajectory_jump_replay_draft.yaml
+    blockers:
+      - replay probe must emit trajectory_jump_max_m and planning_validator_invalid_count
+      - public-road Lanelet2 route section must be converted or replayed deterministically
+  - case_id: planning_20260421145630_no_trajectory
+    vehicle: 117th
+    event_time_cst: "2026-04-21 14:55:30-14:58:00"
+    symptom: no_trajectory_planning
+    local_evidence_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260421_1456_no_trajectory
+    oss_pull: oss-failcase pull 117th planning_20260421145630@no_trajectory
+    event_mcap: event_20260421145530-150.mcap.zst
+    map_archive: vector_map_lanelet2_main_20260421.tgz
+    simulation_target: trajectory_publication_dropout
+    key_observations:
+      - main planning path and trajectory topics stop around 14:57:11 CST
+      - event continues for about 48.9s after last main planning publication
+      - planning validator invalid flag is_valid_trajectory_shift
+      - control command continues after planning output stops
+    candidate_scenario: scenarios/l2/planning_control_roadtest_trajectory_dropout_replay_draft.yaml
+    blockers:
+      - replay probe must measure trajectory_silence_sec
+      - recovery criterion must distinguish empty trajectory from publisher death
+  - case_id: planning_20260422110300_trajectory_disappeared
+    vehicle: 117th
+    event_time_cst: "2026-04-22 11:02:00-11:18:24"
+    symptom: trajectory_disappeared_and_no_recovery_after_restart
+    local_evidence_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260422_1103_trajectory_disappeared
+    oss_pull: oss-failcase pull 117th planning_20260422110300@trajectory_disappeared
+    event_mcap: event_20260422110200-190.mcap.zst
+    map_archive: vector_map_lanelet2_main_20260422.tgz
+    simulation_target: trajectory_publication_dropout_recovery
+    key_observations:
+      - main planning topics publish normally until about 11:03:44.8 CST then stop for about 59s
+      - post-restart window has no main planning trajectory/control topics
+      - behavior/static-obstacle topics restart with empty paths
+      - left lane-change reference appears before the stop while candidate stays empty
+    candidate_scenario: scenarios/l2/planning_control_roadtest_trajectory_dropout_replay_draft.yaml
+    blockers:
+      - replay probe must capture pre-stop and post-restart phases
+      - CARLA surrogate needs route reset and restart-state injection support
+  - case_id: planning_202604221647_route_empty_no_trajectory
+    vehicle: 117th
+    event_time_cst: "2026-04-22 16:33:30-16:48:30"
+    symptom: route_empty_no_trajectory_behavior_path_planner_crash
+    local_evidence_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260422_1647_route_empty_no_trajectory
+    oss_pull: unavailable_in_manifest
+    event_mcap: recommended_slice_20260422163330-164830.mcap.zst
+    map_archive: vector_map_lanelet2_main_20260422.tgz
+    simulation_target: route_handler_lateral_neighbor_loop
+    key_observations:
+      - behavior_path_planning_container crashed with exit code -11
+      - backtrace points to RouteHandler getMostRightLanelet via static obstacle avoidance parked-vehicle filtering
+      - ADAPI route later returns empty route and trajectory is absent
+      - map/lanelet connectivity around lanelets 602384, 601470, 601478, 603134 needs reproduction
+    candidate_scenario: scenarios/l2/planning_control_roadtest_trajectory_dropout_replay_draft.yaml
+    blockers:
+      - need reproducible lanelet connectivity fixture or public-road map replay
+      - replay probe must flag route_empty_count and planner container death
+  - case_id: planning_20260427100413_trajectory_issue
+    vehicle: 117th
+    event_time_cst: "2026-04-27 10:03:30-10:05:10"
+    symptom: trajectory_issue_with_brake_takeover
+    local_evidence_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260427_1004_trajectory_issue
+    oss_pull: oss-failcase pull 117th planning_20260427100413@trajectory_issue
+    event_mcap: event_20260427100330-100s.mcap.zst
+    map_archive: vector_map_lanelet2_main_20260427.tgz
+    simulation_target: right_lane_change_static_obstacle_trajectory_jump
+    key_observations:
+      - HMI records brake takeover at 10:04:13 and brake plus teleop takeover at 10:04:49
+      - right lane-change reference is nonempty from 10:04:05.189 to 10:04:21.392 CST
+      - static-obstacle path candidates show 57.392m and 52.521m jumps
+      - main trajectory chain shows about 4.5m jumps around 10:05:01 CST
+    candidate_scenario: scenarios/l2/planning_control_roadtest_trajectory_jump_replay_draft.yaml
+    blockers:
+      - right lane-change and static-obstacle surrogate must be deterministic
+      - replay probe must compare static-obstacle and main trajectory chain continuity
+  - case_id: planning_20260417135420_brake_takeover
+    vehicle: 125th
+    event_time_cst: "2026-04-17 13:54:15-13:54:56"
+    symptom: out_of_lane_lateral_shift_emergency_brake_takeover
+    local_evidence_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/125th_20260417_135420_brake_takeover
+    oss_pull: oss-failcase pull 125th planning_20260417135420@brake_takeover
+    event_mcap: event_20260417135415-41.mcap.zst
+    map_archive: unavailable_in_manifest
+    simulation_target: out_of_lane_slowdown_failure_lateral_jerk_brake_takeover
+    key_observations:
+      - out-of-lane slowdown insertion fails before the user-reported lateral movement
+      - planning validator detects trajectory shift around 0.856m at 13:54:46.045 CST
+      - MRM emergency stop and vehicle_cmd_gate emergency follow
+      - steering command flips direction and brake feedback becomes positive
+    candidate_scenario: scenarios/l2/planning_control_roadtest_out_of_lane_brake_takeover_replay_draft.yaml
+    blockers:
+      - out-of-lane route/ego pose fixture must be reproduced in CARLA or replay
+      - replay probe must emit emergency and brake takeover metrics
+  - case_id: planning_20260424105938_p_gear_turn_new_route
+    vehicle: 82th
+    event_time_cst: "2026-04-24 10:59:38-10:59:45"
+    symptom: p_gear_during_turn_due_to_new_route
+    local_evidence_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/82th_20260424_105938_p_at_turn_new_route
+    oss_pull: unavailable_in_manifest
+    event_mcap: event_20260424105938-6_p_at_turn_with_new_route.mcap.zst
+    map_archive: unavailable_in_manifest
+    simulation_target: route_update_during_turn_gear_safety
+    key_observations:
+      - short event window around new route while turning
+      - control command steering is around -4.5deg and PIX raw feedback around -8.5deg
+      - validator stays valid in the captured window
+      - useful for route-update safety and gear-state guard simulation
+    candidate_scenario: scenarios/l2/planning_control_roadtest_trajectory_jump_replay_draft.yaml
+    blockers:
+      - need route update injection during turn
+      - need gear-state observable in runtime evidence

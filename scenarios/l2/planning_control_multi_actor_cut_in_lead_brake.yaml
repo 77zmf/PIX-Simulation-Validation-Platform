@@ -56,6 +56,7 @@ metadata:
     python3 ops/runtime_probes/carla_sensor_topic_probe.py
     --run-dir <run_dir>
     --profile robobus117th
+    --continue-on-failure
     &&
     python3 ops/runtime_probes/carla_dynamic_actor_probe.py
     --run-dir <run_dir>
@@ -78,6 +79,7 @@ execution:
     autoware_sensor_model: robobus_sensor_kit
     autoware_lidar_type: robosense
     autoware_rviz: "false"
+    autoware_rviz_config: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/autoware_launch/share/autoware_launch/rviz/planning_bev.rviz
     carla_root: /home/pixmoving/CARLA_0.9.15
     carla_map: Town01
     carla_vehicle_type: vehicle.pixmoving.robobus

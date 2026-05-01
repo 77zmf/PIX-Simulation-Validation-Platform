@@ -151,16 +151,44 @@ def spin_once_safe(rclpy: Any, node: Any, timeout_sec: float) -> None:
 
 def iter_target_actors(world: Any, *, ego_role_name: str, include_walkers: bool) -> list[Any]:
     actors = []
-    for actor in world.get_actors().filter("vehicle.*"):
+    actor_list = world.get_actors()
+    for actor in actor_list.filter("vehicle.*"):
         if not is_ego_actor(actor, ego_role_name) and not is_visual_only_actor(actor):
             actors.append(actor)
     if include_walkers:
         actors.extend(
             actor
-            for actor in world.get_actors().filter("walker.pedestrian.*")
+            for actor in actor_list.filter("walker.pedestrian.*")
             if not is_visual_only_actor(actor)
         )
     return actors
+
+
+def iter_target_actors_with_retry(
+    client: Any,
+    args: argparse.Namespace,
+    *,
+    ego_role_name: str,
+    include_walkers: bool,
+) -> list[Any]:
+    deadline = time.monotonic() + args.carla_wait_sec
+    last_error: RuntimeError | None = None
+    attempt = 0
+    while not STOP_REQUESTED:
+        attempt += 1
+        try:
+            return iter_target_actors(
+                client.get_world(),
+                ego_role_name=ego_role_name,
+                include_walkers=include_walkers,
+            )
+        except RuntimeError as exc:
+            last_error = exc
+            if time.monotonic() >= deadline:
+                break
+            print(f"CARLA actor query timed out on attempt {attempt}: {exc}", flush=True)
+            time.sleep(max(0.2, args.poll_sec))
+    raise RuntimeError(f"CARLA actor query failed within {args.carla_wait_sec:.1f}s: {last_error}")
 
 
 def wait_for_carla_client(args: argparse.Namespace, carla: Any) -> Any:
@@ -209,9 +237,9 @@ def run_bridge(args: argparse.Namespace) -> None:
 
     try:
         while not STOP_REQUESTED:
-            world = client.get_world()
-            actors = iter_target_actors(
-                world,
+            actors = iter_target_actors_with_retry(
+                client,
+                args,
                 ego_role_name=args.ego_vehicle_role_name,
                 include_walkers=args.include_walkers,
             )

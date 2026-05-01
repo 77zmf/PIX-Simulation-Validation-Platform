@@ -8,6 +8,7 @@ SUMO_TRACI_PORT=""
 ROS_DOMAIN_ID=""
 RMW_IMPLEMENTATION_ARG=""
 EXECUTE=0
+ROS_DAEMON_STOP_TIMEOUT_SEC="${SIMCTL_ROS_DAEMON_STOP_TIMEOUT_SEC:-8}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,6 +36,7 @@ echo "Traffic Manager Port: ${TRAFFIC_MANAGER_PORT}"
 echo "SUMO TraCI Port: ${SUMO_TRACI_PORT}"
 echo "ROS_DOMAIN_ID: ${ROS_DOMAIN_ID}"
 echo "RMW_IMPLEMENTATION: ${RMW_IMPLEMENTATION_ARG}"
+echo "RosDaemonStopTimeoutSec: ${ROS_DAEMON_STOP_TIMEOUT_SEC}"
 
 collect_process_tree() {
   local root_pid="$1"
@@ -135,9 +137,35 @@ stop_ros2_daemon() {
       daemon_cmd+="export RMW_IMPLEMENTATION='${rmw_value}' && "
     fi
     daemon_cmd+="ros2 daemon stop >/dev/null 2>&1 || true"
-    bash -lc "${daemon_cmd}"
+    timeout "${ROS_DAEMON_STOP_TIMEOUT_SEC}s" bash -lc "${daemon_cmd}" || true
   done
   echo "ROS 2 daemon stop requested"
+}
+
+collect_ros2_daemon_pids_for_domain() {
+  if [[ -z "${ROS_DOMAIN_ID}" ]]; then
+    return 0
+  fi
+  ps -eo pid=,args= \
+    | awk -v domain_arg="--ros-domain-id ${ROS_DOMAIN_ID}" '
+        /ros2cli\.daemon\.daemonize/ && /--name ros2-daemon/ && index($0, domain_arg) {print $1}
+      ' \
+    | awk '!seen[$0]++'
+}
+
+stop_ros2_daemon_processes() {
+  if [[ "${SIMCTL_STOP_ROS2_DAEMON:-1}" == "0" ]]; then
+    return
+  fi
+  mapfile -t ROS2_DAEMON_PIDS < <(collect_ros2_daemon_pids_for_domain)
+  if [[ "${#ROS2_DAEMON_PIDS[@]}" -eq 0 ]]; then
+    echo "ROS 2 daemon residual processes killed: 0"
+    return
+  fi
+  stop_pid_list TERM "${ROS2_DAEMON_PIDS[@]}"
+  sleep 1
+  stop_pid_list KILL "${ROS2_DAEMON_PIDS[@]}"
+  echo "ROS 2 daemon residual processes killed: ${#ROS2_DAEMON_PIDS[@]}"
 }
 
 if [[ "$EXECUTE" -eq 1 ]]; then
@@ -192,5 +220,6 @@ if [[ "$EXECUTE" -eq 1 ]]; then
     rm -f "$pid_file"
   done
   stop_ros2_daemon
+  stop_ros2_daemon_processes
   cleanup_fastdds_shm
 fi

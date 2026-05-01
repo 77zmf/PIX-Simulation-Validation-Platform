@@ -4,6 +4,7 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -16,7 +17,7 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from simctl.cli import main
+from simctl.cli import _run_worker, main
 from simctl.slots import load_slot_catalog, read_slot_lock
 
 
@@ -154,13 +155,17 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             plan_path = Path(stream.getvalue().strip())
             plan = json.loads(plan_path.read_text(encoding="utf-8"))
-            carla_command = plan["steps"][0]["command"]
-            wait_command = plan["steps"][1]["command"]
-            bridge_command = plan["steps"][2]["command"]
-            autoware_command = plan["steps"][3]["command"]
-            localization_bridge_command = plan["steps"][4]["command"]
-            actor_object_bridge_command = plan["steps"][5]["command"]
-            screenshot_command = plan["steps"][6]["command"]
+            self.assertEqual(plan["steps"][0]["name"], "stable-run-preflight")
+            preflight_command = plan["steps"][0]["command"]
+            carla_command = plan["steps"][1]["command"]
+            wait_command = plan["steps"][2]["command"]
+            bridge_command = plan["steps"][3]["command"]
+            autoware_command = plan["steps"][4]["command"]
+            localization_bridge_command = plan["steps"][5]["command"]
+            actor_object_bridge_command = plan["steps"][6]["command"]
+            screenshot_command = plan["steps"][7]["command"]
+            self.assertIn("stable_run_preflight.py", preflight_command)
+            self.assertIn("--min-disk-free-gb '20'", preflight_command)
             self.assertIn("--carla-map 'Town01'", carla_command)
             self.assertIn("--render-mode 'offscreen'", carla_command)
             self.assertIn("wait_for_carla_rpc.py", wait_command)
@@ -194,6 +199,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("--rmw-implementation 'rmw_cyclonedds_cpp'", autoware_command)
             self.assertIn("--sensor-model 'robobus_sensor_kit'", autoware_command)
             self.assertIn("--lidar-type 'robosense'", autoware_command)
+            self.assertIn("--rviz-config ''", autoware_command)
             self.assertIn("start_carla_localization_bridge_host.sh", localization_bridge_command)
             self.assertIn(
                 "--autoware-ws '/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware'",
@@ -206,6 +212,100 @@ class CliTests(unittest.TestCase):
             self.assertIn("capture_visual_screenshot_host.sh", screenshot_command)
             self.assertIn("--render-mode 'offscreen'", screenshot_command)
             self.assertIn("--rviz 'false'", screenshot_command)
+
+    def test_qiyu_import_smoke_renders_carla_only_start_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "up",
+                        "--stack",
+                        "stable",
+                        "--scenario",
+                        "scenarios/l2/reconstruction_qiyu_loop_carla_import_smoke.yaml",
+                        "--run-dir",
+                        tempdir,
+                        "--slot",
+                        "stable-slot-01",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            plan_path = Path(stream.getvalue().strip())
+            plan = json.loads(plan_path.read_text(encoding="utf-8"))
+            step_names = [step["name"] for step in plan["steps"]]
+            self.assertIn("stable-run-preflight", step_names)
+            self.assertIn("start-carla-server", step_names)
+            self.assertIn("wait-carla-rpc", step_names)
+            self.assertNotIn("start-autoware-bridge", step_names)
+            self.assertNotIn("start-autoware-stack", step_names)
+            self.assertNotIn("start-carla-localization-bridge", step_names)
+            self.assertIn("--autoware-enabled 'false'", plan["steps"][0]["command"])
+            self.assertIn("qiyu_loop_20260430_105120", plan["steps"][1]["command"])
+
+    def test_qiyu_import_smoke_execute_uses_carla_only_health_checks(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            slot_id = "stable-slot-03"
+            lock_path = REPO_ROOT / "artifacts" / "slot_locks" / "stable" / f"{slot_id}.json"
+            previous_lock = lock_path.read_text(encoding="utf-8") if lock_path.exists() else None
+            try:
+                lock_path.unlink(missing_ok=True)
+                with (
+                    patch(
+                        "simctl.cli.execute_plan",
+                        return_value=[
+                            {
+                                "step": "start-carla-server",
+                                "status": "started",
+                                "pid": 1001,
+                                "pid_file": str(Path(tempdir) / "carla.pid"),
+                                "log_path": str(Path(tempdir) / "start-carla-server.log"),
+                            },
+                            {
+                                "step": "wait-carla-rpc",
+                                "status": "completed",
+                                "returncode": 0,
+                                "log_path": str(Path(tempdir) / "wait-carla-rpc.log"),
+                            },
+                        ],
+                    ),
+                    patch(
+                        "simctl.cli.probe_runtime_health",
+                        return_value={
+                            "passed": True,
+                            "failed_checks": [],
+                            "report_path": str(Path(tempdir) / "health.json"),
+                        },
+                    ) as health_probe,
+                ):
+                    with redirect_stdout(stream):
+                        rc = main(
+                            [
+                                "--repo-root",
+                                str(REPO_ROOT),
+                                "run",
+                                "--scenario",
+                                "scenarios/l2/reconstruction_qiyu_loop_carla_import_smoke.yaml",
+                                "--run-root",
+                                tempdir,
+                                "--slot",
+                                slot_id,
+                                "--execute",
+                            ]
+                        )
+            finally:
+                if previous_lock is None:
+                    lock_path.unlink(missing_ok=True)
+                else:
+                    lock_path.write_text(previous_lock, encoding="utf-8")
+            self.assertEqual(rc, 0)
+            result = json.loads(stream.getvalue())
+            self.assertEqual(result["status"], "launch_submitted")
+            self.assertEqual(health_probe.call_args.kwargs["expected_process_steps"], ["start-carla-server"])
+            self.assertEqual(health_probe.call_args.kwargs["expected_ros_topics"], [])
 
     def test_up_allows_explicit_runtime_env_override(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -237,14 +337,60 @@ class CliTests(unittest.TestCase):
                     )
             self.assertEqual(rc, 0)
             plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
-            carla_command = plan["steps"][0]["command"]
-            screenshot_command = plan["steps"][6]["command"]
+            carla_command = plan["steps"][1]["command"]
+            autoware_command = plan["steps"][4]["command"]
+            screenshot_command = plan["steps"][7]["command"]
             self.assertIn("--render-mode 'visual'", carla_command)
             self.assertIn("--display ':0'", carla_command)
             self.assertIn("--xauthority '/run/user/1000/gdm/Xauthority'", carla_command)
+            self.assertIn("--rviz 'false'", autoware_command)
             self.assertIn("--render-mode 'visual'", screenshot_command)
             self.assertIn("--display ':0'", screenshot_command)
             self.assertIn("--xauthority '/run/user/1000/gdm/Xauthority'", screenshot_command)
+
+    def test_up_can_render_planning_control_rviz_visualization(self) -> None:
+        rviz_config = (
+            "/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/"
+            "autoware_launch/share/autoware_launch/rviz/planning_bev.rviz"
+        )
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with patch.dict(
+                os.environ,
+                {
+                    "SIMCTL_AUTOWARE_RVIZ": "true",
+                    "SIMCTL_AUTOWARE_RVIZ_CONFIG": rviz_config,
+                    "SIMCTL_CARLA_RENDER_MODE": "visual",
+                    "SIMCTL_CARLA_DISPLAY": ":0",
+                    "SIMCTL_CARLA_XAUTHORITY": "/run/user/1000/gdm/Xauthority",
+                },
+                clear=False,
+            ):
+                with redirect_stdout(stream):
+                    rc = main(
+                        [
+                            "--repo-root",
+                            str(REPO_ROOT),
+                            "up",
+                            "--stack",
+                            "stable",
+                            "--scenario",
+                            "scenarios/l1/sumo_town01_traffic_smoke.yaml",
+                            "--run-dir",
+                            tempdir,
+                            "--slot",
+                            "stable-slot-01",
+                        ]
+                    )
+
+            self.assertEqual(rc, 0)
+            plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
+            autoware_command = plan["steps"][5]["command"]
+            screenshot_command = plan["steps"][8]["command"]
+            self.assertIn("--rviz 'true'", autoware_command)
+            self.assertIn(f"--rviz-config '{rviz_config}'", autoware_command)
+            self.assertIn("--rviz 'true'", screenshot_command)
+            self.assertIn(f"--rviz-config '{rviz_config}'", screenshot_command)
 
     def test_up_renders_sumo_step_only_for_sumo_enabled_scenario(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -268,14 +414,60 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
             step_names = [step["name"] for step in plan["steps"]]
-            self.assertEqual(step_names[0:4], ["start-carla-server", "wait-carla-rpc", "start-sumo-cosim", "start-autoware-bridge"])
-            sumo_command = plan["steps"][2]["command"]
+            self.assertEqual(
+                step_names[0:5],
+                ["stable-run-preflight", "start-carla-server", "wait-carla-rpc", "start-sumo-cosim", "start-autoware-bridge"],
+            )
+            sumo_command = plan["steps"][3]["command"]
+            bridge_command = plan["steps"][4]["command"]
+            autoware_command = plan["steps"][5]["command"]
             stop_plan_path = Path(tempdir) / "down_plan.json"
+            self.assertIn("--sumo-enabled 'true'", plan["steps"][0]["command"])
             self.assertIn("start_sumo_cosim_host.sh", sumo_command)
             self.assertIn("--sumo-enabled 'true'", sumo_command)
             self.assertIn("--sumo-traci-port '9000'", sumo_command)
             self.assertIn("Town01.sumocfg", sumo_command)
+            self.assertIn("--timeout '90'", bridge_command)
+            self.assertIn("planning_bev.rviz", autoware_command)
+            self.assertEqual(plan["steps"][3]["env"]["SIMCTL_SUMO_CARLA_CLIENT_TIMEOUT_SEC"], "60.0")
             self.assertFalse(stop_plan_path.exists())
+
+    def test_sumo_visual_wrapper_autostarts_sumo_gui(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir) / "carla"
+            cosim_dir = root / "Co-Simulation" / "Sumo"
+            examples_dir = cosim_dir / "examples"
+            examples_dir.mkdir(parents=True)
+            sumocfg = examples_dir / "Town01.sumocfg"
+            sync_script = cosim_dir / "run_synchronization.py"
+            sumocfg.write_text("<configuration />", encoding="utf-8")
+            sync_script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    str(REPO_ROOT / "stack" / "stable" / "start_sumo_cosim_host.sh"),
+                    "--run-dir",
+                    tempdir,
+                    "--carla-root",
+                    str(root),
+                    "--sumo-enabled",
+                    "true",
+                    "--sumo-config-file",
+                    str(sumocfg),
+                    "--sumo-cosim-script",
+                    str(sync_script),
+                    "--sumo-gui",
+                    "true",
+                ],
+                check=False,
+                text=True,
+                capture_output=True,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("SUMO server command: sumo-gui", result.stdout)
+        self.assertIn("--start", result.stdout)
 
     def test_up_passes_scenario_carla_root_for_pix_robobus_runtime(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -298,9 +490,12 @@ class CliTests(unittest.TestCase):
                 )
             self.assertEqual(rc, 0)
             plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
-            carla_step = plan["steps"][0]
-            wait_step = plan["steps"][1]
-            bridge_command = plan["steps"][2]["command"]
+            preflight_command = plan["steps"][0]["command"]
+            carla_step = plan["steps"][1]
+            wait_step = plan["steps"][2]
+            bridge_command = plan["steps"][3]["command"]
+            self.assertIn("stable_run_preflight.py", preflight_command)
+            self.assertIn("--carla-root '/home/pixmoving/CARLA_0.9.15'", preflight_command)
             self.assertEqual(
                 carla_step["env"]["CARLA_0915_ROOT"],
                 "/home/pixmoving/CARLA_0.9.15",
@@ -1135,6 +1330,7 @@ class CliTests(unittest.TestCase):
             self.assertTrue(dry_payload["validation_available"])
             self.assertIn(str(run_dir), dry_payload["command"])
             self.assertIn("export ROS_DOMAIN_ID=21", dry_payload["shell_command"])
+            self.assertIn("export ROS2CLI_DISABLE_DAEMON=1", dry_payload["shell_command"])
 
             stream = io.StringIO()
             with redirect_stdout(stream):
@@ -1202,6 +1398,7 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             self.assertIn("export ROS_DOMAIN_ID=42", payload["shell_command"])
+            self.assertIn("export ROS2CLI_DISABLE_DAEMON=1", payload["shell_command"])
 
     def test_campaign_dry_run_renders_stable_perception_control_plan(self) -> None:
         stream = io.StringIO()
@@ -1255,6 +1452,33 @@ class CliTests(unittest.TestCase):
         self.assertEqual([command["step"] for command in fourth_scenario["commands"]], ["run", "validate", "down"])
         self.assertEqual([command["step"] for command in fifth_scenario["commands"]], ["run", "validate", "down"])
 
+    def test_campaign_dry_run_renders_planning_control_bughunt_bugpack(self) -> None:
+        stream = io.StringIO()
+        with redirect_stdout(stream):
+            rc = main(
+                [
+                    "--repo-root",
+                    str(REPO_ROOT),
+                    "campaign",
+                    "--config",
+                    "ops/test_campaigns/stable_planning_control_bughunt.yaml",
+                ]
+            )
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(stream.getvalue())
+        self.assertEqual(payload["campaign_id"], "stable_planning_control_bughunt")
+        self.assertEqual(len(payload["scenarios"]), 10)
+        self.assertEqual(payload["cooldown_sec"], 60.0)
+        self.assertIn(
+            "stable_l2_planning_control_crosswalk_vru_yield",
+            [scenario["scenario_id"] for scenario in payload["scenarios"]],
+        )
+        self.assertIn("bugpack_command", payload)
+        self.assertIn("bugpack", payload["bugpack_command"])
+        self.assertIn("--owner", payload["bugpack_command"])
+        self.assertIn("planning-control", payload["bugpack_command"])
+
     def test_campaign_execute_writes_result_and_report_for_stub_scenario(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
@@ -1301,6 +1525,240 @@ class CliTests(unittest.TestCase):
             self.assertTrue(Path(payload["result_path"]).exists())
             self.assertEqual(payload["records"][0]["run_status"], "passed")
             self.assertTrue((run_root / "report" / "report.md").exists())
+
+    def test_campaign_loop_dry_run_renders_parallel_forever_plan(self) -> None:
+        stream = io.StringIO()
+        with redirect_stdout(stream):
+            rc = main(
+                [
+                    "--repo-root",
+                    str(REPO_ROOT),
+                    "campaign-loop",
+                    "--config",
+                    "ops/test_campaigns/stable_planning_control_bughunt.yaml",
+                    "--parallel",
+                    "2",
+                    "--max-rounds",
+                    "0",
+                ]
+            )
+
+        self.assertEqual(rc, 0)
+        payload = json.loads(stream.getvalue())
+        self.assertFalse(payload["execute"])
+        self.assertTrue(payload["forever"])
+        self.assertEqual(payload["parallel"], 2)
+        self.assertEqual(payload["slot_ids"], ["stable-slot-01", "stable-slot-02"])
+        self.assertEqual(len(payload["scenarios"]), 10)
+        self.assertTrue(payload["validate"])
+        self.assertTrue(payload["finalize"])
+
+    def test_campaign_loop_execute_writes_round_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            config_path = root / "campaign.yaml"
+            run_root = root / "loop"
+            config_path.write_text(
+                dedent(
+                    """
+                    campaign_id: loop_stub_campaign
+                    default_slot: stable-slot-01
+                    report: true
+                    bugpack:
+                      enabled: true
+                      owner: planning-control
+                      output_dir: bugpack
+                    scenarios:
+                      - id: smoke_a
+                        path: scenarios/l0/smoke_stub.yaml
+                        validation: false
+                        execute: true
+                      - id: smoke_b
+                        path: scenarios/l0/smoke_stub.yaml
+                        validation: false
+                        execute: true
+                    """
+                ).strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            def fake_run_worker(**kwargs: object) -> dict[str, object]:
+                scenario_path = Path(str(kwargs["scenario_path"]))
+                run_root_arg = Path(str(kwargs["run_root"]))
+                slot_id = str(kwargs["slot_id"])
+                return {
+                    "scenario": scenario_path.stem,
+                    "scenario_path": str(scenario_path),
+                    "slot_id": slot_id,
+                    "status": "passed",
+                    "run_dir": str(run_root_arg / f"{scenario_path.stem}_{slot_id}"),
+                    "run_result": str(run_root_arg / f"{scenario_path.stem}_{slot_id}" / "run_result.json"),
+                }
+
+            def fake_report_command(*_args: object, **_kwargs: object) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
+                return subprocess.CompletedProcess(["report"], 0, "{}", ""), {"markdown": str(run_root / "report.md")}
+
+            slot_catalog = load_slot_catalog("stable", REPO_ROOT)
+            stream = io.StringIO()
+            with (
+                patch("simctl.cli._run_worker", side_effect=fake_run_worker),
+                patch("simctl.cli._run_campaign_command", side_effect=fake_report_command),
+                patch("simctl.cli.write_bugpack", return_value={"issue_count": 0, "issues": []}),
+                patch("simctl.cli.list_available_slots", return_value=slot_catalog[:2]),
+                redirect_stdout(stream),
+            ):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "campaign-loop",
+                        "--config",
+                        str(config_path),
+                        "--run-root",
+                        str(run_root),
+                        "--execute",
+                        "--parallel",
+                        "2",
+                        "--max-rounds",
+                        "2",
+                        "--no-validate",
+                        "--no-finalize",
+                    ]
+                )
+
+            self.assertEqual(rc, 0)
+            state = json.loads((run_root / "loop_state.json").read_text(encoding="utf-8"))
+            self.assertEqual(state["status"], "passed")
+            self.assertEqual(state["parallel"], 2)
+            self.assertEqual(len(state["rounds"]), 2)
+            for index, round_summary in enumerate(state["rounds"], start=1):
+                self.assertEqual(round_summary["round_index"], index)
+                self.assertEqual(round_summary["status"], "passed")
+                self.assertEqual(round_summary["record_count"], 2)
+                self.assertEqual(round_summary["passed_count"], 2)
+                self.assertTrue(Path(round_summary["result_path"]).exists())
+
+    def test_campaign_worker_accepts_passed_finalize_when_validation_process_returns_nonzero(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "run"
+            run_result_path = run_dir / "run_result.json"
+            worker_payload = {
+                "slot_id": "stable-slot-01",
+                "status": "launch_submitted",
+                "artifacts": {
+                    "run_dir": str(run_dir),
+                    "run_result": str(run_result_path),
+                },
+            }
+            finalize_payload = {
+                "finalize_result": {
+                    "status": "passed",
+                    "gate": {"gate_id": "planning_control_l3_occluded_pedestrian", "passed": True},
+                    "kpis": {"min_ttc_sec": 1.9967},
+                }
+            }
+
+            def fake_subprocess_run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+                return subprocess.CompletedProcess(["run"], 0, json.dumps(worker_payload), "")
+
+            def fake_validate(
+                _repo_root: Path, command: list[str]
+            ) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
+                return subprocess.CompletedProcess(command, 1, json.dumps(finalize_payload), ""), finalize_payload
+
+            with (
+                patch("simctl.cli.subprocess.run", side_effect=fake_subprocess_run),
+                patch("simctl.cli._run_campaign_command", side_effect=fake_validate),
+            ):
+                record = _run_worker(
+                    repo_root=REPO_ROOT,
+                    asset_root=None,
+                    scenario_path=REPO_ROOT / "scenarios" / "l3" / "occluded_pedestrian_close_yield.yaml",
+                    run_root=root,
+                    slot_id="stable-slot-01",
+                    execute=True,
+                    mock_result=None,
+                    validate=True,
+                    finalize=True,
+                    down_on_complete=False,
+                    require_validation=True,
+                )
+
+            self.assertEqual(record["status"], "passed")
+            self.assertEqual(record["validation_returncode"], 1)
+            self.assertTrue(record["gate"]["passed"])
+            self.assertEqual(record["kpis"]["min_ttc_sec"], 1.9967)
+
+    def test_bugpack_cli_generates_issue_draft_for_failed_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_failed"
+            run_dir.mkdir(parents=True)
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(
+                json.dumps(
+                    {
+                        "run_id": "run_failed",
+                        "scenario_id": "stable_l2_planning_control_merge_regression",
+                        "stack": "stable",
+                        "status": "failed",
+                        "scenario_path": "scenarios/l2/planning_control_merge_regression.yaml",
+                        "scenario_params": {
+                            "map_id": "Town01",
+                            "goal": {"route_id": "Town01/merge"},
+                            "labels": ["stable", "planning_control", "merge"],
+                        },
+                        "software_versions": {"carla": "0.9.15", "ros2": "humble"},
+                        "resolved_profiles": {
+                            "sensor": {"profile_id": "robobus_pixrover14_application_topology"},
+                            "algorithm": {"profile_id": "planning_control_baseline"},
+                        },
+                        "runtime_health": {"passed": True},
+                        "gate": {
+                            "gate_id": "planning_control_multi_actor_regression",
+                            "passed": False,
+                            "violations": [
+                                {
+                                    "metric": "route_completion",
+                                    "reason": "threshold_violation",
+                                    "actual": 0.2,
+                                    "op": ">=",
+                                    "threshold": 0.95,
+                                }
+                            ],
+                            "failure_labels": ["route_completion_failure"],
+                        },
+                        "kpis": {"route_completion": 0.2},
+                        "artifacts": {"run_result": str(result_path), "run_dir": str(run_dir)},
+                        "slot_id": "stable-slot-01",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "bugpack",
+                        "--run-root",
+                        str(root / "runs"),
+                        "--output-dir",
+                        str(root / "bugpack"),
+                        "--owner",
+                        "planning-control",
+                    ]
+                )
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(stream.getvalue())
+            self.assertEqual(payload["issue_count"], 1)
+            self.assertTrue(Path(payload["issues"][0]["issue_path"]).exists())
+            self.assertTrue((root / "bugpack" / "index.md").exists())
 
     def test_batch_validate_report_executes_scenario_validation_command(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1497,6 +1955,47 @@ class CliTests(unittest.TestCase):
                             "stack_id": "stable",
                             "slot_id": slot.slot_id,
                             "scenario_id": "stable_l1_follow_lane",
+                            "run_dir": str(run_dir),
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                with patch("simctl.cli.execute_plan", return_value=[]):
+                    rc = main(
+                        [
+                            "--repo-root",
+                            str(REPO_ROOT),
+                            "down",
+                            "--stack",
+                            "stable",
+                            "--run-dir",
+                            str(run_dir),
+                            "--execute",
+                        ]
+                    )
+                self.assertEqual(rc, 0)
+                self.assertIsNone(read_slot_lock(REPO_ROOT, "stable", slot.slot_id))
+            finally:
+                if previous_lock is None:
+                    lock_path.unlink(missing_ok=True)
+                else:
+                    lock_path.write_text(previous_lock, encoding="utf-8")
+
+    def test_down_releases_stale_slot_lock_when_run_result_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "20260424T000000000000Z__interrupted_run"
+            run_dir.mkdir(parents=True)
+            slot = load_slot_catalog("stable", REPO_ROOT)[0]
+            lock_path = REPO_ROOT / "artifacts" / "slot_locks" / "stable" / f"{slot.slot_id}.json"
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            previous_lock = lock_path.read_text(encoding="utf-8") if lock_path.exists() else None
+            try:
+                lock_path.write_text(
+                    json.dumps(
+                        {
+                            "stack_id": "stable",
+                            "slot_id": slot.slot_id,
+                            "scenario_id": "interrupted_run",
                             "run_dir": str(run_dir),
                         }
                     ),

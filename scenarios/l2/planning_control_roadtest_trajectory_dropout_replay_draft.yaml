@@ -1,0 +1,61 @@
+scenario_id: stable_l2_planning_control_roadtest_trajectory_dropout_replay_draft
+stack: stable
+map_id: roadtest_gy_qyhx_202604
+asset_bundle: planning_road_test_failcases_202604
+ego_init:
+  route_id: roadtest_replay/trajectory_dropout_source_pose
+goal:
+  route_id: roadtest_replay/trajectory_dropout_source_goal
+traffic_profile:
+  mode: roadtest_trajectory_dropout_replay_draft
+  vehicles: 0
+  pedestrians: 0
+  replay_cases:
+    - planning_20260421145630_no_trajectory
+    - planning_20260422110300_trajectory_disappeared
+    - planning_202604221647_route_empty_no_trajectory
+weather_profile:
+  preset: RoadTestRecorded
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260422
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/roadtest_trajectory_dropout_replay
+  carla_recorder:
+    enabled: true
+    path: carla/roadtest_trajectory_dropout_replay.log
+kpi_gate: planning_control_trajectory_stability_replay
+labels:
+  - L2
+  - stable
+  - planning_control
+  - road_test_replay
+  - trajectory_dropout
+  - route_recovery
+  - draft
+metadata:
+  owner: planning-control
+  draft_status: replay_probe_ready_blocked_on_deterministic_carla_route
+  source_assets:
+    - assets/manifests/planning_road_test_failcases_202604.yaml
+    - ops/runtime_probes/planning_roadtest_replay_probe.py
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260421_1456_no_trajectory/rd_handoff.md
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260422_1103_trajectory_disappeared/rd_handoff.md
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260422_1647_route_empty_no_trajectory/analysis_report.md
+  validation_method: Executable summary replay probe. Promote after direct MCAP replay or deterministic CARLA restart/route-empty fixture can reproduce the dropout.
+  validation_command: >
+    python3 ops/runtime_probes/planning_roadtest_replay_probe.py --run-dir <run_dir> --manifest assets/manifests/planning_road_test_failcases_202604.yaml --profile trajectory_dropout
+  expected_observable: Indexed road-test evidence emits trajectory_silence_sec, route_empty_count, planner_container_crash_count, and validator invalid count into runtime evidence; KPI stays red until recovery behavior is fixed.
+  rollback_impact: Revert validation_command to the blocked placeholder if the external zmf_test-data evidence root is unavailable.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_render_mode: offscreen
+    carla_quality_level: Low

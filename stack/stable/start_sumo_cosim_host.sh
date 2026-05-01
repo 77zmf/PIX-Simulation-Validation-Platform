@@ -23,6 +23,10 @@ SUMO_COSIM_SCRIPT_ARG=""
 CPU_AFFINITY=""
 EXECUTE=0
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=carla_python_env.sh
+source "${SCRIPT_DIR}/carla_python_env.sh"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --run-dir) RUN_DIR="$2"; shift 2 ;;
@@ -123,14 +127,21 @@ resolve_cosim_script() {
 
 SUMO_CONFIG_FILE="$(resolve_sumo_config)"
 SUMO_COSIM_SCRIPT="$(resolve_cosim_script)"
-PYTHONPATH_ENTRIES=(
-  "${CARLA_ROOT}/PythonAPI/carla/dist/carla-0.9.15-py3.10-linux-x86_64.egg"
-  "${CARLA_ROOT}/PythonAPI/carla"
-  "$(dirname "${SUMO_COSIM_SCRIPT}")"
-)
-if [[ -n "${SUMO_HOME_VALUE}" ]]; then
-  PYTHONPATH_ENTRIES+=("${SUMO_HOME_VALUE}/tools")
+if [[ -n "${RUN_DIR}" ]]; then
+  CARLA_PYTHON_OVERLAY_DIR="${RUN_DIR}/pythonpath_overlay"
+else
+  CARLA_PYTHON_OVERLAY_DIR="${TMPDIR:-/tmp}/simctl_carla_python_overlay"
 fi
+CARLA_PYTHONPATH="$(simctl_carla_pythonpath "${CARLA_ROOT}" "${CARLA_PYTHON_OVERLAY_DIR}")"
+SUMO_COSIM_PYTHONPATH_ENTRY="$(dirname "${SUMO_COSIM_SCRIPT}")"
+PYTHONPATH_JOINED=""
+rebuild_pythonpath_joined() {
+  PYTHONPATH_JOINED="${CARLA_PYTHONPATH}:${SUMO_COSIM_PYTHONPATH_ENTRY}"
+  if [[ -n "${SUMO_HOME_VALUE}" ]]; then
+    PYTHONPATH_JOINED="${PYTHONPATH_JOINED}:${SUMO_HOME_VALUE}/tools"
+  fi
+}
+rebuild_pythonpath_joined
 
 CMD=("python3" "${SUMO_COSIM_SCRIPT}" "${SUMO_CONFIG_FILE}" "--sumo-host" "${SUMO_HOST}" "--sumo-port" "${SUMO_TRACI_PORT}" "--carla-host" "127.0.0.1" "--carla-port" "${CARLA_PORT}" "--step-length" "${SUMO_STEP_LENGTH}" "--tls-manager" "${SUMO_TLS_MANAGER}")
 if truthy "${SUMO_GUI}"; then
@@ -154,6 +165,29 @@ for cmd_part in "${CMD[@]}"; do
 done
 CMD_DISPLAY="${CMD_DISPLAY# }"
 
+SUMO_SERVER_BINARY="${SUMO_BINARY}"
+if truthy "${SUMO_GUI}" && [[ "${SUMO_SERVER_BINARY}" == "sumo" ]]; then
+  SUMO_SERVER_BINARY="sumo-gui"
+fi
+SUMO_SERVER_CMD=(
+  "${SUMO_SERVER_BINARY}"
+  "--configuration-file" "${SUMO_CONFIG_FILE}"
+  "--step-length" "${SUMO_STEP_LENGTH}"
+  "--lateral-resolution" "0.25"
+  "--collision.check-junctions"
+  "--remote-port" "${SUMO_TRACI_PORT}"
+)
+if truthy "${SUMO_GUI}"; then
+  # Without --start, sumo-gui waits for a manual play click and no SUMO actors
+  # are synchronized into CARLA during automated visual validation.
+  SUMO_SERVER_CMD+=("--start")
+fi
+SUMO_SERVER_DISPLAY=""
+for cmd_part in "${SUMO_SERVER_CMD[@]}"; do
+  SUMO_SERVER_DISPLAY+=" $(shell_quote "${cmd_part}")"
+done
+SUMO_SERVER_DISPLAY="${SUMO_SERVER_DISPLAY# }"
+
 echo "RunDir: ${RUN_DIR}"
 echo "CARLA root: ${CARLA_ROOT}"
 echo "CARLA RPC Port: ${CARLA_PORT}"
@@ -174,6 +208,7 @@ echo "SUMO TLS manager: ${SUMO_TLS_MANAGER}"
 echo "SUMO co-sim script: ${SUMO_COSIM_SCRIPT}"
 echo "CPU Affinity: ${CPU_AFFINITY}"
 echo "Command: ${CMD_DISPLAY}"
+echo "SUMO server command: ${SUMO_SERVER_DISPLAY}"
 
 if ! truthy "${SUMO_ENABLED}"; then
   echo "SUMO co-simulation disabled; set scenario stable_runtime.sumo_enabled=true to enable."
@@ -229,7 +264,8 @@ if [[ -n "${RUN_DIR}" ]]; then
     sed -i -E "s/traci\\.vehicletype\\.setHeight\\(type_id, 2\\.0 \\* extent\\.z\\)/traci.vehicletype.setHeight(type_id, max(0.1, 2.0 * extent.z))/" "${SUMO_BRIDGE_HELPER_FILE}"
   fi
   SUMO_COSIM_SCRIPT="${SUMO_COSIM_OVERLAY_DIR}/$(basename "${SUMO_COSIM_SCRIPT}")"
-  PYTHONPATH_ENTRIES[2]="${SUMO_COSIM_OVERLAY_DIR}"
+  SUMO_COSIM_PYTHONPATH_ENTRY="${SUMO_COSIM_OVERLAY_DIR}"
+  rebuild_pythonpath_joined
   CMD[1]="${SUMO_COSIM_SCRIPT}"
   CMD_DISPLAY=""
   for cmd_part in "${CMD[@]}"; do
@@ -245,28 +281,16 @@ if [[ -n "${SUMO_HOME_VALUE}" ]]; then
   export SUMO_HOME="${SUMO_HOME_VALUE}"
 fi
 export SUMO_BINARY="${SUMO_BINARY}"
-PYTHONPATH_JOINED="$(IFS=:; printf '%s' "${PYTHONPATH_ENTRIES[*]}")"
+export PYTHONNOUSERSITE=1
+simctl_prepare_carla_python_overlay "${CARLA_PYTHON_OVERLAY_DIR}"
 export PYTHONPATH="${PYTHONPATH_JOINED}:${PYTHONPATH:-}"
 export SIMCTL_SUMO_TRACI_PORT="${SUMO_TRACI_PORT}"
 export SIMCTL_TRAFFIC_MANAGER_PORT="${TRAFFIC_MANAGER_PORT}"
 
-SUMO_SERVER_BINARY="${SUMO_BINARY}"
-if truthy "${SUMO_GUI}" && [[ "${SUMO_SERVER_BINARY}" == "sumo" ]]; then
-  SUMO_SERVER_BINARY="sumo-gui"
-fi
 if ! command -v "${SUMO_SERVER_BINARY}" >/dev/null 2>&1; then
   echo "SUMO server binary not found: ${SUMO_SERVER_BINARY}" >&2
   exit 1
 fi
-
-SUMO_SERVER_CMD=(
-  "${SUMO_SERVER_BINARY}"
-  "--configuration-file" "${SUMO_CONFIG_FILE}"
-  "--step-length" "${SUMO_STEP_LENGTH}"
-  "--lateral-resolution" "0.25"
-  "--collision.check-junctions"
-  "--remote-port" "${SUMO_TRACI_PORT}"
-)
 
 if [[ -n "${RUN_DIR}" ]]; then
   mkdir -p "${RUN_DIR}/pids"
@@ -280,13 +304,6 @@ cleanup_sumo_server() {
   fi
 }
 trap cleanup_sumo_server EXIT INT TERM
-
-SUMO_SERVER_DISPLAY=""
-for cmd_part in "${SUMO_SERVER_CMD[@]}"; do
-  SUMO_SERVER_DISPLAY+=" $(shell_quote "${cmd_part}")"
-done
-SUMO_SERVER_DISPLAY="${SUMO_SERVER_DISPLAY# }"
-echo "SUMO server command: ${SUMO_SERVER_DISPLAY}"
 
 if [[ -n "${CPU_AFFINITY}" ]]; then
   taskset -c "${CPU_AFFINITY}" "${SUMO_SERVER_CMD[@]}" &

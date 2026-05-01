@@ -25,6 +25,10 @@ USE_TRAFFIC_MANAGER=""
 BRIDGE_TIMEOUT=""
 EXECUTE=0
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=carla_python_env.sh
+source "${SCRIPT_DIR}/carla_python_env.sh"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scenario) SCENARIO="$2"; shift 2 ;;
@@ -77,16 +81,23 @@ PIX_BRAKE_GAIN="${PIX_CARLA_BRAKE_GAIN:-}"
 PIX_MAX_BRAKE="${PIX_CARLA_MAX_BRAKE:-}"
 PIX_BRAKE_DEADBAND="${PIX_CARLA_BRAKE_DEADBAND:-}"
 if [[ "${VEHICLE_TYPE}" == vehicle.pixmoving.* ]]; then
-  PIX_STEER_GAIN="${PIX_STEER_GAIN:-1.04}"
+  PIX_STEER_GAIN="${PIX_STEER_GAIN:-0.90}"
   PIX_THROTTLE_GAIN="${PIX_THROTTLE_GAIN:-3.8}"
   PIX_MIN_THROTTLE="${PIX_MIN_THROTTLE:-0.0}"
-  PIX_MAX_THROTTLE="${PIX_MAX_THROTTLE:-0.65}"
+  PIX_MAX_THROTTLE="${PIX_MAX_THROTTLE:-1.0}"
   PIX_CREEP_THROTTLE="${PIX_CREEP_THROTTLE:-0.0}"
   PIX_CREEP_SPEED_THRESHOLD_MPS="${PIX_CREEP_SPEED_THRESHOLD_MPS:-0.08}"
   PIX_BRAKE_GAIN="${PIX_BRAKE_GAIN:-0.2}"
   PIX_MAX_BRAKE="${PIX_MAX_BRAKE:-0.8}"
   PIX_BRAKE_DEADBAND="${PIX_BRAKE_DEADBAND:-0.05}"
 fi
+CARLA_ROOT="${CARLA_0915_ROOT:-$HOME/CARLA_0.9.15}"
+if [[ -n "${RUN_DIR}" ]]; then
+  CARLA_PYTHON_OVERLAY_DIR="${RUN_DIR}/pythonpath_overlay"
+else
+  CARLA_PYTHON_OVERLAY_DIR="${TMPDIR:-/tmp}/simctl_carla_python_overlay"
+fi
+CARLA_PYTHONPATH="$(simctl_carla_pythonpath "${CARLA_ROOT}" "${CARLA_PYTHON_OVERLAY_DIR}")"
 
 shell_quote() {
   printf "%q" "$1"
@@ -155,6 +166,10 @@ RMW_EXPORT_CMD=""
 if [[ -n "${RMW_IMPLEMENTATION_VALUE}" ]]; then
   RMW_EXPORT_CMD=" && export RMW_IMPLEMENTATION=$(shell_quote "${RMW_IMPLEMENTATION_VALUE}")"
 fi
+PYTHONPATH_EXPORT_CMD=""
+if [[ -n "${CARLA_PYTHONPATH}" ]]; then
+  PYTHONPATH_EXPORT_CMD=" && export PYTHONPATH=$(shell_quote "${CARLA_PYTHONPATH}"):\${PYTHONPATH:-}"
+fi
 PIX_BRIDGE_EXPORT_CMD=""
 if [[ -n "${PIX_SKIP_WHEEL_STEER_ANGLE}" ]]; then
   PIX_BRIDGE_EXPORT_CMD=" && export PIX_CARLA_SKIP_WHEEL_STEER_ANGLE=$(shell_quote "${PIX_SKIP_WHEEL_STEER_ANGLE}")"
@@ -186,7 +201,7 @@ fi
 if [[ -n "${PIX_BRAKE_DEADBAND}" ]]; then
   PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_BRAKE_DEADBAND=$(shell_quote "${PIX_BRAKE_DEADBAND}")"
 fi
-CMD="${SOURCE_CMD} && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID}${RMW_EXPORT_CMD} && export SIMCTL_RUNTIME_NAMESPACE=$(shell_quote "${RUNTIME_NAMESPACE}") && export SIMCTL_TRAFFIC_MANAGER_PORT=${TRAFFIC_MANAGER_PORT}${PIX_BRIDGE_EXPORT_CMD} && ${ROS_CMD_DISPLAY}"
+CMD="${SOURCE_CMD} && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && export ROS2CLI_DISABLE_DAEMON=1 && export PYTHONNOUSERSITE=1${PYTHONPATH_EXPORT_CMD}${RMW_EXPORT_CMD} && export SIMCTL_RUNTIME_NAMESPACE=$(shell_quote "${RUNTIME_NAMESPACE}") && export SIMCTL_TRAFFIC_MANAGER_PORT=${TRAFFIC_MANAGER_PORT}${PIX_BRIDGE_EXPORT_CMD} && ${ROS_CMD_DISPLAY}"
 
 source_runtime_environment() {
   local nounset_was_enabled=0
@@ -258,6 +273,7 @@ echo "CARLA sensor kit calibration: ${SENSOR_KIT_CALIBRATION_FILE}"
 echo "CARLA objects definition: ${OBJECTS_DEFINITION_FILE}"
 echo "CARLA use traffic manager: ${USE_TRAFFIC_MANAGER}"
 echo "CARLA bridge timeout: ${BRIDGE_TIMEOUT}"
+echo "CARLA Python path: ${CARLA_PYTHONPATH}"
 echo "PIX skip wheel steer angle: ${PIX_SKIP_WHEEL_STEER_ANGLE}"
 echo "PIX steer gain: ${PIX_STEER_GAIN}"
 echo "PIX throttle gain: ${PIX_THROTTLE_GAIN}"
@@ -287,11 +303,16 @@ if [[ "$EXECUTE" -eq 1 ]]; then
       fi
     done
   fi
+  simctl_prepare_carla_python_overlay "${CARLA_PYTHON_OVERLAY_DIR}"
   source_runtime_environment
   install_sensor_kit_calibration
   export ROS_DOMAIN_ID="${ROS_DOMAIN_ID}"
   if [[ -n "${RMW_IMPLEMENTATION_VALUE}" ]]; then
     export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION_VALUE}"
+  fi
+  export PYTHONNOUSERSITE=1
+  if [[ -n "${CARLA_PYTHONPATH}" ]]; then
+    export PYTHONPATH="${CARLA_PYTHONPATH}:${PYTHONPATH:-}"
   fi
   export SIMCTL_RUNTIME_NAMESPACE="${RUNTIME_NAMESPACE}"
   export SIMCTL_TRAFFIC_MANAGER_PORT="${TRAFFIC_MANAGER_PORT}"

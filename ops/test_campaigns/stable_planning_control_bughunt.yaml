@@ -1,0 +1,257 @@
+campaign_id: stable_planning_control_bughunt
+description: Stable-line automated bughunt for Autoware planning/control regressions on the company Ubuntu host.
+owner: zmf
+default_run_root: runs/campaign_stable_planning_control_bughunt
+default_slot: stable-slot-01
+stop_after_each: true
+cooldown_sec: 60
+report: true
+bugpack:
+  enabled: true
+  owner: planning-control
+  output_dir: bugpack
+  include_infra: false
+loop:
+  default_run_root: runs/continuous_stable_planning_control_bughunt
+  max_rounds: 1
+  round_sleep_sec: 120
+  recommended_parallel: 1
+  parallel_note: >
+    The company host currently has limited RAM for full CARLA+Autoware slots;
+    use --parallel 1 by default, and raise to --parallel 2 only after host
+    readiness confirms enough memory and disk headroom.
+validation_path: >
+  simctl campaign --config ops/test_campaigns/stable_planning_control_bughunt.yaml
+  --slot stable-slot-01 --execute --keep-going
+loop_validation_path: >
+  simctl campaign-loop --config ops/test_campaigns/stable_planning_control_bughunt.yaml
+  --execute --max-rounds 0 --parallel 1 --require-validation
+handoff_path: >
+  simctl bugpack --run-root runs/campaign_stable_planning_control_bughunt
+  --output-dir runs/campaign_stable_planning_control_bughunt/bugpack
+rollback_impact: Disable this campaign and continue running the narrower stable_perception_control or stable_l3_occlusion campaigns.
+blocked_followups:
+  - id: stable_l2_unprotected_left_intersection
+    reason: missing executable intersection actor plan and Town01/public-road route manifest
+    owner: planning-control
+  - id: stable_l2_stop_line_red_light
+    reason: traffic-light and stop-line rule violations are not yet KPI-gated in the stable campaign
+    owner: planning-control
+  - id: stable_l2_lane_change_overtake
+    reason: current merge/cut-in cases do not cover commanded lane-change or overtake behavior
+    owner: planning-control
+  - id: stable_l3_adverse_weather_low_visibility
+    reason: current scenarios run mostly clear weather/offscreen; low-visibility control stability is untested
+    owner: planning-control
+  - id: stable_l3_sensor_degradation_planning_control
+    reason: current sensor checks validate presence/samples, not degraded or delayed perception inputs
+    owner: planning-control
+scenarios:
+  - id: stable_l1_follow_lane
+    path: scenarios/l1/regression_follow_lane.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - follow_lane
+      - route_follow
+    expected_observables:
+      - route_completion>=0.98
+      - route_goal_lateral_error_m<=0.50
+      - lateral_error_m<=0.50
+      - longitudinal_error_m<=0.8
+      - jerk_mps3<=2.5
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+  - id: stable_l2_sumo_dense_route_follow
+    path: scenarios/l2/sumo_town01_dense_route_follow.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - sumo
+      - dense_traffic
+      - route_follow
+      - actor_bridge
+    expected_observables:
+      - sumo_cosim_alive=1.0
+      - sumo_actor_count>=12
+      - autoware_object_stream_seen=1.0
+      - ego_control_command_seen=1.0
+      - carla_actor_visual_npc_count>=8
+      - route_completion>=0.98
+      - route_goal_lateral_error_m<=0.80
+      - lateral_error_m<=0.75
+      - longitudinal_error_m<=0.8
+      - collision_count=0
+      - sensor_topic_coverage=1.0
+  - id: robobus117th_town01_close_cut_in_actor_bridge
+    path: scenarios/l2/robobus117th_town01_close_cut_in_actor_bridge.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - actor_bridge
+      - close_cut_in
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - collision_count=0
+      - min_ttc_sec>=1.5
+  - id: stable_l2_planning_control_crosswalk_vru_yield
+    path: scenarios/l2/planning_control_crosswalk_vru_yield.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - crosswalk
+      - vru
+      - pedestrian
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=1
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l2_planning_control_merge_regression
+    path: scenarios/l2/planning_control_merge_regression.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - merge
+      - actor_bridge
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l2_planning_control_multi_actor_cut_in_lead_brake
+    path: scenarios/l2/planning_control_multi_actor_cut_in_lead_brake.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - multi_actor
+      - cut_in
+      - lead_brake
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=2
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l2_planning_control_public_road_merge_regression
+    path: scenarios/l2/planning_control_public_road_merge_regression.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - public_road
+      - merge
+      - multi_actor
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=2
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l3_occluded_pedestrian
+    path: scenarios/l3/stress_occluded_pedestrian.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - pedestrian
+      - occlusion
+      - L3
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=1
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l3_occluded_pedestrian_close_yield
+    path: scenarios/l3/occluded_pedestrian_close_yield.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - pedestrian
+      - close_yield
+      - L3
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=1
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l3_occluded_pedestrian_double_occluder
+    path: scenarios/l3/occluded_pedestrian_double_occluder.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - pedestrian
+      - double_occluder
+      - L3
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=1
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8

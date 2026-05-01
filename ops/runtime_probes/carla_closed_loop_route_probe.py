@@ -50,6 +50,18 @@ DEFAULT_GOAL_MAP = {
 GOAL_DISTANCE_TOLERANCE_M = 8.0
 TOPIC_SAMPLE_TIMEOUT_SEC = 5
 CONTROL_TAIL_SAMPLE_COUNT = 50
+OPERATION_MODE_BLOCKER_TOPIC_SPECS: tuple[tuple[str, str, str | None], ...] = (
+    ("operation_mode_state", "/api/operation_mode/state", None),
+    ("operation_mode_availability", "/system/operation_mode/availability", None),
+    ("fail_safe_mrm_state", "/system/fail_safe/mrm_state", None),
+    ("autoware_state", "/autoware/state", None),
+    ("vehicle_velocity_status", "/vehicle/status/velocity_status", None),
+    ("vehicle_steering_status", "/vehicle/status/steering_status", None),
+    ("control_cmd", "/control/command/control_cmd", None),
+    ("actuation_cmd", "/control/command/actuation_cmd", None),
+    ("imu_raw", "/sensing/imu/tamagawa/imu_raw", None),
+    ("diagnostics", "/diagnostics", None),
+)
 
 
 def utc_stamp() -> str:
@@ -62,6 +74,15 @@ def tail(text: str | bytes | None, limit: int = 1600) -> str:
     if isinstance(text, bytes):
         text = text.decode("utf-8", errors="replace")
     return text[-limit:]
+
+
+def diagnostic_level_to_int(level: Any) -> int:
+    if isinstance(level, bytes):
+        return level[0] if level else 0
+    try:
+        return int(level)
+    except (TypeError, ValueError):
+        return 0
 
 
 def load_carla_module() -> Any:
@@ -107,6 +128,7 @@ class RosTelemetryCollector:
             from autoware_planning_msgs.msg import Trajectory  # type: ignore[import-not-found]
             from autoware_vehicle_msgs.msg import SteeringReport  # type: ignore[import-not-found]
             from autoware_vehicle_msgs.msg import VelocityReport  # type: ignore[import-not-found]
+            from diagnostic_msgs.msg import DiagnosticArray  # type: ignore[import-not-found]
             from nav_msgs.msg import Odometry  # type: ignore[import-not-found]
             from tier4_vehicle_msgs.msg import ActuationCommandStamped  # type: ignore[import-not-found]
             from tier4_vehicle_msgs.msg import ActuationStatusStamped  # type: ignore[import-not-found]
@@ -130,6 +152,7 @@ class RosTelemetryCollector:
                 ("/vehicle/status/steering_status", SteeringReport, self._on_steering_status),
                 ("/vehicle/status/velocity_status", VelocityReport, self._on_velocity_status),
                 ("/localization/kinematic_state", Odometry, self._on_localization),
+                ("/diagnostics", DiagnosticArray, self._on_diagnostics),
             )
             for topic, msg_type, callback in subscriptions:
                 self._node.create_subscription(msg_type, topic, callback, 10)
@@ -270,6 +293,43 @@ class RosTelemetryCollector:
                     "linear_y_mps": float(twist.linear.y),
                     "angular_z_rps": float(twist.angular.z),
                 },
+            },
+        )
+
+    def _on_diagnostics(self, msg: Any) -> None:
+        statuses = list(getattr(msg, "status", []) or [])
+        problems: list[dict[str, Any]] = []
+        max_level = 0
+        for status in statuses:
+            level = diagnostic_level_to_int(getattr(status, "level", 0))
+            max_level = max(max_level, level)
+            if level <= 0:
+                continue
+            values = []
+            for item in list(getattr(status, "values", []) or [])[:12]:
+                values.append(
+                    {
+                        "key": str(getattr(item, "key", "")),
+                        "value": str(getattr(item, "value", "")),
+                    }
+                )
+            problems.append(
+                {
+                    "name": str(getattr(status, "name", "")),
+                    "level": level,
+                    "message": str(getattr(status, "message", "")),
+                    "hardware_id": str(getattr(status, "hardware_id", "")),
+                    "values": values,
+                }
+            )
+        self._record(
+            "diagnostics",
+            {
+                "stamp": self._stamp(msg),
+                "status_count": len(statuses),
+                "problem_count": len(problems),
+                "max_level": max_level,
+                "problems": problems[:30],
             },
         )
 
@@ -422,10 +482,17 @@ def carla_waypoint_context(world: Any, carla: Any, ego_sample: dict[str, Any]) -
     }
 
 
-def call_topic_echo(topic: str, env: dict[str, str], field: str | None = None) -> dict[str, Any]:
+def call_topic_echo(
+    topic: str,
+    env: dict[str, str],
+    field: str | None = None,
+    *,
+    timeout_sec: int = TOPIC_SAMPLE_TIMEOUT_SEC,
+    truncate_length: int = 160,
+) -> dict[str, Any]:
     command = [
         "timeout",
-        str(TOPIC_SAMPLE_TIMEOUT_SEC),
+        str(timeout_sec),
         "ros2",
         "topic",
         "echo",
@@ -433,7 +500,7 @@ def call_topic_echo(topic: str, env: dict[str, str], field: str | None = None) -
         "--spin-time",
         "1",
         "--truncate-length",
-        "160",
+        str(truncate_length),
         "--flow-style",
     ]
     if field:
@@ -446,7 +513,7 @@ def call_topic_echo(topic: str, env: dict[str, str], field: str | None = None) -
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            timeout=TOPIC_SAMPLE_TIMEOUT_SEC + 2,
+            timeout=timeout_sec + 2,
         )
         return {
             "topic": topic,
@@ -465,14 +532,384 @@ def call_topic_echo(topic: str, env: dict[str, str], field: str | None = None) -
         }
 
 
+def collect_operation_mode_blocker_snapshot(env: dict[str, str]) -> dict[str, Any]:
+    """Capture the ROS boundary state that explains why autonomous mode is blocked."""
+    topics: dict[str, Any] = {}
+    for key, topic, field in OPERATION_MODE_BLOCKER_TOPIC_SPECS:
+        topics[key] = call_topic_echo(
+            topic,
+            env,
+            field,
+            timeout_sec=3,
+            truncate_length=700,
+        )
+    return {
+        "created_wall_time": time.time(),
+        "topics": topics,
+    }
+
+
 def service_call_successful(service_calls: list[dict[str, Any]]) -> bool:
     for call in service_calls:
+        if call.get("superseded_by_success"):
+            continue
         if call.get("returncode") not in (None, 0):
             return False
         output = str(call.get("output") or "")
         if re.search(r"\bsuccess\s*[:=]\s*False\b", output, flags=re.IGNORECASE):
             return False
     return True
+
+
+def service_call_failure(call: dict[str, Any]) -> dict[str, Any] | None:
+    if call.get("superseded_by_success"):
+        return None
+    step = str(call.get("step") or call.get("name") or "unknown")
+    output = str(call.get("output") or "")
+    rc = call.get("returncode")
+    if rc not in (None, 0):
+        return {
+            "step": step,
+            "reason": "returncode_nonzero",
+            "returncode": rc,
+            "message_tail": tail(output, 500),
+        }
+    if re.search(r"\bsuccess\s*[:=]\s*False\b", output, flags=re.IGNORECASE):
+        message_match = re.search(r"message='([^']*)'", output)
+        message = message_match.group(1) if message_match else ""
+        return {
+            "step": step,
+            "reason": "service_status_false",
+            "returncode": rc,
+            "message": message,
+            "message_tail": tail(output, 500),
+        }
+    return None
+
+
+def run_service_cmd_with_retries(
+    step: str,
+    args: list[str],
+    env: dict[str, str],
+    calls: list[dict[str, Any]],
+    *,
+    timeout_sec: int = 20,
+    retries: int = 1,
+    retry_delay_sec: float = 2.0,
+) -> dict[str, Any]:
+    """Retry ROS service calls until both transport and service status succeed."""
+    failed_attempts: list[dict[str, Any]] = []
+    last_item: dict[str, Any] | None = None
+    total_attempts = max(1, retries)
+    for attempt in range(1, total_attempts + 1):
+        item = run_cmd(step, args, env, calls, timeout_sec)
+        item["attempt"] = attempt
+        item["max_attempts"] = total_attempts
+        last_item = item
+        failure = service_call_failure(item)
+        if failure is None:
+            for failed in failed_attempts:
+                failed["superseded_by_success"] = True
+                failed["superseded_by_step"] = step
+            return item
+        item["service_failure_reason"] = failure["reason"]
+        if failure.get("message"):
+            item["service_failure_message"] = failure["message"]
+        failed_attempts.append(item)
+        if attempt < total_attempts:
+            time.sleep(retry_delay_sec)
+    assert last_item is not None
+    return last_item
+
+
+def mark_service_step_superseded(
+    service_calls: list[dict[str, Any]],
+    *,
+    step: str,
+    superseded_by_step: str,
+) -> None:
+    for call in service_calls:
+        if str(call.get("step") or call.get("name") or "") != step:
+            continue
+        if service_call_failure(call) is None:
+            continue
+        call["superseded_by_success"] = True
+        call["superseded_by_step"] = superseded_by_step
+
+
+def text_indicates_true(output: str) -> bool:
+    return bool(re.search(r"\b(true|True|TRUE)\b", output))
+
+
+def wait_for_operation_mode_autonomous_available(
+    env: dict[str, str],
+    setup_checks: list[dict[str, Any]],
+    *,
+    timeout_sec: float,
+    poll_interval_sec: float,
+) -> bool:
+    deadline = time.time() + max(0.0, timeout_sec)
+    attempts: list[dict[str, Any]] = []
+    passed = False
+    while True:
+        sample = call_topic_echo("/api/operation_mode/state", env, field="is_autonomous_mode_available")
+        attempts.append(
+            {
+                "returncode": sample.get("returncode"),
+                "sample_received": sample.get("sample_received"),
+                "output_tail": sample.get("output_tail"),
+            }
+        )
+        if sample.get("sample_received") and text_indicates_true(str(sample.get("output_tail") or "")):
+            passed = True
+            break
+        if time.time() >= deadline:
+            break
+        time.sleep(max(0.0, poll_interval_sec))
+
+    check = {
+        "step": "wait_operation_mode_autonomous_available",
+        "topic": "/api/operation_mode/state",
+        "field": "is_autonomous_mode_available",
+        "passed": passed,
+        "timeout_sec": timeout_sec,
+        "poll_interval_sec": poll_interval_sec,
+        "attempt_count": len(attempts),
+        "attempts": attempts[-10:],
+    }
+    if not passed:
+        check["blocker_snapshot"] = collect_operation_mode_blocker_snapshot(env)
+    setup_checks.append(check)
+    return passed
+
+
+def wait_for_topic_sample(
+    step: str,
+    topic: str,
+    env: dict[str, str],
+    setup_checks: list[dict[str, Any]],
+    *,
+    retries: int = 5,
+    retry_delay_sec: float = 3.0,
+) -> bool:
+    attempts: list[dict[str, Any]] = []
+    passed = False
+    total_attempts = max(1, retries)
+    for attempt in range(1, total_attempts + 1):
+        sample = call_topic_echo(topic, env)
+        attempts.append(
+            {
+                "attempt": attempt,
+                "returncode": sample.get("returncode"),
+                "sample_received": sample.get("sample_received"),
+                "output_tail": sample.get("output_tail"),
+            }
+        )
+        if sample.get("sample_received"):
+            passed = True
+            break
+        if attempt < total_attempts:
+            time.sleep(max(0.0, retry_delay_sec))
+
+    setup_checks.append(
+        {
+            "step": step,
+            "topic": topic,
+            "passed": passed,
+            "attempt_count": len(attempts),
+            "attempts": attempts[-10:],
+        }
+    )
+    return passed
+
+
+def actor_role_name(actor: Any) -> str:
+    attributes = getattr(actor, "attributes", {}) or {}
+    if isinstance(attributes, dict):
+        return str(attributes.get("role_name", ""))
+    return ""
+
+
+def actor_type_id(actor: Any) -> str:
+    return str(getattr(actor, "type_id", ""))
+
+
+def actor_location_payload(actor: Any) -> dict[str, float] | None:
+    try:
+        location = actor.get_transform().location
+    except Exception:
+        return None
+    return {
+        "x": float(getattr(location, "x", 0.0)),
+        "y": float(getattr(location, "y", 0.0)),
+        "z": float(getattr(location, "z", 0.0)),
+    }
+
+
+def is_ego_candidate(actor: Any, ego: Any) -> bool:
+    actor_id = getattr(actor, "id", None)
+    ego_id = getattr(ego, "id", None)
+    if actor_id is not None and ego_id is not None and actor_id == ego_id:
+        return True
+    return actor_role_name(actor) in {"ego_vehicle", "hero", "autoware_v1"}
+
+
+def clear_nearby_start_traffic(world: Any, ego: Any, radius_m: float) -> dict[str, Any]:
+    """Destroy non-ego vehicles inside the ego start safety radius.
+
+    This is opt-in and intended for dense SUMO traffic startup only. It keeps
+    setup-time background traffic from physically pushing the ego before the
+    route probe starts sampling.
+    """
+    ego_location = actor_location_payload(ego)
+    if radius_m <= 0.0 or ego_location is None:
+        return {
+            "enabled": radius_m > 0.0,
+            "radius_m": radius_m,
+            "ego_location": ego_location,
+            "checked_count": 0,
+            "nearby_count": 0,
+            "destroyed_count": 0,
+            "destroyed_actors": [],
+            "nearest_actor": None,
+            "error": None if ego_location is not None else "missing_ego_location",
+        }
+
+    destroyed: list[dict[str, Any]] = []
+    nearby: list[dict[str, Any]] = []
+    checked_count = 0
+    try:
+        vehicles = list(world.get_actors().filter("vehicle.*"))
+    except Exception as exc:
+        return {
+            "enabled": True,
+            "radius_m": radius_m,
+            "ego_location": ego_location,
+            "checked_count": 0,
+            "nearby_count": 0,
+            "destroyed_count": 0,
+            "destroyed_actors": [],
+            "nearest_actor": None,
+            "error": str(exc),
+        }
+
+    for actor in vehicles:
+        if is_ego_candidate(actor, ego):
+            continue
+        location = actor_location_payload(actor)
+        if location is None:
+            continue
+        checked_count += 1
+        distance_m = math.hypot(location["x"] - ego_location["x"], location["y"] - ego_location["y"])
+        actor_payload = {
+            "id": getattr(actor, "id", None),
+            "type_id": actor_type_id(actor),
+            "role_name": actor_role_name(actor),
+            "location": location,
+            "distance_m": distance_m,
+        }
+        if distance_m <= radius_m:
+            try:
+                actor_payload["destroyed"] = bool(actor.destroy())
+            except Exception as exc:
+                actor_payload["destroyed"] = False
+                actor_payload["destroy_error"] = str(exc)
+            destroyed.append(actor_payload)
+        else:
+            nearby.append(actor_payload)
+
+    nearest_candidates = destroyed + nearby
+    nearest_actor = min(nearest_candidates, key=lambda item: float(item["distance_m"]), default=None)
+    return {
+        "enabled": True,
+        "radius_m": radius_m,
+        "ego_location": ego_location,
+        "checked_count": checked_count,
+        "nearby_count": len(destroyed),
+        "destroyed_count": sum(1 for item in destroyed if item.get("destroyed")),
+        "destroyed_actors": destroyed,
+        "nearest_actor": nearest_actor,
+        "error": None,
+    }
+
+
+class EgoStartTrafficGuard:
+    def __init__(
+        self,
+        *,
+        world: Any,
+        ego: Any,
+        radius_m: float,
+        poll_sec: float,
+        max_duration_sec: float,
+    ) -> None:
+        self.world = world
+        self.ego = ego
+        self.radius_m = radius_m
+        self.poll_sec = poll_sec
+        self.max_duration_sec = max_duration_sec
+        self.enabled = radius_m > 0.0
+        self.started_at: str | None = None
+        self.stopped_at: str | None = None
+        self.cycles: list[dict[str, Any]] = []
+        self._lock = threading.Lock()
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        if not self.enabled or self._thread is not None:
+            return
+        self.started_at = datetime.now(timezone.utc).isoformat()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        deadline = time.time() + max(0.0, self.max_duration_sec)
+        while not self._stop.is_set() and time.time() <= deadline:
+            cycle = clear_nearby_start_traffic(self.world, self.ego, self.radius_m)
+            cycle["wall_time"] = time.time()
+            with self._lock:
+                self.cycles.append(cycle)
+                self.cycles = self.cycles[-40:]
+            self._stop.wait(max(0.05, self.poll_sec))
+
+    def stop(self) -> None:
+        if not self.enabled:
+            return
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=2.0)
+        self.stopped_at = datetime.now(timezone.utc).isoformat()
+
+    def snapshot(self) -> dict[str, Any]:
+        with self._lock:
+            cycles = [dict(cycle) for cycle in self.cycles]
+        destroyed_count = sum(int(cycle.get("destroyed_count", 0) or 0) for cycle in cycles)
+        nearest_distance = None
+        nearest_actor = None
+        for cycle in cycles:
+            actor = cycle.get("nearest_actor")
+            if not isinstance(actor, dict):
+                continue
+            distance = actor.get("distance_m")
+            if distance is None:
+                continue
+            if nearest_distance is None or float(distance) < nearest_distance:
+                nearest_distance = float(distance)
+                nearest_actor = actor
+        return {
+            "enabled": self.enabled,
+            "radius_m": self.radius_m,
+            "poll_sec": self.poll_sec,
+            "max_duration_sec": self.max_duration_sec,
+            "started_at": self.started_at,
+            "stopped_at": self.stopped_at,
+            "cycle_count": len(cycles),
+            "destroyed_count": destroyed_count,
+            "nearest_distance_m": nearest_distance,
+            "nearest_actor": nearest_actor,
+            "cycles": cycles,
+        }
 
 
 def required_service_call_successful(service_calls: list[dict[str, Any]], required_steps: set[str]) -> bool:
@@ -573,6 +1010,9 @@ def summarize_ros_control_telemetry(
         "topic_counts": telemetry_snapshot.get("counts", {}),
         "latest": telemetry_snapshot.get("latest", {}),
     }
+    latest = telemetry_snapshot.get("latest", {})
+    if isinstance(latest, dict) and isinstance(latest.get("diagnostics"), dict):
+        summary["diagnostics"] = latest["diagnostics"]
     tail_specs = {
         "tail_control_velocity_mps": ("control_cmd", ("velocity_mps",)),
         "tail_control_acceleration_mps2": ("control_cmd", ("acceleration_mps2",)),
@@ -595,13 +1035,39 @@ def summarize_ros_control_telemetry(
     return summary
 
 
+def speed_target_summary(max_speed_mps: float, target_speed_mps: float | None, tolerance_mps: float) -> dict[str, Any]:
+    if target_speed_mps is None or target_speed_mps <= 0.0:
+        return {
+            "max_speed_kph": max_speed_mps * 3.6,
+            "target_speed_mps": None,
+            "target_speed_kph": None,
+            "target_speed_tolerance_mps": tolerance_mps,
+            "target_speed_reached": None,
+            "target_speed_deficit_mps": None,
+        }
+    threshold = max(0.0, target_speed_mps - max(0.0, tolerance_mps))
+    deficit = max(0.0, threshold - max_speed_mps)
+    return {
+        "max_speed_kph": max_speed_mps * 3.6,
+        "target_speed_mps": target_speed_mps,
+        "target_speed_kph": target_speed_mps * 3.6,
+        "target_speed_tolerance_mps": tolerance_mps,
+        "target_speed_reached": max_speed_mps >= threshold,
+        "target_speed_deficit_mps": deficit,
+    }
+
+
 def setup_route(
     env: dict[str, str],
     start_map: dict[str, float],
     goal_map: dict[str, float],
     calls: list[dict[str, Any]],
+    setup_checks: list[dict[str, Any]],
     *,
     allow_goal_modification: bool = True,
+    operation_mode_ready_timeout_sec: float = 45.0,
+    operation_mode_ready_poll_sec: float = 2.0,
+    operation_mode_service_retries: int = 5,
 ) -> None:
     run_cmd(
         "engage_false",
@@ -632,6 +1098,14 @@ def setup_route(
         28,
     )
     time.sleep(4.0)
+    wait_for_topic_sample(
+        "wait_localization_state",
+        "/localization/kinematic_state",
+        env,
+        setup_checks,
+        retries=3,
+        retry_delay_sec=2.0,
+    )
     run_cmd(
         "set_route_points",
         [
@@ -649,26 +1123,64 @@ def setup_route(
         28,
     )
     time.sleep(2.0)
-    run_cmd(
+    wait_for_topic_sample(
+        "wait_planning_trajectory",
+        "/planning/scenario_planning/trajectory",
+        env,
+        setup_checks,
+        retries=5,
+        retry_delay_sec=3.0,
+    )
+    run_service_cmd_with_retries(
         "enable_autoware_control",
         ["timeout", "15", "ros2", "service", "call", "/api/operation_mode/enable_autoware_control", "autoware_adapi_v1_msgs/srv/ChangeOperationMode", "{}"],
         env,
         calls,
-        18,
+        timeout_sec=18,
+        retries=3,
+        retry_delay_sec=3.0,
     )
-    run_cmd(
+    wait_for_operation_mode_autonomous_available(
+        env,
+        setup_checks,
+        timeout_sec=operation_mode_ready_timeout_sec,
+        poll_interval_sec=operation_mode_ready_poll_sec,
+    )
+    autonomous_call = run_service_cmd_with_retries(
         "change_to_autonomous",
         ["timeout", "25", "ros2", "service", "call", "/api/operation_mode/change_to_autonomous", "autoware_adapi_v1_msgs/srv/ChangeOperationMode", "{}"],
         env,
         calls,
-        28,
+        timeout_sec=28,
+        retries=operation_mode_service_retries,
+        retry_delay_sec=3.0,
     )
-    run_cmd(
+    autonomous_failure = service_call_failure(autonomous_call)
+    if autonomous_failure is None:
+        mark_service_step_superseded(
+            calls,
+            step="enable_autoware_control",
+            superseded_by_step="change_to_autonomous",
+        )
+    else:
+        failure_context = collect_operation_mode_blocker_snapshot(env)
+        autonomous_call["failure_context"] = failure_context
+        setup_checks.append(
+            {
+                "step": "change_to_autonomous_failure_context",
+                "passed": False,
+                "failure": autonomous_failure,
+                "blocker_snapshot": failure_context,
+            }
+        )
+    run_service_cmd_with_retries(
         "engage_true",
         ["timeout", "15", "ros2", "service", "call", "/api/autoware/set/engage", "tier4_external_api_msgs/srv/Engage", "{engage: true}"],
         env,
         calls,
-        18,
+        timeout_sec=18,
+        retries=3,
+        retry_delay_sec=3.0,
     )
 
 
@@ -692,26 +1204,52 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     os.environ["RMW_IMPLEMENTATION"] = env["RMW_IMPLEMENTATION"]
 
     service_calls: list[dict[str, Any]] = []
+    setup_checks: list[dict[str, Any]] = []
     samples: list[dict[str, Any]] = []
     topic_samples: list[dict[str, Any]] = []
     video_recorder: CameraVideoRecorder | None = None
     last_spectator_view: dict[str, float] | None = None
     last_camera_view: dict[str, float] | None = None
     telemetry = RosTelemetryCollector(enabled=not args.disable_ros_telemetry)
+    ego_start_guard: EgoStartTrafficGuard | None = None
 
     client = carla.Client(args.carla_host, args.carla_port)
     client.set_timeout(args.carla_timeout)
     world, ego = wait_for_ego(client, timeout_sec=args.ego_timeout)
-    ego.set_transform(
-        carla.Transform(
-            carla.Location(x=start_carla["x"], y=start_carla["y"], z=start_carla["z"]),
-            carla.Rotation(yaw=start_carla["yaw"]),
+    pre_reset_sample = sample_actor(ego)
+    reset_applied = not args.skip_ego_reset
+    if reset_applied:
+        ego.set_transform(
+            carla.Transform(
+                carla.Location(x=start_carla["x"], y=start_carla["y"], z=start_carla["z"]),
+                carla.Rotation(yaw=start_carla["yaw"]),
+            )
         )
-    )
     ego.set_target_velocity(carla.Vector3D(0, 0, 0))
     ego.set_target_angular_velocity(carla.Vector3D(0, 0, 0))
     ego.apply_control(carla.VehicleControl(throttle=0.0, brake=1.0, steer=0.0))
     time.sleep(1.0)
+    post_reset_sample = sample_actor(ego)
+    ego_start_pose_preparation = {
+        "desired_carla": start_carla,
+        "pre_reset_sample": pre_reset_sample,
+        "post_reset_sample": post_reset_sample,
+        "reset_applied": reset_applied,
+        "skip_ego_reset": bool(args.skip_ego_reset),
+        "delta_after_reset_m": math.hypot(
+            float(post_reset_sample["x"]) - float(start_carla["x"]),
+            float(post_reset_sample["y"]) - float(start_carla["y"]),
+        ),
+        "yaw_after_reset_delta_deg": abs(float(post_reset_sample["yaw"]) - float(start_carla["yaw"])),
+    }
+    ego_start_guard = EgoStartTrafficGuard(
+        world=world,
+        ego=ego,
+        radius_m=args.ego_start_clear_radius_m,
+        poll_sec=args.ego_start_clear_poll_sec,
+        max_duration_sec=args.ego_start_clear_duration_sec,
+    )
+    ego_start_guard.start()
 
     bp_lib = world.get_blueprint_library()
     video_error = None
@@ -738,8 +1276,14 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             start_map,
             goal_map,
             service_calls,
+            setup_checks,
             allow_goal_modification=not args.disable_goal_modification,
+            operation_mode_ready_timeout_sec=args.operation_mode_ready_timeout_sec,
+            operation_mode_ready_poll_sec=args.operation_mode_ready_poll_sec,
+            operation_mode_service_retries=args.operation_mode_service_retries,
         )
+        if ego_start_guard is not None:
+            ego_start_guard.stop()
         start_t = time.time()
         reached_near_goal = False
         min_goal_distance_m = math.inf
@@ -799,7 +1343,11 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             ("/vehicle/status/velocity_status", None),
             ("/localization/kinematic_state", None),
             ("/api/operation_mode/state", None),
+            ("/system/operation_mode/availability", None),
+            ("/system/fail_safe/mrm_state", None),
             ("/autoware/state", None),
+            ("/sensing/imu/tamagawa/imu_raw", None),
+            ("/diagnostics", None),
         ):
             topic_samples.append(call_topic_echo(topic, env, field))
 
@@ -836,11 +1384,20 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 lateral_error_m = route_goal_lateral_error_m
         ros_telemetry = summarize_ros_control_telemetry(samples, telemetry.snapshot())
         max_jerk_mps3 = max_abs_jerk_mps3(samples)
+        speed_summary = speed_target_summary(
+            max_speed_mps,
+            args.target_speed_mps if args.target_speed_mps > 0.0 else None,
+            args.target_speed_tolerance_mps,
+        )
+        speed_target_passed = (
+            True if speed_summary["target_speed_reached"] is None else bool(speed_summary["target_speed_reached"])
+        )
         summary = {
             "sample_count": len(samples),
             "moved": moved,
             "total_delta_m": total_delta_m,
             "max_speed_mps": max_speed_mps,
+            **speed_summary,
             "requested_goal": goal_map,
             "effective_goal": final_effective_goal_map,
             "last_location": last_location,
@@ -861,6 +1418,9 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             "route_service_calls_successful": route_valid,
             "all_service_calls_successful": all_service_calls_successful,
             "route_required_service_steps": sorted(route_required_steps),
+            "setup_checks_passed": all(bool(check.get("passed")) for check in setup_checks),
+            "ego_start_pose_preparation": ego_start_pose_preparation,
+            "ego_start_traffic_guard": ego_start_guard.snapshot() if ego_start_guard is not None else None,
             "route_goal_modification_allowed": not args.disable_goal_modification,
             "topic_sample_count": len(topic_samples),
             "topic_samples_received": sum(1 for item in topic_samples if item.get("sample_received")),
@@ -885,13 +1445,15 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             "start": {"map": start_map, "carla": start_carla},
             "goal": goal_map,
             "service_calls": service_calls,
+            "setup_checks": setup_checks,
             "topic_samples": topic_samples,
             "samples": samples,
             "summary": summary,
             "verdict": {
-                "overall_passed": route_valid and moved and reached_near_goal,
+                "overall_passed": route_valid and moved and reached_near_goal and speed_target_passed,
                 "route_passed": route_valid and reached_near_goal,
                 "movement_passed": moved,
+                "target_speed_passed": speed_target_passed,
             },
         }
         artifact_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -921,6 +1483,8 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             )
         except Exception as exc:
             print(f"cleanup services failed: {exc}", file=sys.stderr)
+        if ego_start_guard is not None:
+            ego_start_guard.stop()
         if video_recorder is not None:
             try:
                 video_recorder.close()
@@ -950,6 +1514,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--min-delta-m", type=float, default=5.0)
     parser.add_argument("--min-speed-mps", type=float, default=1.0)
+    parser.add_argument(
+        "--target-speed-mps",
+        type=float,
+        default=0.0,
+        help="Optional target speed evidence gate. When set, overall_passed also requires max_speed_mps to reach it within tolerance.",
+    )
+    parser.add_argument("--target-speed-tolerance-mps", type=float, default=0.5)
     parser.add_argument("--carla-z-offset", type=float, default=0.08)
     parser.add_argument(
         "--spectator-mode",
@@ -966,6 +1537,47 @@ def parse_args() -> argparse.Namespace:
         "--disable-ros-telemetry",
         action="store_true",
         help="Disable best-effort ROS topic subscriptions for route/control/vehicle diagnostics.",
+    )
+    parser.add_argument(
+        "--operation-mode-ready-timeout-sec",
+        type=float,
+        default=45.0,
+        help="Wait this long for /api/operation_mode/state.is_autonomous_mode_available before autonomous mode service retry.",
+    )
+    parser.add_argument(
+        "--operation-mode-ready-poll-sec",
+        type=float,
+        default=2.0,
+        help="Polling interval while waiting for autonomous mode availability.",
+    )
+    parser.add_argument(
+        "--operation-mode-service-retries",
+        type=int,
+        default=5,
+        help="Retry count for change_to_autonomous service calls after readiness wait.",
+    )
+    parser.add_argument(
+        "--ego-start-clear-radius-m",
+        type=float,
+        default=0.0,
+        help="Optional CARLA start guard: delete non-ego vehicles inside this radius while Autoware route setup runs.",
+    )
+    parser.add_argument(
+        "--ego-start-clear-duration-sec",
+        type=float,
+        default=70.0,
+        help="Maximum duration for the ego start traffic guard when --ego-start-clear-radius-m is enabled.",
+    )
+    parser.add_argument(
+        "--ego-start-clear-poll-sec",
+        type=float,
+        default=0.5,
+        help="Polling interval for the ego start traffic guard.",
+    )
+    parser.add_argument(
+        "--skip-ego-reset",
+        action="store_true",
+        help="Reuse the bridge-spawned ego pose instead of teleporting it before route setup.",
     )
     return parser.parse_args()
 

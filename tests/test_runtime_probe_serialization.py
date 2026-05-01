@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -54,9 +56,28 @@ lidar_camera_projection_probe = _load_probe(
 
 
 class _FakeActor:
-    def __init__(self, type_id: str, role_name: str) -> None:
+    def __init__(
+        self,
+        type_id: str,
+        role_name: str,
+        *,
+        actor_id: int = 1,
+        x: float = 0.0,
+        y: float = 0.0,
+        z: float = 0.0,
+    ) -> None:
+        self.id = actor_id
         self.type_id = type_id
         self.attributes = {"role_name": role_name}
+        self.destroyed = False
+        self._location = SimpleNamespace(x=x, y=y, z=z)
+
+    def get_transform(self) -> SimpleNamespace:
+        return SimpleNamespace(location=self._location)
+
+    def destroy(self) -> bool:
+        self.destroyed = True
+        return True
 
 
 class _FakeActorList(list):
@@ -106,11 +127,66 @@ class RuntimeProbeSerializationTests(unittest.TestCase):
         self.assertNotIn("/simulation/dummy_perception_publisher/object_info", topics)
         self.assertNotIn("/perception/object_recognition/objects", topics)
 
+    def test_sensor_probe_has_presence_smoke_profile(self) -> None:
+        profile = carla_sensor_topic_probe.PROFILES["robobus117th_presence_smoke"]
+        topics = {spec.topic for spec in profile}
+
+        self.assertIn("/sensing/camera/CAM_FRONT/image_raw", topics)
+        self.assertIn("/sensing/lidar/top/pointcloud_before_sync", topics)
+        self.assertIn("/control/command/control_cmd", topics)
+        self.assertIn("/perception/object_recognition/objects", topics)
+        self.assertTrue(all(not spec.sample_required for spec in profile))
+
     def test_sensor_topic_tail_normalizes_timeout_bytes(self) -> None:
         self.assertEqual(
             carla_sensor_topic_probe._tail(b"prefix-\xe4\xb8\xad\xe6\x96\x87", limit=6),
             "fix-中文",
         )
+
+    def test_sensor_probe_retries_until_samples_pass(self) -> None:
+        original_profiles = carla_sensor_topic_probe.PROFILES
+        original_topic_types = carla_sensor_topic_probe._topic_types
+        original_sample_topic = carla_sensor_topic_probe._sample_topic
+        calls: list[int] = []
+
+        def fake_sample_topic(_spec, _timeout_sec):
+            calls.append(1)
+            return {
+                "sample_received": len(calls) > 1,
+                "sample_command": "ros2 topic echo --once /sample",
+                "sample_returncode": 0 if len(calls) > 1 else "timeout",
+                "sample_stdout_tail": "header: {}\n" if len(calls) > 1 else "",
+                "sample_stderr_tail": "",
+            }
+
+        try:
+            carla_sensor_topic_probe.PROFILES = {
+                **original_profiles,
+                "retry_test": (carla_sensor_topic_probe.TopicSpec("/sample", "sample"),),
+            }
+            carla_sensor_topic_probe._topic_types = lambda _timeout_sec: {
+                "/sample": "std_msgs/msg/Header"
+            }
+            carla_sensor_topic_probe._sample_topic = fake_sample_topic
+
+            payload = carla_sensor_topic_probe.run_probe(
+                SimpleNamespace(
+                    profile="retry_test",
+                    discovery_timeout_sec=1.0,
+                    topic_timeout_sec=1.0,
+                    max_workers=1,
+                    attempts=2,
+                    retry_sleep_sec=0.0,
+                )
+            )
+        finally:
+            carla_sensor_topic_probe.PROFILES = original_profiles
+            carla_sensor_topic_probe._topic_types = original_topic_types
+            carla_sensor_topic_probe._sample_topic = original_sample_topic
+
+        self.assertTrue(payload["overall_passed"])
+        self.assertEqual(payload["attempt"], 2)
+        self.assertEqual(len(payload["attempts"]), 2)
 
     def test_closed_loop_route_service_success_detects_adapi_success_false(self) -> None:
         self.assertFalse(
@@ -184,6 +260,298 @@ class RuntimeProbeSerializationTests(unittest.TestCase):
             "allow_goal_modification: false",
             carla_dynamic_actor_probe.route_yaml(goal, allow_goal_modification=False),
         )
+
+    def test_closed_loop_route_speed_target_summary(self) -> None:
+        reached = carla_closed_loop_route_probe.speed_target_summary(10.8, 11.111111, 0.5)
+        missed = carla_closed_loop_route_probe.speed_target_summary(8.0, 11.111111, 0.5)
+        disabled = carla_closed_loop_route_probe.speed_target_summary(8.0, None, 0.5)
+
+        self.assertTrue(reached["target_speed_reached"])
+        self.assertAlmostEqual(reached["target_speed_kph"], 40.0, places=4)
+        self.assertFalse(missed["target_speed_reached"])
+        self.assertGreater(missed["target_speed_deficit_mps"], 2.0)
+        self.assertIsNone(disabled["target_speed_reached"])
+
+    def test_closed_loop_route_ros_summary_preserves_diagnostics(self) -> None:
+        diagnostics = {
+            "status_count": 3,
+            "problem_count": 1,
+            "max_level": 2,
+            "problems": [
+                {
+                    "name": "operation_mode",
+                    "level": 2,
+                    "message": "The target mode is not available.",
+                    "values": [{"key": "state", "value": "waiting"}],
+                }
+            ],
+        }
+
+        summary = carla_closed_loop_route_probe.summarize_ros_control_telemetry(
+            [],
+            {
+                "enabled": True,
+                "error": None,
+                "counts": {"diagnostics": 4},
+                "latest": {"diagnostics": diagnostics},
+            },
+        )
+
+        self.assertEqual(summary["topic_counts"]["diagnostics"], 4)
+        self.assertEqual(summary["diagnostics"]["problem_count"], 1)
+        self.assertEqual(summary["diagnostics"]["problems"][0]["name"], "operation_mode")
+
+    def test_closed_loop_route_diagnostic_level_accepts_bytes(self) -> None:
+        self.assertEqual(carla_closed_loop_route_probe.diagnostic_level_to_int(b"\x00"), 0)
+        self.assertEqual(carla_closed_loop_route_probe.diagnostic_level_to_int(b"\x02"), 2)
+        self.assertEqual(carla_closed_loop_route_probe.diagnostic_level_to_int("1"), 1)
+        self.assertEqual(carla_closed_loop_route_probe.diagnostic_level_to_int(None), 0)
+
+    def test_closed_loop_route_service_retry_supersedes_transient_status_false(self) -> None:
+        calls: list[dict[str, object]] = []
+        attempt_count = 0
+        original_run_cmd = carla_closed_loop_route_probe.run_cmd
+        original_sleep = time.sleep
+
+        def fake_run_cmd(
+            step: str,
+            args: list[str],
+            env: dict[str, str],
+            recorded_calls: list[dict[str, object]],
+            timeout_sec: int = 20,
+        ) -> dict[str, object]:
+            nonlocal attempt_count
+            attempt_count += 1
+            output = (
+                "ChangeOperationMode_Response(status=ResponseStatus("
+                "success=False, code=1, message='The target mode is not available.'))"
+                if attempt_count == 1
+                else "ChangeOperationMode_Response(status=ResponseStatus(success=True, code=0, message=''))"
+            )
+            item = {
+                "step": step,
+                "returncode": 0,
+                "output": output,
+                "args": args,
+            }
+            recorded_calls.append(item)
+            return item
+
+        try:
+            carla_closed_loop_route_probe.run_cmd = fake_run_cmd
+            time.sleep = lambda _seconds: None
+            result = carla_closed_loop_route_probe.run_service_cmd_with_retries(
+                "change_to_autonomous",
+                ["timeout", "25", "ros2", "service", "call"],
+                {},
+                calls,
+                timeout_sec=28,
+                retries=3,
+                retry_delay_sec=0.0,
+            )
+        finally:
+            carla_closed_loop_route_probe.run_cmd = original_run_cmd
+            time.sleep = original_sleep
+
+        self.assertEqual(result["attempt"], 2)
+        self.assertTrue(calls[0]["superseded_by_success"])
+        self.assertTrue(carla_closed_loop_route_probe.service_call_successful(calls))
+
+    def test_closed_loop_route_waits_for_operation_mode_available(self) -> None:
+        setup_checks: list[dict[str, object]] = []
+        samples = iter(
+            [
+                {"returncode": 0, "sample_received": True, "output_tail": "false\n---"},
+                {"returncode": 0, "sample_received": True, "output_tail": "true\n---"},
+            ]
+        )
+        original_call_topic_echo = carla_closed_loop_route_probe.call_topic_echo
+        original_sleep = time.sleep
+
+        def fake_call_topic_echo(topic: str, env: dict[str, str], field: str | None = None) -> dict[str, object]:
+            self.assertEqual(topic, "/api/operation_mode/state")
+            self.assertEqual(field, "is_autonomous_mode_available")
+            return next(samples)
+
+        try:
+            carla_closed_loop_route_probe.call_topic_echo = fake_call_topic_echo
+            time.sleep = lambda _seconds: None
+            ready = carla_closed_loop_route_probe.wait_for_operation_mode_autonomous_available(
+                {},
+                setup_checks,
+                timeout_sec=10.0,
+                poll_interval_sec=0.0,
+            )
+        finally:
+            carla_closed_loop_route_probe.call_topic_echo = original_call_topic_echo
+            time.sleep = original_sleep
+
+        self.assertTrue(ready)
+        self.assertTrue(setup_checks[0]["passed"])
+        self.assertEqual(setup_checks[0]["attempt_count"], 2)
+
+    def test_closed_loop_route_records_operation_mode_blocker_snapshot(self) -> None:
+        setup_checks: list[dict[str, object]] = []
+        original_call_topic_echo = carla_closed_loop_route_probe.call_topic_echo
+        original_collect_snapshot = carla_closed_loop_route_probe.collect_operation_mode_blocker_snapshot
+
+        def fake_call_topic_echo(topic: str, env: dict[str, str], field: str | None = None) -> dict[str, object]:
+            self.assertEqual(topic, "/api/operation_mode/state")
+            self.assertEqual(field, "is_autonomous_mode_available")
+            return {"returncode": 0, "sample_received": True, "output_tail": "false\n---"}
+
+        def fake_collect_snapshot(env: dict[str, str]) -> dict[str, object]:
+            return {
+                "created_wall_time": 1.0,
+                "topics": {
+                    "fail_safe_mrm_state": {
+                        "topic": "/system/fail_safe/mrm_state",
+                        "sample_received": True,
+                        "output_tail": "state: emergency",
+                    }
+                },
+            }
+
+        try:
+            carla_closed_loop_route_probe.call_topic_echo = fake_call_topic_echo
+            carla_closed_loop_route_probe.collect_operation_mode_blocker_snapshot = fake_collect_snapshot
+            ready = carla_closed_loop_route_probe.wait_for_operation_mode_autonomous_available(
+                {},
+                setup_checks,
+                timeout_sec=0.0,
+                poll_interval_sec=0.0,
+            )
+        finally:
+            carla_closed_loop_route_probe.call_topic_echo = original_call_topic_echo
+            carla_closed_loop_route_probe.collect_operation_mode_blocker_snapshot = original_collect_snapshot
+
+        self.assertFalse(ready)
+        self.assertFalse(setup_checks[0]["passed"])
+        self.assertEqual(setup_checks[0]["attempt_count"], 1)
+        snapshot = setup_checks[0]["blocker_snapshot"]
+        self.assertEqual(snapshot["topics"]["fail_safe_mrm_state"]["output_tail"], "state: emergency")
+
+    def test_closed_loop_route_waits_for_localization_and_trajectory_before_autonomous(self) -> None:
+        recorded_steps: list[str] = []
+        calls: list[dict[str, object]] = []
+        setup_checks: list[dict[str, object]] = []
+        original_run_cmd = carla_closed_loop_route_probe.run_cmd
+        original_run_service_cmd_with_retries = carla_closed_loop_route_probe.run_service_cmd_with_retries
+        original_wait_for_topic_sample = carla_closed_loop_route_probe.wait_for_topic_sample
+        original_wait_for_operation_mode = (
+            carla_closed_loop_route_probe.wait_for_operation_mode_autonomous_available
+        )
+        original_sleep = time.sleep
+
+        def fake_run_cmd(
+            step: str,
+            args: list[str],
+            env: dict[str, str],
+            recorded_calls: list[dict[str, object]],
+            timeout_sec: int = 20,
+        ) -> dict[str, object]:
+            item = {"step": step, "returncode": 0, "output": ""}
+            recorded_steps.append(step)
+            recorded_calls.append(item)
+            return item
+
+        def fake_run_service_cmd_with_retries(
+            step: str,
+            args: list[str],
+            env: dict[str, str],
+            recorded_calls: list[dict[str, object]],
+            **_kwargs: object,
+        ) -> dict[str, object]:
+            item = {"step": step, "returncode": 0, "output": ""}
+            recorded_steps.append(step)
+            recorded_calls.append(item)
+            return item
+
+        def fake_wait_for_topic_sample(
+            step: str,
+            topic: str,
+            env: dict[str, str],
+            checks: list[dict[str, object]],
+            **_kwargs: object,
+        ) -> bool:
+            recorded_steps.append(step)
+            checks.append({"step": step, "topic": topic, "passed": True})
+            return True
+
+        def fake_wait_for_operation_mode(
+            env: dict[str, str],
+            checks: list[dict[str, object]],
+            **_kwargs: object,
+        ) -> bool:
+            recorded_steps.append("wait_operation_mode_autonomous_available")
+            checks.append({"step": "wait_operation_mode_autonomous_available", "passed": True})
+            return True
+
+        try:
+            carla_closed_loop_route_probe.run_cmd = fake_run_cmd
+            carla_closed_loop_route_probe.run_service_cmd_with_retries = fake_run_service_cmd_with_retries
+            carla_closed_loop_route_probe.wait_for_topic_sample = fake_wait_for_topic_sample
+            carla_closed_loop_route_probe.wait_for_operation_mode_autonomous_available = fake_wait_for_operation_mode
+            time.sleep = lambda _seconds: None
+            carla_closed_loop_route_probe.setup_route(
+                {},
+                {"x": 229.7, "y": -2.0, "z": 0.0, "yaw": 0.0},
+                {"x": 314.2, "y": -2.0, "z": 0.0, "yaw": 0.0},
+                calls,
+                setup_checks,
+            )
+        finally:
+            carla_closed_loop_route_probe.run_cmd = original_run_cmd
+            carla_closed_loop_route_probe.run_service_cmd_with_retries = original_run_service_cmd_with_retries
+            carla_closed_loop_route_probe.wait_for_topic_sample = original_wait_for_topic_sample
+            carla_closed_loop_route_probe.wait_for_operation_mode_autonomous_available = (
+                original_wait_for_operation_mode
+            )
+            time.sleep = original_sleep
+
+        self.assertLess(recorded_steps.index("initialize_localization"), recorded_steps.index("wait_localization_state"))
+        self.assertLess(recorded_steps.index("wait_localization_state"), recorded_steps.index("set_route_points"))
+        self.assertLess(recorded_steps.index("set_route_points"), recorded_steps.index("wait_planning_trajectory"))
+        self.assertLess(recorded_steps.index("wait_planning_trajectory"), recorded_steps.index("enable_autoware_control"))
+        self.assertLess(
+            recorded_steps.index("wait_operation_mode_autonomous_available"),
+            recorded_steps.index("change_to_autonomous"),
+        )
+
+    def test_closed_loop_route_clears_nearby_non_ego_start_traffic(self) -> None:
+        ego = _FakeActor("vehicle.pixmoving.robobus", "ego_vehicle", actor_id=10, x=250.0, y=2.0)
+        near_sumo = _FakeActor("vehicle.audi.tt", "sumo_driver", actor_id=11, x=215.0, y=2.0)
+        far_sumo = _FakeActor("vehicle.toyota.prius", "sumo_driver", actor_id=12, x=180.0, y=2.0)
+        world = SimpleNamespace(get_actors=lambda: _FakeActorList([ego, near_sumo, far_sumo]))
+
+        report = carla_closed_loop_route_probe.clear_nearby_start_traffic(world, ego, radius_m=45.0)
+
+        self.assertEqual(report["checked_count"], 2)
+        self.assertEqual(report["nearby_count"], 1)
+        self.assertEqual(report["destroyed_count"], 1)
+        self.assertTrue(near_sumo.destroyed)
+        self.assertFalse(far_sumo.destroyed)
+        self.assertEqual(report["nearest_actor"]["id"], 11)
+
+    def test_dynamic_actor_probe_detects_adapi_success_false(self) -> None:
+        calls = [
+            {
+                "step": "change_to_autonomous",
+                "returncode": 0,
+                "output": (
+                    "ChangeOperationMode_Response(status="
+                    "ResponseStatus(success=False, code=1, "
+                    "message='The target mode is not available.'))"
+                ),
+            }
+        ]
+
+        failures = carla_dynamic_actor_probe.service_call_failures(calls)
+
+        self.assertFalse(carla_dynamic_actor_probe.service_calls_successful(calls))
+        self.assertEqual(failures[0]["step"], "change_to_autonomous")
+        self.assertEqual(failures[0]["reason"], "service_status_false")
+        self.assertEqual(failures[0]["message"], "The target mode is not available.")
 
     def test_perception_tail_normalizes_timeout_bytes(self) -> None:
         self.assertEqual(perception_readiness_probe._tail(None), "")

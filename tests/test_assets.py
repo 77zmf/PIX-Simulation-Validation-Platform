@@ -22,6 +22,19 @@ class AssetManifestTests(unittest.TestCase):
             Path(bundle.maps["pointcloud_metadata"]["path"]),
             REPO_ROOT / "artifacts" / "assets" / "site_gy_qyhx_gsh20260302" / "pointcloud_map_metadata.yaml",
         )
+        self.assertEqual(Path(bundle.source["local_extract_dir"]), REPO_ROOT / "lsx" / "lsx-gsh0302map")
+        self.assertEqual(
+            Path(bundle.maps["pointcloud_dir"]["fallback_repo_path"]),
+            REPO_ROOT / "lsx" / "lsx-gsh0302map" / "pointcloud_map.pcd",
+        )
+
+    def test_asset_inspection_reports_local_extract_dir(self) -> None:
+        bundle = load_asset_bundle("site_gy_qyhx_gsh20260302", REPO_ROOT, REPO_ROOT / "artifacts" / "assets")
+        inspection = inspect_asset_bundle(bundle)
+
+        local_extract_dir = REPO_ROOT / "lsx" / "lsx-gsh0302map"
+        self.assertEqual(Path(inspection["source"]["local_extract_dir"]), local_extract_dir)
+        self.assertEqual(inspection["source"]["local_extract_dir_exists"], local_extract_dir.exists())
 
     def test_inspect_asset_bundle_reports_tile_count_mismatch(self) -> None:
         asset_root = REPO_ROOT / ".tmp" / "test_asset_bundle_inspect"

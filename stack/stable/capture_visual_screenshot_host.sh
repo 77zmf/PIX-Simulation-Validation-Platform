@@ -4,6 +4,7 @@ set -euo pipefail
 RUN_DIR=""
 RENDER_MODE=""
 RVIZ=""
+RVIZ_CONFIG=""
 DISPLAY_ARG=""
 XAUTHORITY_ARG=""
 WAIT_SEC=""
@@ -15,6 +16,7 @@ while [[ $# -gt 0 ]]; do
     --run-dir) RUN_DIR="$2"; shift 2 ;;
     --render-mode) RENDER_MODE="$2"; shift 2 ;;
     --rviz) RVIZ="$2"; shift 2 ;;
+    --rviz-config) RVIZ_CONFIG="$2"; shift 2 ;;
     --display) DISPLAY_ARG="$2"; shift 2 ;;
     --xauthority) XAUTHORITY_ARG="$2"; shift 2 ;;
     --wait-sec) WAIT_SEC="$2"; shift 2 ;;
@@ -72,6 +74,7 @@ echo "Visual screenshot requested"
 echo "RunDir: ${RUN_DIR}"
 echo "Render mode: ${RENDER_MODE:-unset}"
 echo "RViz: ${RVIZ:-unset}"
+echo "RViz config: ${RVIZ_CONFIG:-unset}"
 echo "DISPLAY: ${DISPLAY_ARG}"
 echo "XAUTHORITY: ${XAUTHORITY_ARG:-unset}"
 echo "Wait seconds: ${WAIT_SEC}"
@@ -117,6 +120,7 @@ cat > "$METADATA_PATH" <<JSON
   "xauthority": "${XAUTHORITY_ARG:-}",
   "render_mode": "${RENDER_MODE:-}",
   "rviz": "${RVIZ:-}",
+  "rviz_config": "${RVIZ_CONFIG:-}",
   "wait_sec": "${WAIT_SEC}"
 }
 JSON

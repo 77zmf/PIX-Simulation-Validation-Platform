@@ -1,0 +1,94 @@
+scenario_id: stable_l1_robobus117th_town01_speed40_probe
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 120.0
+    y: -133.465
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 315.0
+    y: -133.465
+    z: 0.0
+    yaw_deg: 0.0
+traffic_profile:
+  mode: empty_speed40_probe
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 140
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/speed40_probe
+  carla_recorder:
+    enabled: true
+    path: carla/speed40_probe.log
+kpi_gate: planning_control_speed40_probe
+labels:
+  - L1
+  - stable
+  - robobus117th
+  - speed40
+  - route_follow
+  - regression
+metadata:
+  owner: zmf
+  source_assets:
+    - scenarios/l1/regression_follow_lane.yaml
+    - ops/runtime_probes/carla_closed_loop_route_probe.py
+    - evaluation/kpi_gates/planning_control_speed40_probe.yaml
+  validation_method: Run the stable stack with the PIX robobus on the valid long Town01 lanelet 1071 straight segment, publish a 40km/h velocity target through the closed-loop route probe evidence path, and require both route closure and target-speed evidence.
+  validation_command: >
+    python3 ops/runtime_probes/carla_closed_loop_route_probe.py
+    --run-dir <run_dir>
+    --goal-tolerance-m 1.5
+    --max-duration-sec 150
+    --sample-period 0.2
+    --target-speed-mps 11.111111
+    --target-speed-tolerance-mps 0.5
+    --camera-video-output <run_dir>/runtime_verification/speed40_route_sync.mp4
+    --camera-video-mode ego_chase
+    --disable-goal-modification
+  expected_observable: The PIX robobus accepts the valid Town01 lanelet 1071 route, reaches at least 10.6m/s during the run, stays within lane envelope, and closes the route with stable control.
+  known_current_gap: As of 2026-05-01 runtime evidence showed the previous x=205.0 to x=324.5 road-1 route was too short for stable 40km/h evidence and stopped near the endpoint with vehicle_cmd_gate emergency after an out-of-lane warning. This route now uses the longer 120.0m to 315.0m Town01 lanelet 1071 straight segment.
+  rollback_impact: Keep scenarios/l1/regression_follow_lane.yaml as the required route-follow gate and leave this scenario as a non-blocking speed regression until it passes repeatedly.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    autoware_rviz_config: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/autoware_launch/share/autoware_launch/rviz/planning_bev.rviz
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_actor_health_check: "true"
+    carla_spawn_point: "120.0000,133.4650,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /planning/scenario_planning/trajectory
+      - /control/command/control_cmd
+      - /control/command/actuation_cmd
+      - /vehicle/status/velocity_status

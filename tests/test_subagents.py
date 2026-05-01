@@ -24,8 +24,10 @@ class SubagentSpecTests(unittest.TestCase):
                 "algorithm_research_explorer",
                 "execution_runtime_explorer",
                 "gaussian_reconstruction_explorer",
+                "nvidia_carla_reconstruction_explorer",
                 "project_automation_explorer",
                 "public_road_e2e_shadow_explorer",
+                "stable_complex_validation_explorer",
                 "stable_stack_host_readiness_explorer",
             ],
         )
@@ -42,7 +44,7 @@ class SubagentSpecTests(unittest.TestCase):
             rc = main(["--repo-root", str(REPO_ROOT), "subagent-spec", "--list"])
         self.assertEqual(rc, 0)
         payload = json.loads(stream.getvalue())
-        self.assertEqual(len(payload["specs"]), 6)
+        self.assertEqual(len(payload["specs"]), 8)
 
     def test_cli_renders_subagent_spec_json(self) -> None:
         stream = io.StringIO()
@@ -68,6 +70,13 @@ class SubagentSpecTests(unittest.TestCase):
         self.assertIn("Gaussian reconstruction", spec.description)
         self.assertIn("reconstruction", spec.render_message(REPO_ROOT).lower())
 
+    def test_load_nvidia_carla_reconstruction_spec_mentions_import_readiness(self) -> None:
+        spec = load_subagent_spec("nvidia_carla_reconstruction_explorer", REPO_ROOT)
+        self.assertIn("NVIDIA", spec.description)
+        message = spec.render_message(REPO_ROOT).lower()
+        self.assertIn("carla import", message)
+        self.assertIn("mesh", message)
+
     def test_load_public_road_e2e_shadow_spec_mentions_bevfusion(self) -> None:
         spec = load_subagent_spec("public_road_e2e_shadow_explorer", REPO_ROOT)
         self.assertIn("BEVFusion", spec.description)
@@ -77,6 +86,13 @@ class SubagentSpecTests(unittest.TestCase):
         spec = load_subagent_spec("stable_stack_host_readiness_explorer", REPO_ROOT)
         self.assertIn("readiness", spec.description.lower())
         self.assertIn("ubuntu host", spec.render_message(REPO_ROOT).lower())
+
+    def test_load_stable_complex_validation_spec_mentions_sumo(self) -> None:
+        spec = load_subagent_spec("stable_complex_validation_explorer", REPO_ROOT)
+        self.assertIn("SUMO", spec.description)
+        message = spec.render_message(REPO_ROOT).lower()
+        self.assertIn("complex scenario", message)
+        self.assertIn("l3 occlusion", message)
 
     def test_cli_renders_spawn_json(self) -> None:
         stream = io.StringIO()

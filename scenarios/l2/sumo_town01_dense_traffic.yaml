@@ -1,0 +1,138 @@
+scenario_id: stable_l2_sumo_town01_dense_traffic
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  spawn_point: Town01/9
+goal:
+  route_id: Town01/sumo_dense_traffic_loop
+traffic_profile:
+  mode: sumo_carla_actor_bridge_town01_dense
+  vehicles: 60
+  pedestrians: 0
+  source: CARLA_0.9.15 Co-Simulation/Sumo Town01 example, 100 scheduled SUMO vehicles
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260426
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/sumo_town01_dense_traffic
+  carla_recorder:
+    enabled: true
+    path: carla/sumo_town01_dense_traffic.log
+kpi_gate: sumo_dense_traffic
+labels:
+  - L2
+  - stable
+  - sumo
+  - carla
+  - actor_bridge
+  - planning_control
+  - town01
+  - dense_traffic
+metadata:
+  owner: zmf
+  source_assets:
+    - stack/stable/start_sumo_cosim_host.sh
+    - ops/runtime_probes/sumo_cosim_probe.py
+    - ops/runtime_probes/carla_actor_visual_capture.py
+    - stack/stable/carla_actor_object_bridge.py
+    - /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
+    - /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/rou/Town01.rou.xml
+    - /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/net/Town01.net.xml
+  validation_method: Start CARLA Town01, run the official CARLA SUMO synchronization wrapper with the Town01 route set, require dense SUMO traffic in co-sim logs, expose background vehicles through the actor object bridge, capture multiple NPC visual samples, then finalize through the SUMO dense KPI gate.
+  validation_command: >
+    python3 ops/runtime_probes/sumo_cosim_probe.py
+    --run-dir <run_dir>
+    --profile town01_sumo_dense
+    --sumo-config-file /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
+    --actor-source carla-rpc
+    --min-actors 12
+    --wait-sec 15
+    --log-wait-timeout-sec 30
+    --carla-actor-wait-sec 8
+    --carla-actor-poll-sec 0.5
+    &&
+    python3 ops/runtime_probes/carla_actor_visual_capture.py
+    --run-dir <run_dir>
+    --profile town01_sumo_dense_visual
+    --carla-root /home/pixmoving/CARLA_0.9.15
+    --carla-port 2000
+    --ego-role-name ego_vehicle
+    --npc-role-name sumo_driver
+    --npc-role-prefix sumo
+    --min-npcs 8
+    --min-captures 12
+    --max-npcs 12
+    --image-width 960
+    --image-height 540
+    --actor-poll-timeout-sec 20
+    --worker-timeout-sec 360
+    &&
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th_presence_smoke
+  expected_observable: CARLA visual output shows the PIX ego vehicle with at least eight SUMO-synchronized NPC vehicles; Autoware receives non-empty object/control streams through the actor bridge, and SUMO co-sim evidence reports at least 12 active traffic actors.
+  rollback_impact: Disable this scenario or set stable_runtime.sumo_enabled=false; the L1 SUMO smoke and CARLA-only stable scenarios remain unaffected.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    autoware_rviz_config: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/autoware_launch/share/autoware_launch/rviz/planning_bev.rviz
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: "229.7817,2.0201,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_actor_object_bridge_enabled: "true"
+    carla_actor_object_bridge_poll_sec: "0.2"
+    carla_actor_object_bridge_include_walkers: "true"
+    carla_actor_object_bridge_delete_all_on_start: "false"
+    carla_actor_object_bridge_delete_all_on_stop: "true"
+    sumo_enabled: "true"
+    sumo_config_file: /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
+    sumo_net_file: /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/net/Town01.net.xml
+    sumo_route_file: /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/rou/Town01.rou.xml
+    sumo_host: 127.0.0.1
+    sumo_binary: sumo
+    sumo_gui: "false"
+    sumo_step_length: "0.05"
+    sumo_sync_vehicle_lights: "false"
+    sumo_sync_vehicle_color: "true"
+    sumo_tls_manager: none
+    sumo_carla_client_timeout_sec: "60.0"
+    sumo_min_actor_count: "12"
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info
+      - /localization/kinematic_state
+      - /vehicle/status/velocity_status
+      - /control/command/control_cmd
+      - /perception/object_recognition/objects

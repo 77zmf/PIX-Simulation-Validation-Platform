@@ -43,6 +43,7 @@ RMW_IMPLEMENTATION_VALUE="${RMW_IMPLEMENTATION_ARG:-${RMW_IMPLEMENTATION:-}}"
 KILL_SIMPLE_SIM="${KILL_SIMPLE_SIM:-${SIMCTL_CARLA_LOCALIZATION_BRIDGE_KILL_SIMPLE_SIM:-true}}"
 WAIT_SEC="${WAIT_SEC:-${SIMCTL_CARLA_LOCALIZATION_BRIDGE_WAIT_SEC:-60}}"
 KILL_MONITOR_SEC="${KILL_MONITOR_SEC:-${SIMCTL_CARLA_LOCALIZATION_BRIDGE_KILL_MONITOR_SEC:-45}}"
+ROS_TOPIC_LIST_TIMEOUT_SEC="${SIMCTL_ROS_TOPIC_LIST_TIMEOUT_SEC:-5}"
 BRIDGE_SCRIPT="${REPO_ROOT}/stack/stable/carla_localization_bridge.py"
 
 source_runtime_environment() {
@@ -68,7 +69,7 @@ wait_for_topic() {
   local topic="$1"
   local deadline=$((SECONDS + WAIT_SEC))
   while [[ "${SECONDS}" -lt "${deadline}" ]]; do
-    if ros2 topic list 2>/dev/null | grep -Fxq "${topic}"; then
+    if timeout "${ROS_TOPIC_LIST_TIMEOUT_SEC}s" ros2 topic list 2>/dev/null | grep -Fxq "${topic}"; then
       return 0
     fi
     sleep 1
@@ -114,6 +115,7 @@ echo "CPU Affinity: ${CPU_AFFINITY}"
 echo "Kill simple simulator: ${KILL_SIMPLE_SIM}"
 echo "WaitSec: ${WAIT_SEC}"
 echo "KillMonitorSec: ${KILL_MONITOR_SEC}"
+echo "RosTopicListTimeoutSec: ${ROS_TOPIC_LIST_TIMEOUT_SEC}"
 echo "BridgeScript: ${BRIDGE_SCRIPT}"
 
 if [[ "$EXECUTE" -eq 1 ]]; then
@@ -130,6 +132,8 @@ if [[ "$EXECUTE" -eq 1 ]]; then
   if [[ -n "${RMW_IMPLEMENTATION_VALUE}" ]]; then
     export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION_VALUE}"
   fi
+  export ROS2CLI_DISABLE_DAEMON=1
+  export PYTHONNOUSERSITE=1
   export SIMCTL_RUNTIME_NAMESPACE="${RUNTIME_NAMESPACE}"
   wait_for_topic "/sensing/gnss/pose_with_covariance"
   wait_for_topic "/vehicle/status/velocity_status"

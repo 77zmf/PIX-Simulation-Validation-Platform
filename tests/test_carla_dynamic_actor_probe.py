@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import time
 import unittest
 from pathlib import Path
 
@@ -88,6 +89,259 @@ class CarlaDynamicActorProbeTests(unittest.TestCase):
                 self.assertGreaterEqual(len(occluders), 1)
                 self.assertEqual(config.min_actor_observed_count, 1)
                 self.assertEqual(config.safe_ttc_sec, 1.8)
+
+    def test_l2_crosswalk_vru_yield_uses_single_visible_pedestrian(self) -> None:
+        config = carla_dynamic_actor_probe.PROBES["l2_crosswalk_vru_yield"]
+        visible = [actor for actor in config.actors if actor.perception_visible]
+
+        self.assertEqual(config.target_type, "walker.pedestrian.0001")
+        self.assertEqual(len(visible), 1)
+        self.assertEqual(visible[0].name, "crosswalk_pedestrian")
+        self.assertEqual(config.min_actor_observed_count, 1)
+        self.assertEqual(config.safe_ttc_sec, 1.8)
+
+    def test_run_cmd_with_retries_retries_timeout_then_success(self) -> None:
+        calls: list[dict[str, object]] = []
+        seen: list[int] = []
+        original_run_cmd = carla_dynamic_actor_probe.run_cmd
+        original_sleep = time.sleep
+
+        def fake_run_cmd(
+            step: str,
+            args: list[str],
+            env: dict[str, str],
+            recorded_calls: list[dict[str, object]],
+            timeout_sec: int = 20,
+        ) -> dict[str, object]:
+            returncode = 124 if not seen else 0
+            seen.append(returncode)
+            item = {
+                "step": step,
+                "returncode": returncode,
+                "output": "",
+                "args": args,
+            }
+            recorded_calls.append(item)
+            return item
+
+        try:
+            carla_dynamic_actor_probe.run_cmd = fake_run_cmd
+            time.sleep = lambda _seconds: None
+            result = carla_dynamic_actor_probe.run_cmd_with_retries(
+                "engage_true",
+                ["timeout", "15", "ros2", "service", "call"],
+                {},
+                calls,
+                timeout_sec=18,
+                retries=3,
+                retry_delay_sec=0.0,
+            )
+        finally:
+            carla_dynamic_actor_probe.run_cmd = original_run_cmd
+            time.sleep = original_sleep
+
+        self.assertEqual(result["returncode"], 0)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["attempt"], 1)
+        self.assertEqual(calls[1]["attempt"], 2)
+        self.assertEqual(calls[1]["max_attempts"], 3)
+
+    def test_run_service_cmd_with_retries_retries_success_false_then_supersedes_failure(self) -> None:
+        calls: list[dict[str, object]] = []
+        seen: list[str] = []
+        original_run_cmd = carla_dynamic_actor_probe.run_cmd
+        original_sleep = time.sleep
+
+        def fake_run_cmd(
+            step: str,
+            args: list[str],
+            env: dict[str, str],
+            recorded_calls: list[dict[str, object]],
+            timeout_sec: int = 20,
+        ) -> dict[str, object]:
+            output = (
+                "ChangeOperationMode_Response(status=ResponseStatus("
+                "success=False, code=1, message='The target mode is not available.'))"
+                if not seen
+                else "ChangeOperationMode_Response(status=ResponseStatus(success=True, code=0, message=''))"
+            )
+            seen.append(output)
+            item = {
+                "step": step,
+                "returncode": 0,
+                "output": output,
+                "args": args,
+            }
+            recorded_calls.append(item)
+            return item
+
+        try:
+            carla_dynamic_actor_probe.run_cmd = fake_run_cmd
+            time.sleep = lambda _seconds: None
+            result = carla_dynamic_actor_probe.run_service_cmd_with_retries(
+                "change_to_autonomous",
+                ["timeout", "25", "ros2", "service", "call"],
+                {},
+                calls,
+                timeout_sec=28,
+                retries=3,
+                retry_delay_sec=0.0,
+            )
+        finally:
+            carla_dynamic_actor_probe.run_cmd = original_run_cmd
+            time.sleep = original_sleep
+
+        self.assertEqual(result["returncode"], 0)
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(calls[0]["superseded_by_success"])
+        self.assertEqual(calls[0]["service_failure_reason"], "service_status_false")
+        self.assertEqual(calls[1]["attempt"], 2)
+        self.assertEqual(carla_dynamic_actor_probe.service_call_failures(calls), [])
+
+    def test_setup_route_waits_for_localization_and_trajectory_before_autonomous(self) -> None:
+        service_calls: list[dict[str, object]] = []
+        setup_checks: list[dict[str, object]] = []
+        recorded_steps: list[str] = []
+        original_run_cmd = carla_dynamic_actor_probe.run_cmd
+        original_run_cmd_with_retries = carla_dynamic_actor_probe.run_cmd_with_retries
+        original_run_service_cmd_with_retries = carla_dynamic_actor_probe.run_service_cmd_with_retries
+        original_sleep = time.sleep
+
+        def fake_run_cmd(
+            step: str,
+            args: list[str],
+            env: dict[str, str],
+            calls: list[dict[str, object]],
+            timeout_sec: int = 20,
+        ) -> dict[str, object]:
+            recorded_steps.append(step)
+            item = {"step": step, "returncode": 0, "output": "", "args": args}
+            calls.append(item)
+            return item
+
+        def fake_run_cmd_with_retries(
+            step: str,
+            args: list[str],
+            env: dict[str, str],
+            calls: list[dict[str, object]],
+            *,
+            timeout_sec: int = 20,
+            retries: int = 1,
+            retry_delay_sec: float = 2.0,
+        ) -> dict[str, object]:
+            recorded_steps.append(step)
+            item = {"step": step, "returncode": 0, "output": "", "args": args, "attempt": 1, "max_attempts": retries}
+            calls.append(item)
+            return item
+
+        try:
+            carla_dynamic_actor_probe.run_cmd = fake_run_cmd
+            carla_dynamic_actor_probe.run_cmd_with_retries = fake_run_cmd_with_retries
+            carla_dynamic_actor_probe.run_service_cmd_with_retries = fake_run_cmd_with_retries
+            time.sleep = lambda _seconds: None
+            carla_dynamic_actor_probe.setup_route({}, service_calls, setup_checks)
+        finally:
+            carla_dynamic_actor_probe.run_cmd = original_run_cmd
+            carla_dynamic_actor_probe.run_cmd_with_retries = original_run_cmd_with_retries
+            carla_dynamic_actor_probe.run_service_cmd_with_retries = original_run_service_cmd_with_retries
+            time.sleep = original_sleep
+
+        self.assertLess(recorded_steps.index("initialize_localization"), recorded_steps.index("wait_localization_state"))
+        self.assertLess(recorded_steps.index("set_route_points"), recorded_steps.index("wait_planning_trajectory"))
+        self.assertLess(recorded_steps.index("wait_planning_trajectory"), recorded_steps.index("change_to_autonomous"))
+        self.assertTrue(setup_checks)
+
+    def test_setup_route_supersedes_enable_control_failure_when_autonomous_succeeds(self) -> None:
+        service_calls: list[dict[str, object]] = []
+        setup_checks: list[dict[str, object]] = []
+        original_run_cmd = carla_dynamic_actor_probe.run_cmd
+        original_run_cmd_with_retries = carla_dynamic_actor_probe.run_cmd_with_retries
+        original_sleep = time.sleep
+
+        def fake_run_cmd(
+            step: str,
+            args: list[str],
+            env: dict[str, str],
+            calls: list[dict[str, object]],
+            timeout_sec: int = 20,
+        ) -> dict[str, object]:
+            if step == "enable_autoware_control":
+                output = (
+                    "ChangeOperationMode_Response(status=ResponseStatus("
+                    "success=False, code=1, message='The mode change is blocked by the system.'))"
+                )
+            elif step == "change_to_autonomous":
+                output = "ChangeOperationMode_Response(status=ResponseStatus(success=True, code=0, message=''))"
+            else:
+                output = ""
+            item = {"step": step, "returncode": 0, "output": output, "args": args}
+            calls.append(item)
+            return item
+
+        def fake_run_cmd_with_retries(
+            step: str,
+            args: list[str],
+            env: dict[str, str],
+            calls: list[dict[str, object]],
+            *,
+            timeout_sec: int = 20,
+            retries: int = 1,
+            retry_delay_sec: float = 2.0,
+        ) -> dict[str, object]:
+            item = {"step": step, "returncode": 0, "output": "", "args": args, "attempt": 1, "max_attempts": retries}
+            calls.append(item)
+            return item
+
+        try:
+            carla_dynamic_actor_probe.run_cmd = fake_run_cmd
+            carla_dynamic_actor_probe.run_cmd_with_retries = fake_run_cmd_with_retries
+            time.sleep = lambda _seconds: None
+            carla_dynamic_actor_probe.setup_route({}, service_calls, setup_checks)
+        finally:
+            carla_dynamic_actor_probe.run_cmd = original_run_cmd
+            carla_dynamic_actor_probe.run_cmd_with_retries = original_run_cmd_with_retries
+            time.sleep = original_sleep
+
+        enable_calls = [item for item in service_calls if item["step"] == "enable_autoware_control"]
+        self.assertTrue(enable_calls)
+        self.assertTrue(all(item["superseded_by_success"] for item in enable_calls))
+        self.assertEqual(carla_dynamic_actor_probe.service_call_failures(service_calls), [])
+
+    def test_publish_dummy_message_repeatedly_replays_add_for_late_subscribers(self) -> None:
+        class FakePub:
+            def __init__(self) -> None:
+                self.messages: list[object] = []
+
+            def publish(self, msg: object) -> None:
+                self.messages.append(msg)
+
+        class FakeRclpy:
+            def __init__(self) -> None:
+                self.spin_count = 0
+
+            def spin_once(self, node: object, timeout_sec: float) -> None:
+                self.spin_count += 1
+
+        fake_pub = FakePub()
+        fake_rclpy = FakeRclpy()
+        original_sleep = time.sleep
+
+        try:
+            time.sleep = lambda _seconds: None
+            carla_dynamic_actor_probe.publish_dummy_message_repeatedly(
+                fake_rclpy,
+                object(),
+                fake_pub,
+                {"action": "ADD"},
+                repeat=4,
+                spin_timeout_sec=0.01,
+                sleep_sec=0.0,
+            )
+        finally:
+            time.sleep = original_sleep
+
+        self.assertEqual(len(fake_pub.messages), 4)
+        self.assertEqual(fake_rclpy.spin_count, 4)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,61 @@
+scenario_id: stable_l2_planning_control_roadtest_trajectory_jump_replay_draft
+stack: stable
+map_id: roadtest_gy_qyhx_202604
+asset_bundle: planning_road_test_failcases_202604
+ego_init:
+  route_id: roadtest_replay/trajectory_jump_source_pose
+goal:
+  route_id: roadtest_replay/trajectory_jump_source_goal
+traffic_profile:
+  mode: roadtest_trajectory_jump_replay_draft
+  vehicles: 0
+  pedestrians: 0
+  replay_cases:
+    - planning_20260421145245_trajectory_jump
+    - planning_20260427100413_trajectory_issue
+    - planning_20260424105938_p_gear_turn_new_route
+weather_profile:
+  preset: RoadTestRecorded
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260421
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/roadtest_trajectory_jump_replay
+  carla_recorder:
+    enabled: true
+    path: carla/roadtest_trajectory_jump_replay.log
+kpi_gate: planning_control_trajectory_stability_replay
+labels:
+  - L2
+  - stable
+  - planning_control
+  - road_test_replay
+  - trajectory_jump
+  - lane_change
+  - draft
+metadata:
+  owner: planning-control
+  draft_status: replay_probe_ready_blocked_on_deterministic_carla_route
+  source_assets:
+    - assets/manifests/planning_road_test_failcases_202604.yaml
+    - ops/runtime_probes/planning_roadtest_replay_probe.py
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260421_1452_trajectory_jump/analysis_report.md
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260427_1004_trajectory_issue/rd_handoff.md
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/82th_20260424_105938_p_at_turn_new_route/analysis_report.md
+  validation_method: Executable summary replay probe. Promote after the public-road route section is converted into a deterministic CARLA case or direct MCAP replay harness.
+  validation_command: >
+    python3 ops/runtime_probes/planning_roadtest_replay_probe.py --run-dir <run_dir> --manifest assets/manifests/planning_road_test_failcases_202604.yaml --profile trajectory_jump
+  expected_observable: Indexed road-test evidence emits trajectory_jump_max_m and planning_validator_invalid_count into runtime evidence; KPI stays red until the route/lane-change/static-obstacle sequence is fixed or reproduced safely.
+  rollback_impact: Revert validation_command to the blocked placeholder if the external zmf_test-data evidence root is unavailable.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_render_mode: offscreen
+    carla_quality_level: Low

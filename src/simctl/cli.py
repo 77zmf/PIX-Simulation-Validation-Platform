@@ -6,6 +6,7 @@ import os
 import shlex
 import subprocess
 import sys
+import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +15,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .adapters import AdapterContext, load_reconstruction_adapter
 from .assets import asset_snapshot, inspect_asset_bundle, load_asset_bundle
+from .bugpack import run_result_paths_from_inputs, write_bugpack
 from .config import dump_json, dump_yaml, ensure_dir, find_repo_root, load_yaml, make_run_id, to_wsl_path, utc_now
 from .dingtalk import (
     build_markdown_payload,
@@ -44,7 +46,14 @@ from .reporting import aggregate_run_results, discover_run_results, load_run_res
 from .runtime import build_context, execute_plan, load_stack_profile, persist_plan, render_action
 from .runtime_evidence import collect_runtime_evidence, write_runtime_evidence_summary
 from .scenarios import load_scenario
-from .slots import acquire_slot_lock, get_slot_by_id, list_available_slots, load_slot_catalog, release_slot_lock
+from .slots import (
+    acquire_slot_lock,
+    get_slot_by_id,
+    list_available_slots,
+    load_slot_catalog,
+    release_slot_lock,
+    release_slot_lock_for_run_dir,
+)
 from .subagents import list_subagent_specs, load_subagent_spec
 
 
@@ -106,22 +115,49 @@ def _scenario_stable_runtime_value(scenario: Any, key: str) -> Any:
     return stable_runtime.get(key, execution.get(key))
 
 
+def _config_list_value(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items = [item.strip() for item in value.split(",")]
+    elif isinstance(value, list):
+        items = [str(item).strip() for item in value]
+    else:
+        items = [str(value).strip()]
+    return [item for item in items if item]
+
+
 def _scenario_expected_ros_topics(scenario: Any) -> list[str] | None:
     value = _scenario_stable_runtime_value(scenario, "ros_expected_topics")
     if value is None:
+        autoware_enabled = _scenario_stable_runtime_value(scenario, "autoware_enabled")
+        if autoware_enabled is not None and not _truthy_config_value(autoware_enabled):
+            return []
         return None
-    if isinstance(value, str):
-        topics = [item.strip() for item in value.split(",")]
-    elif isinstance(value, list):
-        topics = [str(item).strip() for item in value]
-    else:
-        topics = [str(value).strip()]
-    return [topic for topic in topics if topic]
+    return _config_list_value(value)
+
+
+def _scenario_health_expected_process_steps(scenario: Any) -> list[str] | None:
+    value = _scenario_stable_runtime_value(scenario, "health_expected_process_steps")
+    if value is not None:
+        return _config_list_value(value)
+    autoware_enabled = _scenario_stable_runtime_value(scenario, "autoware_enabled")
+    if scenario.stack == "novadrive" or (autoware_enabled is not None and not _truthy_config_value(autoware_enabled)):
+        return ["start-carla-server"]
+    return None
 
 
 def _scenario_rmw_implementation(scenario: Any) -> str:
     value = _scenario_stable_runtime_value(scenario, "ros_rmw_implementation")
     return "" if value is None else str(value)
+
+
+def _truthy_config_value(value: Any) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _scenario_carla_actor_health_enabled(scenario: Any) -> bool:
+    return _truthy_config_value(_scenario_stable_runtime_value(scenario, "carla_actor_health_check"))
 
 
 def _scenario_metadata(scenario: Any) -> dict[str, Any]:
@@ -181,6 +217,7 @@ def _validation_shell_command(
         )
     if ros_domain_id:
         lines.append(f"export ROS_DOMAIN_ID={shlex.quote(ros_domain_id)}")
+    lines.append("export ROS2CLI_DISABLE_DAEMON=1")
     if run_result.get("carla_rpc_port") is not None:
         lines.append(f"export SIMCTL_CARLA_RPC_PORT={shlex.quote(str(run_result['carla_rpc_port']))}")
     if run_result.get("traffic_manager_port") is not None:
@@ -568,7 +605,8 @@ def _run_worker(
                     record["status"] = finalize_result.get("status", record["status"])
                     record["gate"] = finalize_result.get("gate")
                     record["kpis"] = finalize_result.get("kpis")
-            if validation_completed.returncode != 0:
+            finalized_passed = record.get("status") == "passed" and (record.get("gate") or {}).get("passed") is True
+            if validation_completed.returncode != 0 and not finalized_passed:
                 validation_error = RuntimeError(
                     f"Validation failed for {scenario_path} with return code {validation_completed.returncode}\n"
                     f"STDOUT:\n{validation_completed.stdout}\nSTDERR:\n{validation_completed.stderr}"
@@ -664,6 +702,255 @@ def _campaign_down_command(repo_root: Path, stack: str, run_dir: str | Path, *, 
 
 def _campaign_report_command(repo_root: Path, run_root: Path) -> list[str]:
     return _campaign_base_command(repo_root) + ["report", "--run-root", str(run_root)]
+
+
+def _campaign_bugpack_config(config: dict[str, Any]) -> dict[str, Any]:
+    raw = config.get("bugpack", {})
+    return raw if isinstance(raw, dict) else {}
+
+
+def _campaign_bugpack_enabled(config: dict[str, Any]) -> bool:
+    bugpack = _campaign_bugpack_config(config)
+    return bool(bugpack.get("enabled", False))
+
+
+def _campaign_bugpack_output_dir(run_root: Path, config: dict[str, Any]) -> Path:
+    bugpack = _campaign_bugpack_config(config)
+    raw_output = str(bugpack.get("output_dir") or "bugpack")
+    output_dir = Path(raw_output)
+    return output_dir if output_dir.is_absolute() else run_root / output_dir
+
+
+def _campaign_bugpack_command(repo_root: Path, run_root: Path, config: dict[str, Any]) -> list[str]:
+    bugpack = _campaign_bugpack_config(config)
+    command = _campaign_base_command(repo_root) + [
+        "bugpack",
+        "--run-root",
+        str(run_root),
+        "--output-dir",
+        str(_campaign_bugpack_output_dir(run_root, config)),
+        "--owner",
+        str(bugpack.get("owner") or "planning-control"),
+    ]
+    if bool(bugpack.get("include_passed", False)):
+        command.append("--include-passed")
+    if bool(bugpack.get("include_infra", False)):
+        command.append("--include-infra")
+    return command
+
+
+def _campaign_loop_config(config: dict[str, Any]) -> dict[str, Any]:
+    raw = config.get("loop", {})
+    return raw if isinstance(raw, dict) else {}
+
+
+def _campaign_cooldown_sec(config: dict[str, Any]) -> float:
+    try:
+        return max(0.0, float(config.get("cooldown_sec", 0) or 0))
+    except (TypeError, ValueError):
+        raise SystemExit(f"Invalid campaign cooldown_sec: {config.get('cooldown_sec')}")
+
+
+def _positive_int(value: Any, *, name: str) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise SystemExit(f"{name} must be an integer")
+    if parsed < 0:
+        raise SystemExit(f"{name} must be >= 0")
+    return parsed
+
+
+def _campaign_loop_run_root(repo_root: Path, config: dict[str, Any], config_path: Path, override: str | None) -> Path:
+    if override:
+        path = Path(override)
+        return (repo_root / path).resolve() if not path.is_absolute() else path.resolve()
+    loop_config = _campaign_loop_config(config)
+    raw = str(loop_config.get("default_run_root") or "")
+    if not raw:
+        campaign_root = _resolve_campaign_run_root(repo_root, config, None)
+        raw = f"{campaign_root.name}_loop"
+        path = campaign_root.parent / make_run_id(raw)
+        return path.resolve()
+    path = Path(raw)
+    if not path.is_absolute():
+        path = repo_root / path
+    return path.resolve()
+
+
+def _campaign_loop_max_rounds(config: dict[str, Any], override: int | None) -> int:
+    if override is not None:
+        return _positive_int(override, name="--max-rounds")
+    loop_config = _campaign_loop_config(config)
+    return _positive_int(loop_config.get("max_rounds", 1), name="loop.max_rounds")
+
+
+def _campaign_loop_sleep_sec(config: dict[str, Any], override: float | None) -> float:
+    if override is not None:
+        raw = override
+    else:
+        loop_config = _campaign_loop_config(config)
+        raw = loop_config.get("round_sleep_sec", config.get("round_sleep_sec", 0))
+    try:
+        return max(0.0, float(raw or 0))
+    except (TypeError, ValueError):
+        raise SystemExit(f"Invalid round sleep seconds: {raw}")
+
+
+def _campaign_loop_scenario_paths(repo_root: Path, config: dict[str, Any]) -> list[tuple[dict[str, Any], Path]]:
+    scenario_paths: list[tuple[dict[str, Any], Path]] = []
+    for entry in _campaign_scenario_entries(config):
+        if not bool(entry.get("execute", True)):
+            continue
+        scenario_paths.append((entry, _campaign_scenario_path(repo_root, entry)))
+    if not scenario_paths:
+        raise SystemExit("campaign-loop requires at least one executable scenario entry")
+    return scenario_paths
+
+
+def _loop_select_slots(
+    *,
+    repo_root: Path,
+    stack_id: str,
+    requested_slot: str | None,
+    parallel: int,
+    execute: bool,
+) -> list[Any]:
+    slot_catalog = load_slot_catalog(stack_id, repo_root)
+    if requested_slot and parallel > 1:
+        raise SystemExit("--slot can only be used with campaign-loop --parallel 1")
+    if requested_slot:
+        return [get_slot_by_id(slot_catalog, requested_slot)]
+    candidate_slots = list_available_slots(repo_root, stack_id, slot_catalog) if execute else slot_catalog
+    if parallel > len(candidate_slots):
+        raise SystemExit(
+            f"campaign-loop --parallel {parallel} exceeds available {stack_id} slots {len(candidate_slots)}"
+        )
+    return candidate_slots[:parallel]
+
+
+def _run_campaign_loop_round(
+    *,
+    repo_root: Path,
+    asset_root: str | None,
+    config: dict[str, Any],
+    round_run_root: Path,
+    slot_ids: list[str],
+    execute: bool,
+    mock_result: str | None,
+    validate: bool,
+    finalize: bool,
+    require_validation: bool,
+    stop_on_failure: bool,
+) -> dict[str, Any]:
+    ensure_dir(round_run_root)
+    entries = _campaign_loop_scenario_paths(repo_root, config)
+    pending = list(entries)
+    records: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    started_at = utc_now()
+    cooldown_sec = _campaign_cooldown_sec(config)
+
+    with ThreadPoolExecutor(max_workers=len(slot_ids)) as executor:
+        active: dict[Future[dict[str, Any]], tuple[dict[str, Any], Path, str]] = {}
+
+        def submit_next(slot_id: str) -> None:
+            if not pending:
+                return
+            entry, scenario_path = pending.pop(0)
+            future = executor.submit(
+                _run_worker,
+                repo_root=repo_root,
+                asset_root=asset_root,
+                scenario_path=scenario_path,
+                run_root=round_run_root,
+                slot_id=slot_id,
+                execute=execute and bool(entry.get("execute", True)),
+                mock_result=str(entry.get("mock_result") or mock_result or "") or None,
+                validate=validate and bool(entry.get("validation", entry.get("validate", True))),
+                finalize=finalize and bool(entry.get("finalize", True)),
+                down_on_complete=True,
+                require_validation=require_validation,
+            )
+            active[future] = (entry, scenario_path, slot_id)
+
+        for slot_id in slot_ids:
+            submit_next(slot_id)
+
+        while active:
+            done, _ = wait(active.keys(), return_when=FIRST_COMPLETED)
+            for future in done:
+                entry, scenario_path, slot_id = active.pop(future)
+                scenario_id = str(entry.get("id") or scenario_path.stem)
+                try:
+                    record = future.result()
+                except Exception as exc:
+                    record = {
+                        "scenario": scenario_id,
+                        "scenario_path": str(scenario_path),
+                        "slot_id": slot_id,
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                record.setdefault("scenario", scenario_id)
+                record.setdefault("scenario_path", str(scenario_path))
+                record.setdefault("slot_id", slot_id)
+                records.append(record)
+                if record.get("status") != "passed":
+                    failures.append(
+                        {
+                            "scenario": scenario_id,
+                            "scenario_path": str(scenario_path),
+                            "slot_id": slot_id,
+                            "status": record.get("status", "failed"),
+                            "error": record.get("error"),
+                        }
+                    )
+                if pending and not (stop_on_failure and failures):
+                    if cooldown_sec > 0:
+                        time.sleep(cooldown_sec)
+                    submit_next(slot_id)
+
+    report_outputs: dict[str, Any] | None = None
+    report_command = _campaign_report_command(repo_root, round_run_root)
+    report_completed, report_payload = _run_campaign_command(repo_root, report_command)
+    report_outputs = report_payload
+    if report_completed.returncode != 0:
+        failures.append({"step": "report", "returncode": report_completed.returncode})
+
+    bugpack_outputs: dict[str, Any] | None = None
+    if _campaign_bugpack_enabled(config):
+        bugpack = _campaign_bugpack_config(config)
+        bugpack_outputs = write_bugpack(
+            run_result_paths=run_result_paths_from_inputs(round_run_root, None),
+            output_dir=_campaign_bugpack_output_dir(round_run_root, config),
+            owner=str(bugpack.get("owner") or "planning-control"),
+            include_passed=bool(bugpack.get("include_passed", False)),
+            include_infra=bool(bugpack.get("include_infra", False)),
+        )
+
+    return {
+        "started_at": started_at,
+        "finished_at": utc_now(),
+        "run_root": str(round_run_root),
+        "parallel": len(slot_ids),
+        "slot_ids": slot_ids,
+        "cooldown_sec": cooldown_sec,
+        "status": "failed" if failures else "passed",
+        "records": records,
+        "failures": failures,
+        "report_outputs": report_outputs,
+        "bugpack_outputs": bugpack_outputs,
+    }
+
+
+def _write_loop_state(
+    *,
+    loop_root: Path,
+    payload: dict[str, Any],
+) -> None:
+    dump_json(loop_root / "loop_state.json", payload)
+
 
 
 def _run_campaign_command(repo_root: Path, command: list[str]) -> tuple[subprocess.CompletedProcess[str], dict[str, Any] | None]:
@@ -766,11 +1053,14 @@ def _render_campaign_plan(
         "run_root": str(run_root),
         "slot_id": slot_id,
         "stop_after_each": stop_after_each,
+        "cooldown_sec": _campaign_cooldown_sec(config),
         "report": report,
         "scenarios": scenario_plans,
     }
     if report:
         payload["report_command"] = _campaign_report_command(repo_root, run_root)
+    if _campaign_bugpack_enabled(config):
+        payload["bugpack_command"] = _campaign_bugpack_command(repo_root, run_root, config)
     return payload
 
 
@@ -781,6 +1071,7 @@ def handle_campaign(args: argparse.Namespace) -> int:
     run_root = _resolve_campaign_run_root(repo_root, config, args.run_root)
     slot_id = _campaign_slot(config, args.slot)
     stop_after_each = bool(args.stop_after_each or config.get("stop_after_each", False))
+    cooldown_sec = _campaign_cooldown_sec(config)
     report_enabled = not args.no_report and bool(config.get("report", True))
     plan = _render_campaign_plan(
         repo_root=repo_root,
@@ -916,6 +1207,8 @@ def handle_campaign(args: argparse.Namespace) -> int:
         records.append(record)
         if record["status"] == "failed" and not args.keep_going:
             break
+        if cooldown_sec > 0:
+            time.sleep(cooldown_sec)
 
     report_outputs: dict[str, Any] | None = None
     if report_enabled:
@@ -925,6 +1218,17 @@ def handle_campaign(args: argparse.Namespace) -> int:
         if report_completed.returncode != 0:
             failures.append({"step": "report", "returncode": report_completed.returncode})
 
+    bugpack_outputs: dict[str, Any] | None = None
+    if _campaign_bugpack_enabled(config):
+        bugpack = _campaign_bugpack_config(config)
+        bugpack_outputs = write_bugpack(
+            run_result_paths=run_result_paths_from_inputs(run_root, None),
+            output_dir=_campaign_bugpack_output_dir(run_root, config),
+            owner=str(bugpack.get("owner") or "planning-control"),
+            include_passed=bool(bugpack.get("include_passed", False)),
+            include_infra=bool(bugpack.get("include_infra", False)),
+        )
+
     status = "failed" if failures else "passed"
     result: dict[str, Any] = {
         **plan,
@@ -932,12 +1236,126 @@ def handle_campaign(args: argparse.Namespace) -> int:
         "records": records,
         "failures": failures,
         "report_outputs": report_outputs,
+        "bugpack_outputs": bugpack_outputs,
     }
     result_path = run_root / "campaign_result.json"
     dump_json(result_path, result)
     result["result_path"] = str(result_path)
     _print_json(result)
     return 0 if status == "passed" else 1
+
+
+def handle_campaign_loop(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    config_path = _resolve_campaign_path(repo_root, args.config)
+    config = load_yaml(config_path)
+    scenario_paths = _campaign_loop_scenario_paths(repo_root, config)
+    stacks = {load_scenario(str(path), repo_root).stack for _, path in scenario_paths}
+    if len(stacks) != 1:
+        raise SystemExit(f"campaign-loop requires one stack per loop, got {sorted(stacks)}")
+    stack_id = next(iter(stacks))
+    parallel = max(1, int(args.parallel or 1))
+    max_rounds = _campaign_loop_max_rounds(config, args.max_rounds)
+    round_sleep_sec = _campaign_loop_sleep_sec(config, args.round_sleep_sec)
+    loop_root = _campaign_loop_run_root(repo_root, config, config_path, args.run_root)
+    validate = not args.no_validate
+    finalize = not args.no_finalize
+    require_validation = bool(args.require_validation)
+    stop_on_failure = bool(args.stop_on_failure)
+    slot_ids = [
+        slot.slot_id
+        for slot in _loop_select_slots(
+            repo_root=repo_root,
+            stack_id=stack_id,
+            requested_slot=args.slot,
+            parallel=parallel,
+            execute=bool(args.execute),
+        )
+    ]
+
+    plan = {
+        "loop_id": str(config.get("campaign_id") or config_path.stem),
+        "config": str(config_path),
+        "stack": stack_id,
+        "run_root": str(loop_root),
+        "execute": bool(args.execute),
+        "max_rounds": max_rounds,
+        "forever": max_rounds == 0,
+        "round_sleep_sec": round_sleep_sec,
+        "parallel": parallel,
+        "slot_ids": slot_ids,
+        "validate": validate,
+        "finalize": finalize,
+        "require_validation": require_validation,
+        "stop_on_failure": stop_on_failure,
+        "scenarios": [
+            {
+                "id": str(entry.get("id") or load_scenario(str(path), repo_root).scenario_id),
+                "path": str(path),
+            }
+            for entry, path in scenario_paths
+        ],
+    }
+    if not args.execute:
+        _print_json(plan)
+        return 0
+
+    ensure_dir(loop_root)
+    state: dict[str, Any] = {
+        **plan,
+        "started_at": utc_now(),
+        "latest_status": "running",
+        "rounds": [],
+    }
+    _write_loop_state(loop_root=loop_root, payload=state)
+
+    round_index = 0
+    while max_rounds == 0 or round_index < max_rounds:
+        round_index += 1
+        round_run_root = loop_root / f"round_{round_index:04d}_{make_run_id('campaign')}"
+        round_result = _run_campaign_loop_round(
+            repo_root=repo_root,
+            asset_root=args.asset_root,
+            config=config,
+            round_run_root=round_run_root,
+            slot_ids=slot_ids,
+            execute=True,
+            mock_result=args.mock_result,
+            validate=validate,
+            finalize=finalize,
+            require_validation=require_validation,
+            stop_on_failure=stop_on_failure,
+        )
+        round_result["round_index"] = round_index
+        round_result_path = round_run_root / "loop_round_result.json"
+        dump_json(round_result_path, round_result)
+        round_summary = {
+            "round_index": round_index,
+            "status": round_result["status"],
+            "run_root": str(round_run_root),
+            "result_path": str(round_result_path),
+            "failure_count": len(round_result["failures"]),
+            "passed_count": sum(1 for record in round_result["records"] if record.get("status") == "passed"),
+            "record_count": len(round_result["records"]),
+            "started_at": round_result["started_at"],
+            "finished_at": round_result["finished_at"],
+        }
+        state["rounds"].append(round_summary)
+        state["latest_status"] = round_result["status"]
+        state["latest_round"] = round_summary
+        _write_loop_state(loop_root=loop_root, payload=state)
+        print(json.dumps(round_summary, ensure_ascii=False), flush=True)
+        if stop_on_failure and round_result["failures"]:
+            break
+        if max_rounds == 0 or round_index < max_rounds:
+            time.sleep(round_sleep_sec)
+
+    state["finished_at"] = utc_now()
+    state["status"] = "failed" if any(round_item["status"] == "failed" for round_item in state["rounds"]) else "passed"
+    state["latest_status"] = state["status"]
+    _write_loop_state(loop_root=loop_root, payload=state)
+    _print_json(state)
+    return 0 if state["status"] == "passed" else 1
 
 
 def handle_up_or_down(args: argparse.Namespace, action: str) -> int:
@@ -981,6 +1399,8 @@ def handle_up_or_down(args: argparse.Namespace, action: str) -> int:
         dump_json(output_dir / f"{action}_logs.json", logs)
         if action == "down" and slot is not None:
             release_slot_lock(repo_root, args.stack, slot.slot_id)
+        elif action == "down" and run_dir is not None:
+            release_slot_lock_for_run_dir(repo_root, args.stack, run_dir)
     print(str(plan_path))
     return 0
 
@@ -1028,9 +1448,13 @@ def handle_run(args: argparse.Namespace) -> int:
                     slot=slot,
                     logs=logs,
                     runtime_namespace=slot.runtime_namespace,
-                    expected_process_steps=["start-carla-server"] if scenario.stack == "novadrive" else None,
+                    expected_process_steps=_scenario_health_expected_process_steps(scenario),
                     expected_ros_topics=[] if scenario.stack == "novadrive" else _scenario_expected_ros_topics(scenario),
                     rmw_implementation=_scenario_rmw_implementation(scenario),
+                    carla_actor_check=_scenario_carla_actor_health_enabled(scenario),
+                    carla_actor_type=str(_scenario_stable_runtime_value(scenario, "carla_vehicle_type") or ""),
+                    carla_ego_role_name=str(_scenario_stable_runtime_value(scenario, "carla_ego_vehicle_role_name") or ""),
+                    carla_root=str(_scenario_stable_runtime_value(scenario, "carla_root") or ""),
                 )
             status, gate_eval = _launch_gate_eval(logs, runtime_health)
             if status == "launch_failed":
@@ -1509,6 +1933,27 @@ def handle_validate(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def handle_bugpack(args: argparse.Namespace) -> int:
+    repo_root = _repo_root(args.repo_root)
+    run_root = Path(args.run_root).resolve() if args.run_root else None
+    if run_root is None and not args.run_result:
+        run_root = repo_root / "runs"
+    run_result_paths = run_result_paths_from_inputs(run_root, args.run_result)
+    if not run_result_paths:
+        raise SystemExit("bugpack found no run_result.json files")
+    default_output = (run_root / "bugpack") if run_root is not None else (repo_root / "bugpack")
+    output_dir = Path(args.output_dir).resolve() if args.output_dir else default_output
+    payload = write_bugpack(
+        run_result_paths=run_result_paths,
+        output_dir=output_dir,
+        owner=args.owner,
+        include_passed=args.include_passed,
+        include_infra=args.include_infra,
+    )
+    _print_json(payload)
+    return 0
+
+
 def handle_digest(args: argparse.Namespace) -> int:
     repo_root = _repo_root(args.repo_root)
     config_path = Path(args.config).resolve() if args.config else (repo_root / "ops" / "project_automation.yaml")
@@ -1720,6 +2165,32 @@ def build_parser() -> argparse.ArgumentParser:
     campaign.add_argument("--no-report", action="store_true", help="Skip final report generation")
     campaign.set_defaults(func=handle_campaign)
 
+    campaign_loop = subparsers.add_parser(
+        "campaign-loop",
+        help="Repeat a validation campaign with per-round report, bugpack, cleanup, and optional parallel slots",
+    )
+    campaign_loop.add_argument("--config", required=True, help="Path to a campaign YAML config")
+    campaign_loop.add_argument("--run-root", help="Loop output root. Defaults to a timestamped campaign loop directory")
+    campaign_loop.add_argument("--slot", help="Run on one specific slot. Only valid with --parallel 1")
+    campaign_loop.add_argument("--parallel", type=int, default=1, help="Number of slots to run concurrently")
+    campaign_loop.add_argument("--max-rounds", type=int, help="Number of rounds to run. Use 0 to run forever")
+    campaign_loop.add_argument("--round-sleep-sec", type=float, help="Seconds to wait between rounds")
+    campaign_loop.add_argument("--execute", action="store_true", help="Execute the loop. Omit to render a plan")
+    campaign_loop.add_argument("--mock-result", choices=["passed", "failed"], help="Pass a mock result to stub runs")
+    campaign_loop.add_argument("--no-validate", action="store_true", help="Skip scenario validation commands")
+    campaign_loop.add_argument("--no-finalize", action="store_true", help="Skip folding validation evidence into run_result")
+    campaign_loop.add_argument(
+        "--require-validation",
+        action="store_true",
+        help="Fail scenarios that do not define metadata.validation_command",
+    )
+    campaign_loop.add_argument(
+        "--stop-on-failure",
+        action="store_true",
+        help="Stop launching new rounds after the first failed round",
+    )
+    campaign_loop.set_defaults(func=handle_campaign_loop)
+
     replay = subparsers.add_parser("replay", help="Render replay commands for one run_result.json")
     replay.add_argument("--run-result", required=True)
     replay.set_defaults(func=handle_replay)
@@ -1729,6 +2200,15 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--batch-index")
     report.add_argument("--output-dir")
     report.set_defaults(func=handle_report)
+
+    bugpack = subparsers.add_parser("bugpack", help="Generate engineer-ready bug issue drafts from run_result.json files")
+    bugpack.add_argument("--run-root", help="Scan this run root for run_result.json files")
+    bugpack.add_argument("--run-result", action="append", help="Specific run_result.json to include; can be repeated")
+    bugpack.add_argument("--output-dir", help="Directory for summary.json, index.md, and issue Markdown files")
+    bugpack.add_argument("--owner", default="planning-control", help="Default owner written into generated issue drafts")
+    bugpack.add_argument("--include-passed", action="store_true", help="Include passed runs in summary accounting")
+    bugpack.add_argument("--include-infra", action="store_true", help="Also generate issue drafts for runtime/integration blockers")
+    bugpack.set_defaults(func=handle_bugpack)
 
     finalize = subparsers.add_parser("finalize", help="Fold runtime evidence back into run_result.json and KPI gate")
     finalize.add_argument("--run-dir")

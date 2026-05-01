@@ -95,8 +95,12 @@ def _path_status(path_value: str | None, fallback_value: str | None = None) -> d
 def inspect_asset_bundle(bundle: AssetBundle) -> dict[str, Any]:
     source = bundle.source
     archive_path = _normalize_path_value(str(source.get("archive_path", "")) or None)
+    local_extract_dir = _normalize_path_value(str(source.get("local_extract_dir", "")) or None)
     preferred_extract_dir = _normalize_path_value(str(source.get("preferred_extract_dir", "")) or None)
     archive_exists = None if _is_virtual_path(archive_path) else (Path(archive_path).exists() if archive_path else None)
+    local_extract_dir_exists = (
+        None if _is_virtual_path(local_extract_dir) else (Path(local_extract_dir).exists() if local_extract_dir else None)
+    )
     extract_dir_exists = (
         None if _is_virtual_path(preferred_extract_dir) else (Path(preferred_extract_dir).exists() if preferred_extract_dir else None)
     )
@@ -156,6 +160,8 @@ def inspect_asset_bundle(bundle: AssetBundle) -> dict[str, Any]:
         "manifest_path": str(bundle.manifest_path),
         "source": {
             "type": source.get("type"),
+            "local_extract_dir": local_extract_dir,
+            "local_extract_dir_exists": local_extract_dir_exists,
             "archive_path": archive_path,
             "archive_exists": archive_exists,
             "preferred_extract_dir": preferred_extract_dir,

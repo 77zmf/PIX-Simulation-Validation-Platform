@@ -15,6 +15,9 @@ INCLUDE_WALKERS=""
 DELETE_ALL_ON_START=""
 DELETE_ALL_ON_STOP=""
 EXECUTE=0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=carla_python_env.sh
+source "${SCRIPT_DIR}/carla_python_env.sh"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -51,7 +54,6 @@ shell_quote() {
 
 AUTOWARE_WS="${AUTOWARE_WS_ARG:-${AUTOWARE_WS:-$HOME/zmf_ws/projects/autoware_universe/private_autoware}}"
 AUTOWARE_SETUP="${AUTOWARE_WS}/install/setup.bash"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BRIDGE_SCRIPT="${SCRIPT_DIR}/carla_actor_object_bridge.py"
 CARLA_PORT="${CARLA_PORT:-2000}"
 ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-21}"
@@ -63,6 +65,13 @@ WAIT_SEC="${WAIT_SEC:-${SIMCTL_CARLA_ACTOR_OBJECT_BRIDGE_WAIT_SEC:-240}}"
 INCLUDE_WALKERS="${INCLUDE_WALKERS:-${SIMCTL_CARLA_ACTOR_OBJECT_BRIDGE_INCLUDE_WALKERS:-true}}"
 DELETE_ALL_ON_START="${DELETE_ALL_ON_START:-${SIMCTL_CARLA_ACTOR_OBJECT_BRIDGE_DELETE_ALL_ON_START:-true}}"
 DELETE_ALL_ON_STOP="${DELETE_ALL_ON_STOP:-${SIMCTL_CARLA_ACTOR_OBJECT_BRIDGE_DELETE_ALL_ON_STOP:-true}}"
+CARLA_ROOT="${CARLA_0915_ROOT:-$HOME/CARLA_0.9.15}"
+if [[ -n "${RUN_DIR}" ]]; then
+  CARLA_PYTHON_OVERLAY_DIR="${RUN_DIR}/pythonpath_overlay"
+else
+  CARLA_PYTHON_OVERLAY_DIR="${TMPDIR:-/tmp}/simctl_carla_python_overlay"
+fi
+CARLA_PYTHONPATH="$(simctl_carla_pythonpath "${CARLA_ROOT}" "${CARLA_PYTHON_OVERLAY_DIR}")"
 
 PY_CMD=("python3" "${BRIDGE_SCRIPT}" "--carla-port" "${CARLA_PORT}" "--ego-vehicle-role-name" "${EGO_VEHICLE_ROLE_NAME}" "--poll-sec" "${POLL_SEC}" "--carla-wait-sec" "${WAIT_SEC}")
 if truthy "${INCLUDE_WALKERS}"; then
@@ -93,6 +102,7 @@ echo "CARLA wait seconds: ${WAIT_SEC}"
 echo "Include walkers: ${INCLUDE_WALKERS}"
 echo "Delete all on start: ${DELETE_ALL_ON_START}"
 echo "Delete all on stop: ${DELETE_ALL_ON_STOP}"
+echo "CARLA Python path: ${CARLA_PYTHONPATH}"
 echo "Command: ${PY_CMD_DISPLAY}"
 
 if ! truthy "${ENABLED}"; then
@@ -119,7 +129,13 @@ source /opt/ros/humble/setup.bash
 # shellcheck disable=SC1090
 source "${AUTOWARE_SETUP}"
 set -u
+simctl_prepare_carla_python_overlay "${CARLA_PYTHON_OVERLAY_DIR}"
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID}"
+export ROS2CLI_DISABLE_DAEMON=1
+export PYTHONNOUSERSITE=1
+if [[ -n "${CARLA_PYTHONPATH}" ]]; then
+  export PYTHONPATH="${CARLA_PYTHONPATH}:${PYTHONPATH:-}"
+fi
 if [[ -n "${RMW_IMPLEMENTATION_VALUE}" ]]; then
   export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION_VALUE}"
 fi

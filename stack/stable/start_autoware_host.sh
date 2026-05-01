@@ -14,6 +14,7 @@ MAP_PATH=""
 VEHICLE_MODEL=""
 SENSOR_MODEL=""
 RVIZ=""
+RVIZ_CONFIG=""
 LIDAR_TYPE=""
 EXECUTE=0
 
@@ -32,6 +33,7 @@ while [[ $# -gt 0 ]]; do
     --vehicle-model) VEHICLE_MODEL="$2"; shift 2 ;;
     --sensor-model) SENSOR_MODEL="$2"; shift 2 ;;
     --rviz) RVIZ="$2"; shift 2 ;;
+    --rviz-config) RVIZ_CONFIG="$2"; shift 2 ;;
     --lidar-type) LIDAR_TYPE="$2"; shift 2 ;;
     -Execute|--execute) EXECUTE=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
@@ -47,6 +49,7 @@ MAP_PATH="${MAP_PATH:-${AUTOWARE_MAP_PATH:-${REPO_ROOT}}}"
 VEHICLE_MODEL="${VEHICLE_MODEL:-${AUTOWARE_VEHICLE_MODEL:-sample_vehicle}}"
 SENSOR_MODEL="${SENSOR_MODEL:-${AUTOWARE_SENSOR_MODEL:-carla_sensor_kit}}"
 RVIZ="${RVIZ:-${AUTOWARE_RVIZ:-true}}"
+RVIZ_CONFIG="${RVIZ_CONFIG:-${AUTOWARE_RVIZ_CONFIG:-}}"
 LIDAR_TYPE="${LIDAR_TYPE:-${AUTOWARE_LIDAR_TYPE:-}}"
 LIDAR_EXPORT=""
 if [[ -n "$LIDAR_TYPE" ]]; then
@@ -56,7 +59,11 @@ RMW_EXPORT=""
 if [[ -n "$RMW_IMPLEMENTATION_VALUE" ]]; then
   RMW_EXPORT="export RMW_IMPLEMENTATION='${RMW_IMPLEMENTATION_VALUE}' && "
 fi
-CMD="cd ${AUTOWARE_WS} && source install/setup.bash && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && ${RMW_EXPORT}export ROS_NAMESPACE='${RUNTIME_NAMESPACE}' && ${LIDAR_EXPORT}ros2 launch autoware_launch planning_simulator.launch.xml map_path:='${MAP_PATH}' vehicle_model:='${VEHICLE_MODEL}' sensor_model:='${SENSOR_MODEL}' rviz:='${RVIZ}'"
+RVIZ_CONFIG_ARG=""
+if [[ -n "$RVIZ_CONFIG" ]]; then
+  RVIZ_CONFIG_ARG=" rviz_config:='${RVIZ_CONFIG}'"
+fi
+CMD="cd ${AUTOWARE_WS} && source install/setup.bash && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && export ROS2CLI_DISABLE_DAEMON=1 && export PYTHONNOUSERSITE=1 && ${RMW_EXPORT}export ROS_NAMESPACE='${RUNTIME_NAMESPACE}' && ${LIDAR_EXPORT}ros2 launch autoware_launch planning_simulator.launch.xml map_path:='${MAP_PATH}' vehicle_model:='${VEHICLE_MODEL}' sensor_model:='${SENSOR_MODEL}' rviz:='${RVIZ}'${RVIZ_CONFIG_ARG}"
 echo "Scenario: ${SCENARIO}"
 echo "SlotId: ${SLOT_ID}"
 echo "RunDir: ${RUN_DIR}"
@@ -71,6 +78,7 @@ echo "VehicleModel: ${VEHICLE_MODEL}"
 echo "SensorModel: ${SENSOR_MODEL}"
 echo "LidarType: ${LIDAR_TYPE}"
 echo "RVIZ: ${RVIZ}"
+echo "RVIZ config: ${RVIZ_CONFIG}"
 echo "Command: ${CMD}"
 
 if [[ "$EXECUTE" -eq 1 ]]; then

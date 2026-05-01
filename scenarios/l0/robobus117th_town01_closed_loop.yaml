@@ -52,9 +52,10 @@ metadata:
     &&
     python3 ops/runtime_probes/carla_closed_loop_route_probe.py
     --run-dir <run_dir>
+    --max-duration-sec 150
     --camera-video-output <run_dir>/runtime_verification/closed_loop_route_sync.mp4
     --camera-video-mode ego_chase
-  expected_observable: All 6 cameras, 5 lidars, IMU, GNSS, localization and vehicle status topics have live samples; Autoware accepts route points, publishes trajectory/control, and the PIX robobus ego reaches the shortened straight Town01 smoke goal without collision in an empty L0 scene. Longer Town01 route-follow remains an L1 steering/route-follow regression target.
+  expected_observable: All 6 cameras, 5 lidars, IMU, GNSS, localization and vehicle status topics have live samples; Autoware accepts route points, publishes trajectory/control, and the PIX robobus ego reaches the shortened straight Town01 smoke goal without collision in an empty L0 scene. The route probe uses a 150s wall-clock cap because synchronous CARLA on the Ubuntu host can run below real time. Longer Town01 route-follow remains an L1 steering/route-follow regression target.
   rollback_impact: Disable this scenario or switch execution.mode back to stub; it does not modify runtime assets.
 execution:
   mode: external

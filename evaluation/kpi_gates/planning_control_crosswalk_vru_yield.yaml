@@ -1,0 +1,33 @@
+gate_id: planning_control_crosswalk_vru_yield
+description: Stable-line crosswalk VRU yield gate for CARLA pedestrian dummy-perception planning/control regression
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - crosswalk_vru_perception_failure
+  - crosswalk_vru_yield_failure
+  - robobus_sensor_bridge_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.8
+  dynamic_actor_response:
+    op: ">="
+    value: 1.0
+  actor_count_observed:
+    op: ">="
+    value: 1
+  yield_response_count:
+    op: ">="
+    value: 1
+  sensor_topic_coverage:
+    op: ">="
+    value: 1.0
+  sensor_sample_coverage:
+    op: ">="
+    value: 1.0

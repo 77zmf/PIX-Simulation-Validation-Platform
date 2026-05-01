@@ -1,0 +1,27 @@
+gate_id: planning_control_stop_line_red_light
+description: Draft stable-line stop-line and red-light compliance gate for planning/control regression
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - red_light_violation
+  - stop_line_overshoot
+  - robobus_sensor_bridge_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.9
+  collision_count:
+    op: "<="
+    value: 0
+  red_light_violations:
+    op: "<="
+    value: 0
+  stop_line_overshoot_m:
+    op: "<="
+    value: 0.5
+  sensor_topic_coverage:
+    op: ">="
+    value: 1.0
+  sensor_sample_coverage:
+    op: ">="
+    value: 1.0

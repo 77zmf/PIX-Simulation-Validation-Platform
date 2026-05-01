@@ -1,0 +1,29 @@
+gate_id: planning_control_speed40_probe
+description: Planning/control speed probe gate for reaching 40km/h on a long Town01 lane segment.
+failure_labels:
+  - route_completion_failure
+  - speed40_not_reached
+  - lane_envelope_failure
+  - control_stability_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.98
+  collision_count:
+    op: "<="
+    value: 0
+  target_speed_reached:
+    op: ">="
+    value: 1.0
+  max_speed_mps:
+    op: ">="
+    value: 10.6
+  route_goal_lateral_error_m:
+    op: "<="
+    value: 0.80
+  lateral_error_m:
+    op: "<="
+    value: 0.75
+  jerk_mps3:
+    op: "<="
+    value: 3.5

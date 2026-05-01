@@ -38,20 +38,36 @@ metadata:
   source_assets:
     - stack/stable/start_sumo_cosim_host.sh
     - ops/runtime_probes/sumo_cosim_probe.py
+    - ops/runtime_probes/carla_actor_visual_capture.py
     - stack/stable/carla_actor_object_bridge.py
     - /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
-  validation_method: Start CARLA Town01, run the official CARLA SUMO synchronization wrapper, expose SUMO background vehicles through the actor object bridge, then verify Autoware object and control topics.
+  validation_method: Start CARLA Town01, run the official CARLA SUMO synchronization wrapper, expose SUMO background vehicles through the actor object bridge, verify Autoware object/control topics, capture visual evidence for the PIX ego vehicle and SUMO NPC traffic, then confirm the configured robobus sensor topics are at least present on the ROS graph.
   validation_command: >
-    python3 ops/runtime_probes/carla_sensor_topic_probe.py
-    --run-dir <run_dir>
-    --profile robobus117th
-    &&
     python3 ops/runtime_probes/sumo_cosim_probe.py
     --run-dir <run_dir>
     --profile town01_sumo_smoke
     --sumo-config-file /home/pixmoving/CARLA_0.9.15/Co-Simulation/Sumo/examples/Town01.sumocfg
     --min-actors 1
     --wait-sec 3
+    &&
+    python3 ops/runtime_probes/carla_actor_visual_capture.py
+    --run-dir <run_dir>
+    --profile town01_sumo_visual_smoke
+    --carla-root /home/pixmoving/CARLA_0.9.15
+    --carla-port 2000
+    --ego-role-name ego_vehicle
+    --npc-role-name sumo_driver
+    --npc-role-prefix sumo
+    --min-npcs 1
+    --min-captures 3
+    --max-npcs 3
+    --image-width 960
+    --image-height 540
+    --worker-timeout-sec 220
+    &&
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th_presence_smoke
   expected_observable: CARLA visual output shows the PIX ego vehicle and at least one SUMO-synchronized non-ego vehicle; RViz/Autoware sees non-empty object and control streams through the actor bridge.
   rollback_impact: Disable this scenario or set stable_runtime.sumo_enabled=false; the default stable CARLA-only scenarios remain unaffected.
 execution:
@@ -66,6 +82,7 @@ execution:
     autoware_sensor_model: robobus_sensor_kit
     autoware_lidar_type: robosense
     autoware_rviz: "false"
+    autoware_rviz_config: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/autoware_launch/share/autoware_launch/rviz/planning_bev.rviz
     carla_root: /home/pixmoving/CARLA_0.9.15
     carla_map: Town01
     carla_vehicle_type: vehicle.pixmoving.robobus
@@ -92,6 +109,7 @@ execution:
     sumo_sync_vehicle_lights: "false"
     sumo_sync_vehicle_color: "true"
     sumo_tls_manager: none
+    sumo_carla_client_timeout_sec: "60.0"
     sumo_min_actor_count: "1"
     ros_expected_topics:
       - /clock

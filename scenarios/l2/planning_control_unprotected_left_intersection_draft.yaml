@@ -1,0 +1,72 @@
+scenario_id: stable_l2_planning_control_unprotected_left_intersection_draft
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 229.78167724609375
+    y: -2.0201120376586914
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 314.2434997558594
+    y: -1.982629656791687
+    z: 0.0
+    yaw_deg: -0.03045654296875
+traffic_profile:
+  mode: unprotected_left_intersection_draft
+  vehicles: 2
+  pedestrians: 0
+  scripted_agents:
+    - opposing_through_vehicle
+    - cross_traffic_vehicle
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260425
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/planning_control_unprotected_left_intersection_draft
+  carla_recorder:
+    enabled: true
+    path: carla/planning_control_unprotected_left_intersection_draft.log
+kpi_gate: planning_control_unprotected_left_intersection
+labels:
+  - L2
+  - stable
+  - planning_control
+  - intersection
+  - unprotected_left
+  - draft
+metadata:
+  owner: planning-control
+  draft_status: blocked_on_route_manifest
+  source_assets:
+    - docs/runbooks/planning_control_scene_gap_matrix.md
+    - scenarios/l2/planning_control_multi_actor_cut_in_lead_brake.yaml
+  validation_method: Draft contract only. Promote after a deterministic Town01 or public-road left-turn route, conflict actor spawn points, and runtime probe are fixed.
+  validation_command: >
+    python3 -c "raise SystemExit('blocked: unprotected-left scenario requires deterministic left-turn route and intersection actor probe')"
+  expected_observable: Ego negotiates an unprotected left turn with opposing/cross traffic, no collision, safe TTC, and bounded route progress delay.
+  runtime_gap: Current Town01 stable route is straight-line; this scenario must not be added to the executable campaign until a real left-turn route manifest exists.
+  rollback_impact: Keep this draft out of ops/test_campaigns/stable_planning_control_bughunt.yaml until executable route and probe evidence exist.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_spawn_point: "229.7817,2.0201,-0.5,0,0,0"
+    carla_actor_object_bridge_enabled: "true"
+    carla_actor_object_bridge_include_walkers: "false"
+    carla_render_mode: offscreen
+    carla_quality_level: Low

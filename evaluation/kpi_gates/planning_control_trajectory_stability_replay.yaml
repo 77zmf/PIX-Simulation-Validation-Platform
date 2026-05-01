@@ -1,0 +1,33 @@
+gate_id: planning_control_trajectory_stability_replay
+description: Draft replay/simulation gate for road-test-derived planning trajectory stability failcases.
+failure_labels:
+  - planning_trajectory_jump_failure
+  - planning_trajectory_dropout_failure
+  - route_recovery_failure
+  - emergency_brake_takeover_failure
+  - road_test_replay_probe_missing
+metrics:
+  planning_validator_invalid_count:
+    op: "<="
+    value: 0
+  trajectory_jump_max_m:
+    op: "<="
+    value: 1.0
+  trajectory_silence_sec:
+    op: "<="
+    value: 1.0
+  route_empty_count:
+    op: "<="
+    value: 0
+  control_emergency_true_count:
+    op: "<="
+    value: 0
+  brake_takeover_count:
+    op: "<="
+    value: 0
+  lateral_shift_m:
+    op: "<="
+    value: 0.5
+  max_lateral_jerk_mps3:
+    op: "<="
+    value: 3.0

@@ -14,6 +14,7 @@ import json
 import math
 import os
 import queue
+import re
 import signal
 import subprocess
 import sys
@@ -157,6 +158,29 @@ PROBES: dict[str, ProbeConfig] = {
                 final_y=-5.8,
                 speed_x=1.8,
                 cut_in_duration=0.0,
+            ),
+        ),
+    ),
+    "l2_crosswalk_vru_yield": ProbeConfig(
+        kind="l2_crosswalk_vru_yield",
+        classification="l2_crosswalk_vru_yield_visual_actor_with_pedestrian_dummy_injection",
+        target_type="walker.pedestrian.0001",
+        target_start={"x": 282.0, "y": 6.0, "z": 0.15, "yaw": 180.0},
+        target_final_y=2.0,
+        target_speed_x=0.0,
+        cut_in_duration=6.0,
+        max_duration=62.0,
+        safe_ttc_sec=1.8,
+        min_actor_observed_count=1,
+        actors=(
+            ActorSpec(
+                name="crosswalk_pedestrian",
+                target_type="walker.pedestrian.0001",
+                start={"x": 282.0, "y": 6.0, "z": 0.15, "yaw": 180.0},
+                final_y=2.0,
+                speed_x=0.0,
+                cut_in_duration=6.0,
+                activation_sec=5.0,
             ),
         ),
     ),
@@ -341,6 +365,116 @@ def run_cmd(step: str, args: list[str], env: dict[str, str], calls: list[dict[st
     return item
 
 
+def run_cmd_with_retries(
+    step: str,
+    args: list[str],
+    env: dict[str, str],
+    calls: list[dict[str, Any]],
+    *,
+    timeout_sec: int = 20,
+    retries: int = 1,
+    retry_delay_sec: float = 2.0,
+) -> dict[str, Any]:
+    last_item: dict[str, Any] | None = None
+    total_attempts = max(1, retries)
+    for attempt in range(1, total_attempts + 1):
+        item = run_cmd(step, args, env, calls, timeout_sec)
+        item["attempt"] = attempt
+        item["max_attempts"] = total_attempts
+        last_item = item
+        if item.get("returncode") == 0:
+            return item
+        if attempt < total_attempts:
+            time.sleep(retry_delay_sec)
+    assert last_item is not None
+    return last_item
+
+
+def service_call_failure(call: dict[str, Any]) -> dict[str, Any] | None:
+    if call.get("superseded_by_success"):
+        return None
+    step = str(call.get("step") or call.get("name") or "unknown")
+    output = str(call.get("output") or "")
+    rc = call.get("returncode")
+    if rc not in (None, 0):
+        return {
+            "step": step,
+            "reason": "returncode_nonzero",
+            "returncode": rc,
+            "message_tail": output[-500:],
+        }
+    if re.search(r"\bsuccess\s*[:=]\s*False\b", output, flags=re.IGNORECASE):
+        message_match = re.search(r"message='([^']*)'", output)
+        message = message_match.group(1) if message_match else ""
+        return {
+            "step": step,
+            "reason": "service_status_false",
+            "returncode": rc,
+            "message": message,
+            "message_tail": output[-500:],
+        }
+    return None
+
+
+def run_service_cmd_with_retries(
+    step: str,
+    args: list[str],
+    env: dict[str, str],
+    calls: list[dict[str, Any]],
+    *,
+    timeout_sec: int = 20,
+    retries: int = 1,
+    retry_delay_sec: float = 2.0,
+) -> dict[str, Any]:
+    """Retry ROS service calls until both transport and service status succeed."""
+    failed_attempts: list[dict[str, Any]] = []
+    last_item: dict[str, Any] | None = None
+    total_attempts = max(1, retries)
+    for attempt in range(1, total_attempts + 1):
+        item = run_cmd(step, args, env, calls, timeout_sec)
+        item["attempt"] = attempt
+        item["max_attempts"] = total_attempts
+        last_item = item
+        failure = service_call_failure(item)
+        if failure is None:
+            for failed in failed_attempts:
+                failed["superseded_by_success"] = True
+            return item
+        item["service_failure_reason"] = failure["reason"]
+        failed_attempts.append(item)
+        if attempt < total_attempts:
+            time.sleep(retry_delay_sec)
+    assert last_item is not None
+    return last_item
+
+
+def mark_service_step_superseded(
+    service_calls: list[dict[str, Any]],
+    *,
+    step: str,
+    superseded_by_step: str,
+) -> None:
+    for call in service_calls:
+        if str(call.get("step") or call.get("name") or "") != step:
+            continue
+        if service_call_failure(call) is None:
+            continue
+        call["superseded_by_success"] = True
+        call["superseded_by_step"] = superseded_by_step
+
+
+def service_call_failures(service_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        failure
+        for call in service_calls
+        if (failure := service_call_failure(call)) is not None
+    ]
+
+
+def service_calls_successful(service_calls: list[dict[str, Any]]) -> bool:
+    return not service_call_failures(service_calls)
+
+
 def load_runtime_modules() -> dict[str, Any]:
     try:
         import carla  # type: ignore[import-not-found]
@@ -481,6 +615,23 @@ def make_dummy_msg(
     msg.max_velocity = max(0.1, float(abs(vx) + abs(vy)))
     msg.min_velocity = 0.0
     return msg
+
+
+def publish_dummy_message_repeatedly(
+    rclpy_module: Any,
+    node: Any,
+    pub: Any,
+    msg: Any,
+    *,
+    repeat: int = 3,
+    spin_timeout_sec: float = 0.05,
+    sleep_sec: float = 0.1,
+) -> None:
+    for index in range(max(1, repeat)):
+        pub.publish(msg)
+        rclpy_module.spin_once(node, timeout_sec=spin_timeout_sec)
+        if sleep_sec > 0.0 and index < repeat - 1:
+            time.sleep(sleep_sec)
 
 
 def probe_actor_specs(config: ProbeConfig) -> tuple[ActorSpec, ...]:
@@ -745,17 +896,111 @@ def object_topic_nonempty(env: dict[str, str]) -> bool:
     return bool(object_topic_sample(env)["nonempty"])
 
 
-def setup_route(env: dict[str, str], calls: list[dict[str, Any]]) -> None:
-    run_cmd("engage_false", ["timeout", "15", "ros2", "service", "call", "/api/autoware/set/engage", "tier4_external_api_msgs/srv/Engage", "{engage: false}"], env, calls, 18)
+def wait_for_topic_sample(
+    step: str,
+    topic: str,
+    env: dict[str, str],
+    checks: list[dict[str, Any]],
+    *,
+    timeout_sec: int = 12,
+    retries: int = 3,
+    retry_delay_sec: float = 2.0,
+) -> dict[str, Any]:
+    return run_cmd_with_retries(
+        step,
+        [
+            "timeout",
+            str(timeout_sec),
+            "ros2",
+            "topic",
+            "echo",
+            "--once",
+            "--spin-time",
+            "1",
+            "--truncate-length",
+            "96",
+            topic,
+        ],
+        env,
+        checks,
+        timeout_sec=timeout_sec + 3,
+        retries=retries,
+        retry_delay_sec=retry_delay_sec,
+    )
+
+
+def setup_route(
+    env: dict[str, str],
+    calls: list[dict[str, Any]],
+    setup_checks: list[dict[str, Any]] | None = None,
+) -> None:
+    setup_checks = setup_checks if setup_checks is not None else []
+    run_cmd_with_retries(
+        "engage_false",
+        ["timeout", "15", "ros2", "service", "call", "/api/autoware/set/engage", "tier4_external_api_msgs/srv/Engage", "{engage: false}"],
+        env,
+        calls,
+        timeout_sec=18,
+        retries=3,
+        retry_delay_sec=3.0,
+    )
     run_cmd("clear_route", ["timeout", "15", "ros2", "service", "call", "/api/routing/clear_route", "autoware_adapi_v1_msgs/srv/ClearRoute", "{}"], env, calls, 18)
     run_cmd("change_to_stop", ["timeout", "15", "ros2", "service", "call", "/api/operation_mode/change_to_stop", "autoware_adapi_v1_msgs/srv/ChangeOperationMode", "{}"], env, calls, 18)
     run_cmd("initialize_localization", ["timeout", "25", "ros2", "service", "call", "/api/localization/initialize", "autoware_adapi_v1_msgs/srv/InitializeLocalization", pose_yaml(START_MAP)], env, calls, 28)
     time.sleep(4.0)
+    wait_for_topic_sample(
+        "wait_localization_state",
+        "/localization/kinematic_state",
+        env,
+        setup_checks,
+        timeout_sec=10,
+        retries=3,
+        retry_delay_sec=2.0,
+    )
     run_cmd("set_route_points", ["timeout", "25", "ros2", "service", "call", "/api/routing/set_route_points", "autoware_adapi_v1_msgs/srv/SetRoutePoints", route_yaml(GOAL_MAP)], env, calls, 28)
     time.sleep(2.0)
-    run_cmd("enable_autoware_control", ["timeout", "15", "ros2", "service", "call", "/api/operation_mode/enable_autoware_control", "autoware_adapi_v1_msgs/srv/ChangeOperationMode", "{}"], env, calls, 18)
-    run_cmd("change_to_autonomous", ["timeout", "25", "ros2", "service", "call", "/api/operation_mode/change_to_autonomous", "autoware_adapi_v1_msgs/srv/ChangeOperationMode", "{}"], env, calls, 28)
-    run_cmd("engage_true", ["timeout", "15", "ros2", "service", "call", "/api/autoware/set/engage", "tier4_external_api_msgs/srv/Engage", "{engage: true}"], env, calls, 18)
+    wait_for_topic_sample(
+        "wait_planning_trajectory",
+        "/planning/scenario_planning/trajectory",
+        env,
+        setup_checks,
+        timeout_sec=12,
+        retries=5,
+        retry_delay_sec=3.0,
+    )
+    run_service_cmd_with_retries(
+        "enable_autoware_control",
+        ["timeout", "15", "ros2", "service", "call", "/api/operation_mode/enable_autoware_control", "autoware_adapi_v1_msgs/srv/ChangeOperationMode", "{}"],
+        env,
+        calls,
+        timeout_sec=18,
+        retries=3,
+        retry_delay_sec=3.0,
+    )
+    autonomous_call = run_service_cmd_with_retries(
+        "change_to_autonomous",
+        ["timeout", "25", "ros2", "service", "call", "/api/operation_mode/change_to_autonomous", "autoware_adapi_v1_msgs/srv/ChangeOperationMode", "{}"],
+        env,
+        calls,
+        timeout_sec=28,
+        retries=5,
+        retry_delay_sec=3.0,
+    )
+    if service_call_failure(autonomous_call) is None:
+        mark_service_step_superseded(
+            calls,
+            step="enable_autoware_control",
+            superseded_by_step="change_to_autonomous",
+        )
+    run_cmd_with_retries(
+        "engage_true",
+        ["timeout", "15", "ros2", "service", "call", "/api/autoware/set/engage", "tier4_external_api_msgs/srv/Engage", "{engage: true}"],
+        env,
+        calls,
+        timeout_sec=18,
+        retries=4,
+        retry_delay_sec=3.0,
+    )
 
 
 def run_probe(args: argparse.Namespace) -> dict[str, Any]:
@@ -778,6 +1023,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     env["RMW_IMPLEMENTATION"] = args.rmw_implementation
 
     service_calls: list[dict[str, Any]] = []
+    setup_checks: list[dict[str, Any]] = []
     collision_events: list[dict[str, Any]] = []
     samples: list[dict[str, Any]] = []
     actor_specs = probe_actor_specs(config)
@@ -828,18 +1074,6 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         time.sleep(1.0)
 
         bp_lib = world.get_blueprint_library()
-        for spec in actor_specs:
-            target_bp = find_actor_blueprint(bp_lib, spec.target_type)
-            has_attribute = getattr(target_bp, "has_attribute", None)
-            if not callable(has_attribute) or target_bp.has_attribute("role_name"):
-                role_name = f"{config.kind}_{spec.name}" if spec.perception_visible else f"pix_visual_only_{spec.name}"
-                target_bp.set_attribute("role_name", role_name)
-            target = spawn_actor_with_fallbacks(world, carla, target_bp, spec)
-            if target is None:
-                raise RuntimeError(f"Failed to spawn target {spec.name} for {config.kind} at {spec.start}")
-            target.set_simulate_physics(False)
-            actor_handles.append({"spec": spec, "actor": target})
-
         collision_sensor = world.spawn_actor(bp_lib.find("sensor.other.collision"), carla.Transform(), attach_to=ego)
         collision_sensor.listen(
             lambda event: collision_events.append(
@@ -855,13 +1089,30 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         client.start_recorder(carla_recorder)
         recording_started = True
 
+        setup_route(env, service_calls, setup_checks)
+
+        for spec in actor_specs:
+            target_bp = find_actor_blueprint(bp_lib, spec.target_type)
+            has_attribute = getattr(target_bp, "has_attribute", None)
+            if not callable(has_attribute) or target_bp.has_attribute("role_name"):
+                role_name = f"{config.kind}_{spec.name}" if spec.perception_visible else f"pix_visual_only_{spec.name}"
+                target_bp.set_attribute("role_name", role_name)
+            target = spawn_actor_with_fallbacks(world, carla, target_bp, spec)
+            if target is None:
+                raise RuntimeError(f"Failed to spawn target {spec.name} for {config.kind} at {spec.start}")
+            target.set_simulate_physics(False)
+            actor_handles.append({"spec": spec, "actor": target})
+
         if use_dummy_injection:
             rclpy.init(args=None)
             node = rclpy.create_node(f"pix_{config.kind}_dummy_perception_probe")
             pub = node.create_publisher(DummyObject, "/simulation/dummy_perception_publisher/object_info", 10)
             time.sleep(0.5)
             injection_spec = dummy_spec or actor_specs[0]
-            pub.publish(
+            publish_dummy_message_repeatedly(
+                rclpy,
+                node,
+                pub,
                 make_dummy_msg(
                     modules,
                     node,
@@ -872,11 +1123,9 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                     injection_spec.speed_x,
                     0.0,
                     target_type=injection_spec.target_type,
-                )
+                ),
+                repeat=5,
             )
-            rclpy.spin_once(node, timeout_sec=0.05)
-
-        setup_route(env, service_calls)
 
         if args.camera_video_output:
             initial_ego_sample = sample_actor(ego)
@@ -1017,6 +1266,31 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             )
             if index > 10 and index - last_object_check_index >= 10:
                 object_sample = object_topic_sample(env)
+                if use_dummy_injection and not object_sample["nonempty"] and node is not None and pub is not None and motions:
+                    injected_motion = next(
+                        (item for item in motions if dummy_spec is not None and item["spec"].name == dummy_spec.name),
+                        motions[0],
+                    )
+                    primary_motion = injected_motion["motion"]
+                    primary_spec = injected_motion["spec"]
+                    publish_dummy_message_repeatedly(
+                        rclpy,
+                        node,
+                        pub,
+                        make_dummy_msg(
+                            modules,
+                            node,
+                            DummyObject.ADD,
+                            primary_motion["x"],
+                            -primary_motion["y"],
+                            dummy_yaw_deg(primary_spec, primary_motion),
+                            primary_spec.speed_x,
+                            -primary_motion["vy"],
+                            target_type=primary_spec.target_type,
+                        ),
+                        repeat=3,
+                        sleep_sec=0.05,
+                    )
                 object_check_count += 1
                 object_nonempty_check_count += int(bool(object_sample["nonempty"]))
                 objects_nonempty = objects_nonempty or bool(object_sample["nonempty"])
@@ -1032,6 +1306,31 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             video_recorder.drain()
 
         if not objects_nonempty:
+            if use_dummy_injection and node is not None and pub is not None and motions:
+                injected_motion = next(
+                    (item for item in motions if dummy_spec is not None and item["spec"].name == dummy_spec.name),
+                    motions[0],
+                )
+                primary_motion = injected_motion["motion"]
+                primary_spec = injected_motion["spec"]
+                publish_dummy_message_repeatedly(
+                    rclpy,
+                    node,
+                    pub,
+                    make_dummy_msg(
+                        modules,
+                        node,
+                        DummyObject.ADD,
+                        primary_motion["x"],
+                        -primary_motion["y"],
+                        dummy_yaw_deg(primary_spec, primary_motion),
+                        primary_spec.speed_x,
+                        -primary_motion["vy"],
+                        target_type=primary_spec.target_type,
+                    ),
+                    repeat=5,
+                    sleep_sec=0.05,
+                )
             object_sample = object_topic_sample(env)
             object_check_count += 1
             object_nonempty_check_count += int(bool(object_sample["nonempty"]))
@@ -1081,7 +1380,38 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         if min_actor_observed_count is None:
             min_actor_observed_count = min(2, expected_actor_count)
         actor_count_passed = expected_actor_count == 0 or summary["actor_count_observed"] >= min_actor_observed_count
-        response_passed = objects_nonempty and actor_count_passed and summary["autoware_reacted"] and summary["moved"] and summary["target_in_lane"]
+        control_setup_failures = service_call_failures(service_calls)
+        control_setup_passed = not control_setup_failures
+        failure_reasons: list[str] = []
+        if not control_setup_passed:
+            failure_reasons.extend(
+                f"control_setup:{item['step']}:{item['reason']}" for item in control_setup_failures
+            )
+        if not objects_nonempty:
+            failure_reasons.append("object_pipeline_empty")
+        if not actor_count_passed:
+            failure_reasons.append(
+                f"actor_count_below_threshold:{summary['actor_count_observed']}<{min_actor_observed_count}"
+            )
+        if not summary["autoware_reacted"]:
+            failure_reasons.append("autoware_no_dynamic_response")
+        if not summary["moved"]:
+            failure_reasons.append("ego_not_moved")
+        if not summary["target_in_lane"]:
+            failure_reasons.append("target_not_in_lane")
+        if not safety_passed:
+            failure_reasons.append("safety_gate_failed")
+        summary["control_setup_passed"] = control_setup_passed
+        summary["control_setup_failures"] = control_setup_failures
+        summary["failure_reasons"] = failure_reasons
+        response_passed = (
+            control_setup_passed
+            and objects_nonempty
+            and actor_count_passed
+            and summary["autoware_reacted"]
+            and summary["moved"]
+            and summary["target_in_lane"]
+        )
         result = {
             "created_at": datetime.now(timezone.utc).isoformat(),
             "classification": f"{config.classification}:{args.perception_source}",
@@ -1111,6 +1441,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 for spec in actor_specs
             ],
             "service_calls": service_calls,
+            "setup_checks": setup_checks,
             "collision_events": collision_events,
             "samples": samples,
             "summary": summary,
@@ -1130,10 +1461,13 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 "expected_actor_count": expected_actor_count,
                 "spawned_actor_count": len(actor_handles),
                 "min_actor_observed_count": min_actor_observed_count,
+                "control_setup_passed": control_setup_passed,
+                "control_setup_failures": control_setup_failures,
             },
             "verdict": {
                 "overall_passed": safety_passed and response_passed,
                 "safety_passed": safety_passed,
+                "control_setup_passed": control_setup_passed,
                 "autoware_dynamic_actor_response_passed": response_passed,
             },
         }
@@ -1161,7 +1495,15 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             except Exception as exc:
                 print(f"cleanup dummy failed: {exc}", file=sys.stderr)
         try:
-            run_cmd("engage_false_cleanup", ["timeout", "15", "ros2", "service", "call", "/api/autoware/set/engage", "tier4_external_api_msgs/srv/Engage", "{engage: false}"], env, service_calls, 18)
+            run_cmd_with_retries(
+                "engage_false_cleanup",
+                ["timeout", "15", "ros2", "service", "call", "/api/autoware/set/engage", "tier4_external_api_msgs/srv/Engage", "{engage: false}"],
+                env,
+                service_calls,
+                timeout_sec=18,
+                retries=2,
+                retry_delay_sec=2.0,
+            )
             run_cmd("change_to_stop_cleanup", ["timeout", "15", "ros2", "service", "call", "/api/operation_mode/change_to_stop", "autoware_adapi_v1_msgs/srv/ChangeOperationMode", "{}"], env, service_calls, 18)
         except Exception as exc:
             print(f"cleanup services failed: {exc}", file=sys.stderr)

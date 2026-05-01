@@ -52,6 +52,7 @@ metadata:
     python3 ops/runtime_probes/carla_sensor_topic_probe.py
     --run-dir <run_dir>
     --profile robobus117th
+    --continue-on-failure
     &&
     python3 ops/runtime_probes/carla_dynamic_actor_probe.py
     --run-dir <run_dir>

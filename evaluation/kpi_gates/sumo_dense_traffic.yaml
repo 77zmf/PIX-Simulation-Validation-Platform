@@ -1,0 +1,36 @@
+gate_id: sumo_dense_traffic
+description: Stable-line SUMO-CARLA dense traffic gate for many-NPC actor bridge and planning/control visibility
+failure_labels:
+  - sumo_cosim_failure
+  - sumo_dense_actor_count_failure
+  - actor_bridge_perception_failure
+  - ego_control_command_failure
+  - carla_dense_visual_capture_failure
+metrics:
+  sumo_cosim_alive:
+    op: ">="
+    value: 1.0
+  sumo_route_loaded:
+    op: ">="
+    value: 1.0
+  sumo_actor_count:
+    op: ">="
+    value: 12.0
+  sumo_step_samples:
+    op: ">="
+    value: 1.0
+  autoware_object_stream_seen:
+    op: ">="
+    value: 1.0
+  ego_control_command_seen:
+    op: ">="
+    value: 1.0
+  carla_actor_visual_ego_seen:
+    op: ">="
+    value: 1.0
+  carla_actor_visual_npc_count:
+    op: ">="
+    value: 8.0
+  carla_actor_visual_capture_count:
+    op: ">="
+    value: 12.0

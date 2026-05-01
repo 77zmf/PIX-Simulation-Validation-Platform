@@ -5,6 +5,7 @@ failure_labels:
   - sumo_actor_visibility_failure
   - actor_bridge_perception_failure
   - ego_control_command_failure
+  - carla_visual_capture_failure
 metrics:
   sumo_cosim_alive:
     op: ">="
@@ -24,3 +25,12 @@ metrics:
   ego_control_command_seen:
     op: ">="
     value: 1.0
+  carla_actor_visual_ego_seen:
+    op: ">="
+    value: 1.0
+  carla_actor_visual_npc_count:
+    op: ">="
+    value: 1.0
+  carla_actor_visual_capture_count:
+    op: ">="
+    value: 3.0

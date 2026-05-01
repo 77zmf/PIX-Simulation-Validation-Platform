@@ -1,0 +1,57 @@
+gate_id: sumo_reduced_route_follow_bughunt
+description: Reduced-load SUMO route-follow gate for isolating PIX robobus planning/control behavior without dense-traffic host pressure
+failure_labels:
+  - sumo_cosim_failure
+  - sumo_reduced_actor_count_failure
+  - actor_bridge_perception_failure
+  - ego_control_command_failure
+  - carla_visual_capture_failure
+  - route_completion_failure
+  - lane_envelope_failure
+  - control_stability_failure
+metrics:
+  sumo_cosim_alive:
+    op: ">="
+    value: 1.0
+  sumo_route_loaded:
+    op: ">="
+    value: 1.0
+  sumo_actor_count:
+    op: ">="
+    value: 6.0
+  sumo_step_samples:
+    op: ">="
+    value: 1.0
+  autoware_object_stream_seen:
+    op: ">="
+    value: 1.0
+  ego_control_command_seen:
+    op: ">="
+    value: 1.0
+  carla_actor_visual_ego_seen:
+    op: ">="
+    value: 1.0
+  carla_actor_visual_npc_count:
+    op: ">="
+    value: 4.0
+  carla_actor_visual_capture_count:
+    op: ">="
+    value: 6.0
+  sensor_topic_coverage:
+    op: ">="
+    value: 1.0
+  route_completion:
+    op: ">="
+    value: 0.98
+  route_goal_lateral_error_m:
+    op: "<="
+    value: 0.80
+  lateral_error_m:
+    op: "<="
+    value: 0.75
+  longitudinal_error_m:
+    op: "<="
+    value: 0.8
+  jerk_mps3:
+    op: "<="
+    value: 3.5

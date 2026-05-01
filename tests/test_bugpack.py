@@ -1,0 +1,438 @@
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT / "src"))
+
+from simctl.bugpack import classify_run_result, write_bugpack
+
+
+def _base_result(run_dir: Path, *, status: str = "failed") -> dict[str, object]:
+    return {
+        "run_id": run_dir.name,
+        "scenario_id": "stable_l2_planning_control_merge_regression",
+        "stack": "stable",
+        "status": status,
+        "scenario_path": "scenarios/l2/planning_control_merge_regression.yaml",
+        "scenario_params": {
+            "map_id": "Town01",
+            "goal": {"route_id": "Town01/merge"},
+            "labels": ["stable", "planning_control", "merge"],
+        },
+        "software_versions": {
+            "autoware_universe": "main",
+            "ros2": "humble",
+            "carla": "0.9.15",
+            "unreal_engine": "4.26",
+        },
+        "resolved_profiles": {
+            "sensor": {"profile_id": "robobus_pixrover14_application_topology"},
+            "algorithm": {"profile_id": "planning_control_baseline"},
+        },
+        "runtime_health": {"passed": True},
+        "gate": {
+            "gate_id": "planning_control_multi_actor_regression",
+            "passed": False,
+            "violations": [
+                {
+                    "metric": "min_ttc_sec",
+                    "reason": "threshold_violation",
+                    "actual": 0.6,
+                    "op": ">=",
+                    "threshold": 1.8,
+                }
+            ],
+            "failure_labels": ["collision_failure"],
+        },
+        "kpis": {"min_ttc_sec": 0.6, "collision_count": 0.0},
+        "artifacts": {
+            "run_dir": str(run_dir),
+            "run_result": str(run_dir / "run_result.json"),
+            "runtime_evidence_summary": str(run_dir / "runtime_evidence_summary.json"),
+            "health_report": str(run_dir / "health.json"),
+        },
+        "slot_id": "stable-slot-01",
+    }
+
+
+def _roadtest_replay_result(run_dir: Path) -> dict[str, object]:
+    result = _base_result(run_dir)
+    result["scenario_id"] = "stable_l2_planning_control_roadtest_trajectory_dropout_replay_draft"
+    result["scenario_path"] = "scenarios/l2/planning_control_roadtest_trajectory_dropout_replay_draft.yaml"
+    result["runtime_health"] = None
+    result["scenario_params"] = {
+        "map_id": "roadtest_gy_qyhx_202604",
+        "goal": {"route_id": "roadtest_replay/trajectory_dropout_source_goal"},
+        "labels": ["stable", "planning_control", "road_test_replay", "trajectory_dropout", "draft"],
+    }
+    result["gate"] = {
+        "gate_id": "planning_control_trajectory_stability_replay",
+        "passed": False,
+        "violations": [
+            {
+                "metric": "trajectory_silence_sec",
+                "reason": "threshold_violation",
+                "actual": 130.749133911,
+                "op": "<=",
+                "threshold": 1.0,
+            },
+            {
+                "metric": "route_empty_count",
+                "reason": "threshold_violation",
+                "actual": 1.0,
+                "op": "<=",
+                "threshold": 0.0,
+            },
+        ],
+    }
+    result["kpis"] = {
+        "trajectory_silence_sec": 130.749133911,
+        "route_empty_count": 1.0,
+        "roadtest_replay_case_count": 3.0,
+    }
+    return result
+
+
+class BugpackTests(unittest.TestCase):
+    def test_classifies_planning_control_kpi_failure_as_bug_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_failed"
+            run_dir.mkdir()
+            result = _base_result(run_dir)
+
+            triage = classify_run_result(result, run_dir / "run_result.json")
+
+            self.assertEqual(triage["classification"], "planning_control_bug_candidate")
+            self.assertEqual(triage["severity"], "P1")
+            self.assertIn("planning", triage["suspected_modules"])
+
+    def test_classifies_roadtest_replay_kpi_failure_as_planning_bug_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_roadtest_replay_failed"
+            run_dir.mkdir()
+            result = _roadtest_replay_result(run_dir)
+
+            triage = classify_run_result(result, run_dir / "run_result.json")
+
+            self.assertEqual(triage["classification"], "planning_control_bug_candidate")
+            self.assertEqual(triage["runtime_health_passed"], None)
+            self.assertIn("planning", triage["suspected_modules"])
+
+    def test_write_bugpack_creates_issue_for_roadtest_replay_without_include_infra(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_roadtest_replay_failed"
+            run_dir.mkdir(parents=True)
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(json.dumps(_roadtest_replay_result(run_dir)), encoding="utf-8")
+
+            summary = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=root / "bugpack",
+                owner="planning-control",
+            )
+
+            self.assertEqual(summary["issue_count"], 1)
+            self.assertEqual(summary["blocked_count"], 0)
+            issue = Path(summary["issues"][0]["issue_path"]).read_text(encoding="utf-8")
+            self.assertIn("trajectory_silence_sec", issue)
+            self.assertIn("route_empty_count", issue)
+
+    def test_write_bugpack_creates_issue_markdown_for_failed_planning_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_failed"
+            run_dir.mkdir(parents=True)
+            runtime_dir = run_dir / "runtime_verification"
+            runtime_dir.mkdir()
+            (runtime_dir / "closed_loop_route_sync_summary.json").write_text(
+                json.dumps(
+                    {
+                        "camera_video": {
+                            "path": str(runtime_dir / "speed40_route_sync.mp4"),
+                            "mode": "ego_chase",
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(json.dumps(_base_result(run_dir)), encoding="utf-8")
+
+            summary = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=root / "bugpack",
+                owner="planning-control",
+            )
+
+            self.assertEqual(summary["issue_count"], 1)
+            self.assertEqual(summary["blocked_count"], 0)
+            issue_path = Path(summary["issues"][0]["issue_path"])
+            self.assertTrue(issue_path.exists())
+            issue = issue_path.read_text(encoding="utf-8")
+            self.assertIn("## Reproduction conditions", issue)
+            self.assertIn("min_ttc_sec", issue)
+            self.assertIn("closed_loop_route_summary", issue)
+            self.assertIn("speed40_route_sync.mp4", issue)
+            self.assertIn("planning-control", issue)
+            self.assertTrue((root / "bugpack" / "index.md").exists())
+            self.assertTrue((root / "bugpack" / "summary.json").exists())
+
+    def test_runtime_failure_is_blocked_by_default_not_planning_bug(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_launch_failed"
+            run_dir.mkdir(parents=True)
+            result = _base_result(run_dir, status="launch_failed")
+            result["runtime_health"] = {"passed": False}
+            result["gate"] = {"gate_id": "planning_control_regression", "passed": False, "violations": []}
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(json.dumps(result), encoding="utf-8")
+
+            summary = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=root / "bugpack",
+                owner="planning-control",
+            )
+
+            self.assertEqual(summary["issue_count"], 0)
+            self.assertEqual(summary["blocked_count"], 1)
+            self.assertEqual(summary["blocked"][0]["classification"], "runtime_blocker")
+
+    def test_dynamic_service_failure_is_blocked_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_dynamic_setup_failed"
+            run_dir.mkdir(parents=True)
+            result = _base_result(run_dir)
+            result["runtime_evidence"] = {
+                "ignored_dynamic_probe_attempts": [
+                    {
+                        "path": str(run_dir / "runtime_verification" / "l2_merge.json"),
+                        "reason": "service_call_failed",
+                        "invalid_steps": ["change_to_autonomous"],
+                    }
+                ],
+                "dynamic_probe_attempts": [],
+            }
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(json.dumps(result), encoding="utf-8")
+
+            summary = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=root / "bugpack",
+                owner="planning-control",
+            )
+
+            self.assertEqual(summary["issue_count"], 0)
+            self.assertEqual(summary["blocked_count"], 1)
+            self.assertEqual(summary["blocked"][0]["classification"], "integration_blocker")
+
+    def test_write_bugpack_removes_stale_issue_markdown(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_failed"
+            run_dir.mkdir(parents=True)
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(json.dumps(_base_result(run_dir)), encoding="utf-8")
+            output_dir = root / "bugpack"
+
+            first = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=output_dir,
+                owner="planning-control",
+            )
+            stale_issue = Path(first["issues"][0]["issue_path"])
+            self.assertTrue(stale_issue.exists())
+
+            result = _base_result(run_dir)
+            result["runtime_evidence"] = {
+                "ignored_dynamic_probe_attempts": [
+                    {"reason": "service_call_failed", "invalid_steps": ["change_to_autonomous"]}
+                ]
+            }
+            result_path.write_text(json.dumps(result), encoding="utf-8")
+            second = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=output_dir,
+                owner="planning-control",
+            )
+
+            self.assertEqual(second["issue_count"], 0)
+            self.assertFalse(stale_issue.exists())
+            self.assertEqual(list((output_dir / "issues").glob("*.md")), [])
+
+    def test_issue_markdown_includes_dynamic_probe_diagnosis(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_failed"
+            run_dir.mkdir(parents=True)
+            result = _base_result(run_dir)
+            result["runtime_evidence"] = {
+                "dynamic_probe_attempts": [
+                    {
+                        "kind": "l2_close_cut_in",
+                        "overall_passed": False,
+                        "safety_passed": True,
+                        "autoware_dynamic_actor_response_passed": False,
+                        "moved": True,
+                        "reaction_reason": None,
+                        "actor_count_observed": 1.0,
+                        "actor_count_spawned": 1.0,
+                        "max_speed_mps": 2.03,
+                        "min_speed_after_target_in_lane_mps": 1.04,
+                        "total_delta_m": 60.1,
+                        "failure_reasons": ["autoware_no_dynamic_response"],
+                    }
+                ]
+            }
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(json.dumps(result), encoding="utf-8")
+
+            summary = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=root / "bugpack",
+                owner="planning-control",
+            )
+
+            issue_path = Path(summary["issues"][0]["issue_path"])
+            issue = issue_path.read_text(encoding="utf-8")
+            self.assertIn("## Runtime probe diagnosis", issue)
+            self.assertIn("l2_close_cut_in", issue)
+            self.assertIn("autoware_no_dynamic_response", issue)
+
+    def test_issue_markdown_includes_closed_loop_service_failure_details(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_route_failed"
+            run_dir.mkdir(parents=True)
+            runtime_dir = run_dir / "runtime_verification"
+            runtime_dir.mkdir()
+            command_logs = run_dir / "command_logs"
+            command_logs.mkdir()
+            (command_logs / "06_start-autoware-stack.log").write_text(
+                "\n".join(
+                    [
+                        "[control.autonomous_emergency_braking]: [AEB] waiting for imu message",
+                        "[control.autonomous_emergency_braking]: [AEB] At least one path (IMU or predicted trajectory) is required for operation",
+                        "[system.topic_state_monitor_vehicle_status_velocity_status]: /vehicle/status/velocity_status topic rate has dropped to the warning level.",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            (runtime_dir / "closed_loop_route_sync_20260501T082306.json").write_text(
+                json.dumps(
+                    {
+                        "verdict": {"overall_passed": False, "movement_passed": False},
+                        "summary": {
+                            "route_service_calls_successful": True,
+                            "all_service_calls_successful": False,
+                            "max_speed_mps": 0.39,
+                            "total_delta_m": 1.4,
+                            "stopped_before_goal": True,
+                            "ros_telemetry": {
+                                "tail_stats": {
+                                    "tail_actuation_brake_cmd": {"mean": 0.8},
+                                    "tail_control_acceleration_mps2": {"mean": -2.5},
+                                    "tail_vehicle_velocity_mps": {"mean": 0.0},
+                                }
+                            },
+                        },
+                        "setup_checks": [
+                            {
+                                "step": "wait_operation_mode_autonomous_available",
+                                "topic": "/api/operation_mode/state",
+                                "passed": False,
+                                "attempt_count": 11,
+                                "blocker_snapshot": {
+                                    "topics": {
+                                        "operation_mode_state": {
+                                            "sample_received": True,
+                                            "returncode": 0,
+                                            "output_tail": "is_autonomous_mode_available: false",
+                                        },
+                                        "fail_safe_mrm_state": {
+                                            "sample_received": True,
+                                            "returncode": 0,
+                                            "output_tail": "state: 1 behavior: 1",
+                                        },
+                                    }
+                                },
+                            }
+                        ],
+                        "service_calls": [
+                            {
+                                "step": "change_to_autonomous",
+                                "attempt": 5,
+                                "service_failure_reason": "service_status_false",
+                                "service_failure_message": "The target mode is not available.",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = _base_result(run_dir)
+            result["gate"] = {
+                "gate_id": "sumo_dense_route_follow_bughunt",
+                "passed": False,
+                "violations": [
+                    {
+                        "metric": "route_completion",
+                        "reason": "threshold_violation",
+                        "actual": 0.0,
+                        "op": ">=",
+                        "threshold": 0.98,
+                    }
+                ],
+            }
+            result["kpis"] = {"route_completion": 0.0}
+            result["runtime_evidence"] = {
+                "ignored_attempts": [
+                    {
+                        "path": str(run_dir / "runtime_verification" / "closed_loop_route_sync.json"),
+                        "reason": "service_call_failed",
+                        "invalid_steps": ["set_route_points", "change_to_autonomous"],
+                        "service_calls": [
+                            {
+                                "step": "set_route_points",
+                                "returncode": 0,
+                                "output_summary": "status=ResponseStatus(success=False, message='The planned route is empty.')",
+                            },
+                            {
+                                "step": "change_to_autonomous",
+                                "returncode": 0,
+                                "output_summary": "status=ResponseStatus(success=False, message='The target mode is not available.')",
+                            },
+                        ],
+                    }
+                ],
+            }
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(json.dumps(result), encoding="utf-8")
+
+            summary = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=root / "bugpack",
+                owner="planning-control",
+            )
+
+            issue = Path(summary["issues"][0]["issue_path"]).read_text(encoding="utf-8")
+            self.assertIn("ignored closed-loop route probe", issue)
+            self.assertIn("set_route_points", issue)
+            self.assertIn("The planned route is empty", issue)
+            self.assertIn("change_to_autonomous", issue)
+            self.assertIn("closed-loop setup blocker", issue)
+            self.assertIn("is_autonomous_mode_available: false", issue)
+            self.assertIn("fail_safe_mrm_state", issue)
+            self.assertIn("aeb_waiting_for_imu", issue)
+
+
+if __name__ == "__main__":
+    unittest.main()
