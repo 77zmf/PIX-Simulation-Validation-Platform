@@ -13,6 +13,7 @@ What is synchronized is the reusable definition so another machine can recreate 
 - `gaussian_reconstruction_explorer`
 - `public_road_e2e_shadow_explorer`
 - `stable_stack_host_readiness_explorer`
+- `stable_complex_validation_explorer`
 
 ## CLI
 
@@ -48,6 +49,7 @@ python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_
 - `gaussian_reconstruction_explorer`: static/dynamic Gaussian reconstruction, source assets, gates, and roadmap alignment
 - `public_road_e2e_shadow_explorer`: BEVFusion to UniAD/VADv2 shadow path, scenarios, metrics, and implementation gaps
 - `stable_stack_host_readiness_explorer`: company Ubuntu host, CARLA/Autoware bring-up, readiness probes, and repeatability gaps
+- `stable_complex_validation_explorer`: SUMO traffic, multi-actor planning/control, L3 occlusion campaigns, and runtime evidence closure
 
 ## Project Fit
 
@@ -66,6 +68,8 @@ Because of that, not all specs should be used with the same frequency.
   Use when the problem is in `simctl -> stack -> runtime -> run_result`, especially if slots, ports, namespaces, or run-dir isolation are involved.
 - `stable_stack_host_readiness_explorer`
   Use when the problem is in Ubuntu host readiness, CARLA/Autoware bring-up, environment variables, package state, or service health.
+- `stable_complex_validation_explorer`
+  Use when the problem is in stable-line complex scenario execution, especially SUMO smoke, multi-actor regression, L3 occlusion, and the gap between runtime evidence and final KPI closure.
 - `public_road_e2e_shadow_explorer`
   Use when the question is about `BEVFusion`, `UniAD-style`, `VADv2`, shadow planner interfaces, or public-road E2E scenarios on the stable runtime baseline.
 - `gaussian_reconstruction_explorer`
@@ -82,6 +86,7 @@ Because of that, not all specs should be used with the same frequency.
 
 - Runtime or launch issue: start with `execution_runtime_explorer`.
 - Host or bring-up issue: start with `stable_stack_host_readiness_explorer`.
+- Complex scenario or campaign issue: start with `stable_complex_validation_explorer`.
 - Public-road E2E issue: start with `public_road_e2e_shadow_explorer`.
 - Reconstruction issue: start with `gaussian_reconstruction_explorer`.
 - Multi-track roadmap question: use `algorithm_research_explorer`.

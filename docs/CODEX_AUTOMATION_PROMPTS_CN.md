@@ -90,3 +90,30 @@ Read the latest digest and prepare a weekly review inbox item with milestone sta
 说明：
 - 技能负责“方法”，自动化负责“调度”
 - 真正上 schedule 前，先在普通线程手工跑一遍，确认输出稳定
+
+## 9. AI 超体每日启动
+
+```text
+Use the ai-superbody-pmo and project-digest-triage skills as relevant.
+Read docs/AI_SUPERBODY_WORKFLOW_OPTIMIZATION_CN.md, tasks/codex_backlog.json, and the latest digest.
+Return today's single P0 main task, at most two support tasks, the expected artifact, owner, blocker reason, exact validation command, whether Ubuntu-host evidence is required, and the recommended agent handoff contract.
+Keep stable mainline ahead of asset/scenario work, and keep shadow comparison non-blocking.
+```
+
+## 10. AI 超体周三 Blocker 清理
+
+```text
+Use the ai-superbody-pmo skill.
+Read the latest digest and active backlog items.
+Classify blockers only as needs_host, needs_assets, needs_runtime_evidence, needs_kpi_gate, needs_report_replay, or needs_decision.
+For each blocker, return owner, track, evidence found, next action, due date, route reason, input artifacts, expected output, and the smallest repo-local fallback if the Ubuntu host is unavailable.
+```
+
+## 11. AI 超体周五证据复盘
+
+```text
+Use the runtime-closure-audit and ai-superbody-pmo skills.
+Review this week's run artifacts, digest output, changed docs/configs, and active scenarios.
+Return milestone status, completed evidence, missing links in assets/scenario -> simctl run/batch -> runtime evidence -> run_result -> KPI gate -> report/replay -> digest, owner next actions, decisions needed, agent routing failures, handoff/context problems, and top 3 moves for next week.
+Do not treat launch_submitted as final acceptance.
+```

@@ -20,6 +20,7 @@
 - `gaussian_reconstruction_explorer`
 - `public_road_e2e_shadow_explorer`
 - `stable_stack_host_readiness_explorer`
+- `stable_complex_validation_explorer`
 
 ## 3. 团队使用边界
 
@@ -29,6 +30,7 @@
 
 - `stable_stack_host_readiness_explorer`
 - `execution_runtime_explorer`
+- `stable_complex_validation_explorer`
 
 适用问题：
 
@@ -37,6 +39,7 @@
 - `simctl run -> run_result -> report -> replay`
 - runtime、health check、执行链路
 - 并行槽位、端口、ROS domain 和 run-dir 隔离
+- SUMO / L2 / L3 复杂场景回归与 KPI 闭环
 
 ### 罗顺雄 / lsx
 
@@ -105,6 +108,7 @@ python -m simctl subagent-spec --name execution_runtime_explorer --format spawn_
 
 - 主机或稳定栈问题：`stable_stack_host_readiness_explorer`
 - 执行链和结果问题：`execution_runtime_explorer`
+- 复杂场景和 campaign 问题：`stable_complex_validation_explorer`
 - 公共道路 E2E 问题：`public_road_e2e_shadow_explorer`
 - 三维重建问题：`gaussian_reconstruction_explorer`
 - 多研究线总览问题：`algorithm_research_explorer`

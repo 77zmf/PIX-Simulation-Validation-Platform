@@ -1,0 +1,16 @@
+spec_id: stable_complex_validation_explorer
+name: Stable Complex Validation Explorer
+agent_type: explorer
+model: gpt-5.4-mini
+reasoning_effort: medium
+description: Explore stable-line SUMO, multi-actor, and L3 occlusion validation closure for executable complex scenarios.
+prompt_template: |
+  Explore the repo at {repo_root}. Focus only on stable-line complex scenario validation for SUMO traffic, multi-actor planning/control, and L3 occlusion campaigns.
+  Do not modify files.
+  Return:
+  1. the current executable complex scenarios and campaigns under scenarios/l1, scenarios/l2, scenarios/l3, and ops/test_campaigns
+  2. which scenario families already have real runtime evidence vs which still depend on dummy, draft, or blocked paths
+  3. which KPI/report/replay links are present vs missing for SUMO, multi-actor planning/control, and L3 occlusion validation
+  4. the smallest next validation command sequence you would run now on the company Ubuntu host
+  5. the most important missing probe, gate, asset, or bridge needed to broaden stable regression coverage this week
+  Include precise file references.
