@@ -10,6 +10,32 @@
 
 ## 2. 当前最重要的判断
 
+### 2026-05-01 进度更新
+- 今天已经把新增工作按四条线收成独立提交：
+  - `8861605` `feat(simctl): extend stable validation workflows`
+  - `10287cc` `feat(robobus117th): add vehicle acceptance assets`
+  - `6ea2bd3` `feat(reconstruction): add carla import handoff assets`
+  - `889440d` `docs(ops): add automation and workflow guidance`
+- 仓库当前覆盖面已经扩到：
+  - `44` 个 scenario
+  - `32` 个 KPI gate
+  - `14` 个 runtime probe
+  - `9` 个 asset manifest
+  - `37` 个测试文件
+- 本地 repo 侧验证已补齐：
+  - `bash .agents/skills/repo-verification/scripts/run_checks.sh`
+  - `252` 个单元测试通过
+  - 新生成 stub 证据：`ci_runs/20260501T123736038773Z__stable_l0_smoke_stub/run_result.json`
+- 当前不能夸大的范围：
+  - 上面的通过证据仍然是 Mac / stub 线
+  - 还不能把它表述成公司 Ubuntu 主机 stable closed-loop 验收通过
+- 当前最需要补的 host-only 缺口：
+  - `scenarios/l1/regression_follow_lane.yaml`
+  - `scenarios/l2/sumo_town01_dense_traffic.yaml`
+  - `scenarios/l0/robobus117th_vehicle_blueprint_acceptance.yaml`
+  - `scenarios/l0/robobus117th_vehicle_dynamics_acceptance.yaml`
+  - `scenarios/l2/reconstruction_qiyu_loop_carla_import_smoke.yaml`
+
 ### 已经比较成型的部分
 - `simctl` 作为统一 CLI 已经覆盖主要验证入口
 - `stack profile + slots` 已经具备稳定栈编排意识
@@ -20,8 +46,10 @@
 ### 当前最关键的缺口
 1. **真实运行闭环还没最终收口**
    - 当前要补的是真实 execute 之后的 finalize / evidence / final gate
+   - 2026-05-01 已经补齐 repo 侧 probe / gate / campaign / preflight，但还缺 Ubuntu `--execute` 证据
 2. **公开道路资产还要再向“可复用 case”晋升**
    - 不能停留在 bundle 已整理、文件已齐的阶段
+   - `reconstruction_qiyu_loop_carla_import_smoke` 已入库，但还没有 host 侧 import smoke 结果
 3. **重建线缺真实图像/视频输入**
    - 在有真实输入前，COLMAP / Gaussian 只能做工具和流程层 readiness
 
