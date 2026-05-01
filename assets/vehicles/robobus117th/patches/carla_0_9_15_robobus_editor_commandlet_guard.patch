@@ -1,0 +1,35 @@
+--- a/Unreal/CarlaUE4/Source/CarlaUE4/RobobusVisualAuthorCommandlet.cpp
++++ b/Unreal/CarlaUE4/Source/CarlaUE4/RobobusVisualAuthorCommandlet.cpp
+@@ -1,5 +1,9 @@
+ #include "RobobusVisualAuthorCommandlet.h"
+ 
++#include "CoreMinimal.h"
++
++#if WITH_EDITOR
++
+ #include "Components/SkeletalMeshComponent.h"
+ #include "Components/MeshComponent.h"
+ #include "Engine/Blueprint.h"
+@@ -374,4 +378,22 @@
+ 
+   UE_LOG(LogTemp, Display, TEXT("ZMF_ROBOBUS_VISUAL DONE added PixVisualMesh z_offset_cm=%.2f"), ZOffsetCm);
+   return 0;
++}
++
++#else
++
++URobobusVisualAuthorCommandlet::URobobusVisualAuthorCommandlet()
++{
++  IsClient = false;
++  IsEditor = false;
++  IsServer = false;
++  LogToConsole = true;
+ }
++
++int32 URobobusVisualAuthorCommandlet::Main(const FString&)
++{
++  UE_LOG(LogTemp, Error, TEXT("ZMF_ROBOBUS_VISUAL commandlet is editor-only."));
++  return 1;
++}
++
++#endif

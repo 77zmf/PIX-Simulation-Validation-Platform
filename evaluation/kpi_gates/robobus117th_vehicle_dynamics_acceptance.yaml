@@ -1,0 +1,31 @@
+gate_id: robobus117th_vehicle_dynamics_acceptance
+description: Direct CARLA VehicleControl gate for PIX Robobus ego actor persistence and low-level drivability.
+failure_labels:
+  - robobus_actor_missing_or_destroyed
+  - robobus_direct_throttle_failure
+  - robobus_low_speed_physics_failure
+metrics:
+  robobus_dynamics_ego_actor_seen:
+    op: ">="
+    value: 1.0
+  robobus_dynamics_actor_type_match:
+    op: ">="
+    value: 1.0
+  robobus_dynamics_actor_persisted:
+    op: ">="
+    value: 1.0
+  robobus_dynamics_moved_enough:
+    op: ">="
+    value: 1.0
+  robobus_dynamics_speed_enough:
+    op: ">="
+    value: 1.0
+  robobus_dynamics_direct_throttle_passed:
+    op: ">="
+    value: 1.0
+  robobus_dynamics_direct_throttle_delta_m:
+    op: ">="
+    value: 2.0
+  robobus_dynamics_direct_throttle_max_speed_mps:
+    op: ">="
+    value: 1.0

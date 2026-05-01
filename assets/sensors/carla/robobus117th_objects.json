@@ -2,25 +2,100 @@
   "sensors": [
     {
       "type": "sensor.camera.rgb",
-      "id": "traffic_light",
+      "id": "CAM_FRONT",
       "spawn_point": {
-        "x": 1.8,
-        "y": 0.0,
-        "z": 1.7,
+        "x": 3.35,
+        "y": 0.05,
+        "z": 1.25,
         "roll": 0.0,
         "pitch": 0.0,
         "yaw": 0.0
       },
       "image_size_x": 1280,
       "image_size_y": 720,
-      "fov": 70.0
+      "fov": 118.0
+    },
+    {
+      "type": "sensor.camera.rgb",
+      "id": "CAM_BACK",
+      "spawn_point": {
+        "x": -0.3,
+        "y": 0.0,
+        "z": 1.25,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 180.0
+      },
+      "image_size_x": 1280,
+      "image_size_y": 720,
+      "fov": 118.0
+    },
+    {
+      "type": "sensor.camera.rgb",
+      "id": "CAM_FRONT_LEFT",
+      "spawn_point": {
+        "x": 2.65,
+        "y": -0.9,
+        "z": 1.35,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": -60.0
+      },
+      "image_size_x": 1280,
+      "image_size_y": 720,
+      "fov": 118.0
+    },
+    {
+      "type": "sensor.camera.rgb",
+      "id": "CAM_FRONT_RIGHT",
+      "spawn_point": {
+        "x": 2.65,
+        "y": 0.9,
+        "z": 1.35,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 60.0
+      },
+      "image_size_x": 1280,
+      "image_size_y": 720,
+      "fov": 118.0
+    },
+    {
+      "type": "sensor.camera.rgb",
+      "id": "CAM_BACK_LEFT",
+      "spawn_point": {
+        "x": 0.45,
+        "y": -0.9,
+        "z": 1.35,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": -120.0
+      },
+      "image_size_x": 1280,
+      "image_size_y": 720,
+      "fov": 118.0
+    },
+    {
+      "type": "sensor.camera.rgb",
+      "id": "CAM_BACK_RIGHT",
+      "spawn_point": {
+        "x": 0.45,
+        "y": 0.9,
+        "z": 1.35,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 120.0
+      },
+      "image_size_x": 1280,
+      "image_size_y": 720,
+      "fov": 118.0
     },
     {
       "type": "sensor.lidar.ray_cast",
       "id": "top",
       "spawn_point": {
-        "x": 1.0,
-        "y": 0.0,
+        "x": 2.46,
+        "y": 0.02,
         "z": 2.2,
         "roll": 0.0,
         "pitch": 0.0,
@@ -36,11 +111,49 @@
     },
     {
       "type": "sensor.lidar.ray_cast",
+      "id": "rear_top",
+      "spawn_point": {
+        "x": 0.64,
+        "y": 0.02,
+        "z": 2.2,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 180.0
+      },
+      "range": 100,
+      "channels": 64,
+      "points_per_second": 200000,
+      "upper_fov": 10.0,
+      "lower_fov": -30.0,
+      "rotation_frequency": 20,
+      "noise_stddev": 0.0
+    },
+    {
+      "type": "sensor.lidar.ray_cast",
+      "id": "rear",
+      "spawn_point": {
+        "x": -0.36,
+        "y": 0.05,
+        "z": 0.75,
+        "roll": 0.0,
+        "pitch": 0.0,
+        "yaw": 180.0
+      },
+      "range": 80,
+      "channels": 32,
+      "points_per_second": 100000,
+      "upper_fov": 10.0,
+      "lower_fov": -30.0,
+      "rotation_frequency": 20,
+      "noise_stddev": 0.0
+    },
+    {
+      "type": "sensor.lidar.ray_cast",
       "id": "left",
       "spawn_point": {
-        "x": 1.0,
-        "y": -0.8,
-        "z": 2.0,
+        "x": 2.7,
+        "y": -0.9,
+        "z": 1.65,
         "roll": 0.0,
         "pitch": 0.0,
         "yaw": -60.0
@@ -57,9 +170,9 @@
       "type": "sensor.lidar.ray_cast",
       "id": "right",
       "spawn_point": {
-        "x": 1.0,
-        "y": 0.8,
-        "z": 2.0,
+        "x": 2.7,
+        "y": 0.9,
+        "z": 1.65,
         "roll": 0.0,
         "pitch": 0.0,
         "yaw": 60.0
@@ -76,9 +189,9 @@
       "type": "sensor.other.gnss",
       "id": "gnss",
       "spawn_point": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 1.6,
+        "x": 0.45,
+        "y": 0.13,
+        "z": 1.2,
         "roll": 0.0,
         "pitch": 0.0,
         "yaw": 0.0
@@ -88,9 +201,9 @@
       "type": "sensor.other.imu",
       "id": "imu",
       "spawn_point": {
-        "x": 0.0,
-        "y": 0.0,
-        "z": 1.6,
+        "x": 0.45,
+        "y": 0.13,
+        "z": 1.2,
         "roll": 0.0,
         "pitch": 0.0,
         "yaw": 0.0

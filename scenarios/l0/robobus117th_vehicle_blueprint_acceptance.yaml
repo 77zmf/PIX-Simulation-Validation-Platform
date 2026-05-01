@@ -1,0 +1,103 @@
+scenario_id: robobus117th_vehicle_blueprint_acceptance
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 229.78167724609375
+    y: -2.0201120376586914
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 240.0
+    y: -1.982629656791687
+    z: 0.0
+    yaw_deg: 0.0
+traffic_profile:
+  mode: empty_vehicle_blueprint_acceptance
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 117
+recording:
+  rosbag2:
+    enabled: false
+    path: rosbags/robobus117th_vehicle_blueprint_acceptance
+  carla_recorder:
+    enabled: false
+    path: carla/robobus117th_vehicle_blueprint_acceptance.log
+kpi_gate: robobus117th_vehicle_blueprint_acceptance
+labels:
+  - L0
+  - smoke
+  - robobus117th
+  - vehicle_blueprint
+metadata:
+  owner: zmf
+  source_assets:
+    - assets/vehicles/robobus117th/blueprint_authoring_requirements.yaml
+    - assets/vehicles/robobus117th/blueprint_source_manifest.yaml
+    - assets/sensors/robobus_pixrover14_application_topology.yaml
+    - assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    - assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    - ops/runtime_probes/carla_vehicle_blueprint_probe.py
+    - evaluation/kpi_gates/robobus117th_vehicle_blueprint_acceptance.yaml
+  validation_method: Non-destructive CARLA runtime inspection of the live PIX robobus ego actor after the stable bridge has spawned it; checks blueprint id, pose height, bounding box/collision proxy plausibility, wheel geometry/steer limits, and attached production sensor actor counts.
+  validation_command: >
+    python3 ops/runtime_probes/carla_vehicle_blueprint_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th_vehicle_blueprint
+    --actor-id vehicle.pixmoving.robobus
+    --ego-role-name ego_vehicle
+    --min-bbox-extent-x-m 1.0
+    --min-bbox-extent-y-m 0.4
+    --min-bbox-extent-z-m 0.4
+    --min-attached-sensors 13
+    --min-attached-cameras 6
+    --min-attached-lidars 5
+  expected_observable: CARLA blueprint library contains vehicle.pixmoving.robobus; one ego actor with role_name ego_vehicle is live; bbox extents are plausible for a driveable vehicle; wheelbase/tread/steer limits match 117th metadata; 6 cameras, 5 lidars, IMU, and GNSS are attached to the ego actor.
+  known_current_gap: As of 2026-04-25 the live vehicle can spawn and drive, but strict bbox/collision acceptance is expected to fail until the UE4 PhysicsAsset/collision proxy is fixed.
+  rollback_impact: Remove this scenario from required campaigns or temporarily use the non-strict direct actor drive gate; existing planning/control scenarios remain unchanged.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_actor_health_check: "true"
+    carla_spawn_point: "229.7817,2.0201,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info
+      - /localization/kinematic_state
+      - /vehicle/status/control_mode

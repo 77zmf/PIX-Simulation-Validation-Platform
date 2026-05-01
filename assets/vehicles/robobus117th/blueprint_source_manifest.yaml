@@ -78,6 +78,24 @@ generated_package:
   readiness_check: assets/vehicles/robobus117th/scripts/check_blueprint_readiness.sh
   runtime_verify: assets/vehicles/robobus117th/scripts/verify_carla_blueprint.py
   cooked_deploy: assets/vehicles/robobus117th/scripts/deploy_cooked_blueprint.sh
+carla_source_patches:
+  bbox_override:
+    patch_file: assets/vehicles/robobus117th/patches/carla_0_9_15_robobus_bbox_override.patch
+    apply_script: assets/vehicles/robobus117th/scripts/apply_robobus_bbox_override_to_carla.sh
+    external_target_file: Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Actor/ActorDispatcher.cpp
+    target_blueprint_id: vehicle.pixmoving.robobus
+    expected_api_bbox_extent_m:
+      x: 1.91
+      y: 0.955
+      z: 1.1045
+    scope: Fixes CARLA API bounding_box / actor bridge dimensions before actor registration; does not regenerate UE4 PhysicsAsset collision.
+    rollback: Re-run the apply script with --reverse or restore the ActorDispatcher.cpp backup made before applying the patch.
+  editor_commandlet_guard:
+    patch_file: assets/vehicles/robobus117th/patches/carla_0_9_15_robobus_editor_commandlet_guard.patch
+    apply_script: assets/vehicles/robobus117th/scripts/apply_robobus_bbox_override_to_carla.sh
+    external_target_file: Unreal/CarlaUE4/Source/CarlaUE4/RobobusVisualAuthorCommandlet.cpp
+    scope: Keeps the Robobus visual authoring commandlet editor-only so CarlaUE4 Linux Shipping can build after the bbox patch.
+    rollback: Re-run the apply script with --reverse or restore the RobobusVisualAuthorCommandlet.cpp backup made before applying the patch.
 unreal_authoring_requirements:
   visual_mesh_import: required
   material_assignment: required
@@ -92,13 +110,28 @@ known_boundaries:
   install_contains_unreal_cooked_blueprint: false
   install_contains_verified_wheel_rig: false
   ubuntu_host_has_carla_runtime: true
-  ubuntu_host_has_unreal_editor_toolchain: false
+  ubuntu_host_has_unreal_editor_toolchain: true
 validation:
   run_command: simctl run --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml --run-root runs/robobus117th_bridge --slot stable-slot-01 --execute
   scenario_validates: CARLA 0.9.15 + Autoware robobus117th sensor bridge smoke
   expected_observable_before_cooked_blueprint: CARLA ego actor uses vehicle.toyota.prius while Autoware and bridge use robobus sensor topics.
   expected_observable_after_cooked_blueprint: CARLA ego actor spawns as vehicle.pixmoving.robobus and the same sensor topics stay healthy.
   kpi_gate: planning_control_smoke
+  packaged_bbox_override_validation:
+    date: "2026-04-25"
+    run_dir: /home/pixmoving/PIX-Simulation-Validation-Platform/runs/manual_robobus_bbox_override_packaged_20260425T042845Z
+    strict_summary: packaged_strict_vehicle_acceptance/vehicle_acceptance_summary.json
+    visual_summary: packaged_direct_visual_validation/direct_pix_actor_summary.json
+    passed: true
+    bbox_extent_m:
+      x: 1.91
+      y: 0.955
+      z: 1.1045
+    distance_m: 20.467825
+    peak_speed_mps: 5.080839
+    speed_after_brake_mps: 0.010979
+    runtime_binary_sha256: ab94d7fe1372fe6a322d2cd5ea6d8e94a5b35da1c9e4ab69334b953e6915d778
+    runtime_binary_backup: /home/pixmoving/CARLA_0.9.15/CarlaUE4/Binaries/Linux/CarlaUE4-Linux-Shipping.zmf-bbox-bak-20260425T042812Z
 rollback:
   action: Keep or restore execution.stable_runtime.carla_vehicle_type to vehicle.toyota.prius.
   impact: Returns to the already verified placeholder ego actor without changing Autoware robobus parameters.

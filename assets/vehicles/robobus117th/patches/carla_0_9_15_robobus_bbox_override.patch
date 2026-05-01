@@ -1,0 +1,71 @@
+diff --git a/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Actor/ActorDispatcher.cpp b/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Actor/ActorDispatcher.cpp
+index 0f3b8fd..b6d4b0f 100644
+--- a/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Actor/ActorDispatcher.cpp
++++ b/Unreal/CarlaUE4/Plugins/Carla/Source/Carla/Actor/ActorDispatcher.cpp
+@@ -9,10 +9,54 @@
+ #include "Carla/Actor/CarlaActorFactory.h"
+ 
+ #include "Carla/Game/Tagger.h"
++#include "Carla/Vehicle/CarlaWheeledVehicle.h"
+ #include "Carla/Vehicle/VehicleControl.h"
+ 
++#include "Components/BoxComponent.h"
++
+ #include "GameFramework/Controller.h"
+ 
++namespace
++{
++
++bool IsPixRobobus117th(const FActorDescription &Description)
++{
++  return Description.Id == TEXT("vehicle.pixmoving.robobus");
++}
++
++void ApplyPixRobobus117thBoundingBoxOverride(AActor &Actor, const FActorDescription &Description)
++{
++  if (!IsPixRobobus117th(Description))
++  {
++    return;
++  }
++
++  ACarlaWheeledVehicle *Vehicle = Cast<ACarlaWheeledVehicle>(&Actor);
++  if (!Vehicle)
++  {
++    UE_LOG(LogCarla, Warning, TEXT("PIX_ROBOBUS_BBOX_OVERRIDE skipped non-vehicle actor=%s"), *Actor.GetName());
++    return;
++  }
++
++  UBoxComponent *Bounds = Vehicle->GetVehicleBoundingBox();
++  if (!Bounds)
++  {
++    UE_LOG(LogCarla, Warning, TEXT("PIX_ROBOBUS_BBOX_OVERRIDE skipped missing VehicleBounds actor=%s"), *Actor.GetName());
++    return;
++  }
++
++  // 117th vehicle_info.param.yaml: length=3.82m, width=1.91m, height=2.209m.
++  const FVector ExtentCm(191.0f, 95.5f, 110.45f);
++  FTransform BoundsTransform;
++  BoundsTransform.SetTranslation(FVector(0.0f, 0.0f, 110.45f));
++  Bounds->SetRelativeTransform(BoundsTransform);
++  Bounds->SetBoxExtent(ExtentCm);
++  UE_LOG(LogCarla, Display, TEXT("PIX_ROBOBUS_BBOX_OVERRIDE actor=%s extent_cm=(%.2f,%.2f,%.2f) origin_cm=(0.00,0.00,110.45)"),
++      *Actor.GetName(), ExtentCm.X, ExtentCm.Y, ExtentCm.Z);
++}
++
++} // namespace
++
+ #include <compiler/disable-ue4-macros.h>
+ #include "carla/ros2/ROS2.h"
+ #include <compiler/enable-ue4-macros.h>
+@@ -52,6 +96,11 @@ TPair<EActorSpawnResultStatus, FCarlaActor*> UActorDispatcher::SpawnActor(
+     Result.Status = EActorSpawnResultStatus::UnknownError;
+   }
+ 
++  if (Result.IsValid() && (Result.Actor != nullptr))
++  {
++    ApplyPixRobobus117thBoundingBoxOverride(*Result.Actor, Description);
++  }
++
+   FCarlaActor* View = Result.IsValid() ?
+       RegisterActor(*Result.Actor, std::move(Description), DesiredId) : nullptr;
+   if (!View)

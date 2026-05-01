@@ -1,0 +1,62 @@
+gate_id: robobus117th_vehicle_blueprint_acceptance
+description: Non-destructive CARLA runtime gate for the PIX Robobus ego blueprint, geometry, wheels, and attached sensor actors.
+failure_labels:
+  - robobus_blueprint_failure
+  - robobus_bbox_collision_failure
+  - robobus_wheel_geometry_failure
+  - robobus_sensor_attachment_failure
+metrics:
+  robobus_blueprint_found:
+    op: ">="
+    value: 1.0
+  robobus_ego_actor_seen:
+    op: ">="
+    value: 1.0
+  robobus_actor_type_match:
+    op: ">="
+    value: 1.0
+  robobus_pose_height_plausible:
+    op: ">="
+    value: 1.0
+  robobus_bbox_plausible:
+    op: ">="
+    value: 1.0
+  robobus_bbox_extent_x_m:
+    op: ">="
+    value: 1.0
+  robobus_bbox_extent_y_m:
+    op: ">="
+    value: 0.4
+  robobus_bbox_extent_z_m:
+    op: ">="
+    value: 0.4
+  robobus_wheel_count:
+    op: ">="
+    value: 4.0
+  robobus_wheel_radius_match:
+    op: ">="
+    value: 1.0
+  robobus_wheelbase_match:
+    op: ">="
+    value: 1.0
+  robobus_front_tread_match:
+    op: ">="
+    value: 1.0
+  robobus_rear_tread_match:
+    op: ">="
+    value: 1.0
+  robobus_front_steer_limit_match:
+    op: ">="
+    value: 1.0
+  robobus_rear_steer_limit_match:
+    op: ">="
+    value: 1.0
+  robobus_attached_sensor_count:
+    op: ">="
+    value: 13.0
+  robobus_attached_camera_count:
+    op: ">="
+    value: 6.0
+  robobus_attached_lidar_count:
+    op: ">="
+    value: 5.0
