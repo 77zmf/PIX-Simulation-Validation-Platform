@@ -1,0 +1,22 @@
+gate_id: reconstruction_carla_import_smoke_gate
+description: CARLA custom-map import smoke gate for reconstruction-derived public-road assets
+failure_labels:
+  - carla_custom_map_unavailable
+  - carla_custom_map_load_failure
+  - carla_custom_map_alignment_failure
+metrics:
+  carla_custom_map_available:
+    op: ">="
+    value: 1.0
+  carla_custom_map_load_passed:
+    op: ">="
+    value: 1.0
+  carla_custom_map_current_match:
+    op: ">="
+    value: 1.0
+  carla_custom_map_actor_count:
+    op: ">="
+    value: 1.0
+  carla_custom_map_alignment_iou:
+    op: ">="
+    value: 0.95

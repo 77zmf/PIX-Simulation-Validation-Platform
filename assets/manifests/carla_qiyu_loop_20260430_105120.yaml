@@ -1,0 +1,57 @@
+bundle_id: carla_qiyu_loop_20260430_105120
+site_id: gy_qyhx_qiyu_loop
+description: CARLA 0.9.15 source-built custom-map import package for the April 30 2026 Qiyu loop reconstruction smoke
+source:
+  type: external_carla_import_bundle
+  host_role: company_ubuntu_runtime_host
+  runtime_target: source_compiled_carla0915_ue426
+  import_bundle_dir: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle
+  package_tar: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/qiyu_loop_20260430_105120_0.9.15-dirty_import_smoke.tar.gz
+  package_sha256: a5bf4c583f0db9b36b0e14796161bfe87b1e033fc8350c0ae4d649ab2648284d
+  package_size_bytes: 224521088
+  installed_content_dir: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty/LinuxNoEditor/CarlaUE4/Content/qiyu_loop_20260430_105120
+maps:
+  carla_map:
+    path: carla-map:///Game/qiyu_loop_20260430_105120/Maps/qiyu_loop_20260430_105120/qiyu_loop_20260430_105120
+    runtime_name: /Game/qiyu_loop_20260430_105120/Maps/qiyu_loop_20260430_105120/qiyu_loop_20260430_105120
+  opendrive:
+    path: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/qiyu_loop_20260430_105120.xodr
+    sha256: 4ad96e20c15229264615e26e251e7ecee16cc5dc19a0417d09472a295172c621
+  visual_fbx:
+    path: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/qiyu_loop_20260430_105120.fbx
+    sha256: bd87bbf21f9dacee823536b5dc53d98b0ef8aec835075c6eb4b460eb6fcab59b
+  collision_proxy_fbx:
+    path: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/qiyu_loop_20260430_105120_collision_proxy.fbx
+    sha256: 1ec6051addf232bd1cbc8b3bca1770ce481cf37d84dc17951759eccb69fb5c04
+  alignment_overlay:
+    path: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/previews/mesh_xodr_alignment_overlay.png
+metadata:
+  owner: zmf
+  lane: reconstruction
+  carla_import_status: runtime_load_smoke_passed_on_source_compiled_carla
+  runtime:
+    selected_root: /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty/LinuxNoEditor
+    selected_version: 0.9.15-dirty
+    common_runtime_left_clean: /home/pixmoving/CARLA_0.9.15
+  source_maps:
+    selected_xodr: /home/pixmoving/lsx/gy_qyhx_gsh20260310.xodr
+    rejected_xodr:
+      path: /home/pixmoving/lsx/lsx-gsh0302map/0302.xodr
+      reason: header-only RoadRunner export with 0 road elements
+  alignment:
+    method: translate OpenDRIVE geometry by source header bbox center; no rotation or scale
+    xodr_center_subtracted_m:
+      - 1268.53135
+      - -468.5313
+    bbox_iou_xy: 0.9504276622995398
+  load_smoke:
+    status_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/load_smoke/latest_source_runtime_after_restore.status
+    log_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/load_smoke/load_qiyu_loop_20260430_105120_source_runtime_after_restore_20260501_023417.log
+    loaded_map: qiyu_loop_20260430_105120/Maps/qiyu_loop_20260430_105120/qiyu_loop_20260430_105120
+    actors_after_load: 1
+  tags:
+    - public_road
+    - reconstruction
+    - carla_custom_map
+    - source_compiled_carla
+    - qiyu_loop

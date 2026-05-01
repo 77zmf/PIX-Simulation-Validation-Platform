@@ -1,0 +1,66 @@
+scenario_id: stable_l2_reconstruction_qiyu_loop_carla_import_smoke
+stack: stable
+map_id: /Game/qiyu_loop_20260430_105120_dynobs/Maps/qiyu_loop_20260430_105120_dynobs/qiyu_loop_20260430_105120_dynobs
+asset_bundle: carla_qiyu_loop_20260430_105120_dynobs
+ego_init:
+  local_pose:
+    x: -45.0
+    y: -12.0
+    yaw_deg: 0.0
+goal:
+  local_pose:
+    x: 900.0
+    y: -580.0
+    yaw_deg: 0.0
+traffic_profile:
+  mode: carla_custom_map_load_smoke
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: ClearNoon
+sensor_profile: reconstruction_capture
+algorithm_profile: reconstruction_carla_import_smoke
+seed: 20260430
+recording:
+  rosbag2:
+    enabled: false
+  carla_recorder:
+    enabled: false
+kpi_gate: reconstruction_carla_import_smoke_gate
+labels:
+  - L2
+  - public_road
+  - reconstruction
+  - carla_custom_map
+  - qiyu_loop
+metadata:
+  owner: zmf
+  source_assets:
+    - assets/manifests/carla_qiyu_loop_20260430_105120_dynobs.yaml
+    - external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/load_smoke_dynobs/latest_source_runtime_dynobs.status
+    - external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/runtime_previews/dynobs_visual_review_20260501_191939/visual_review_report.json
+  validation_method: Start source-built CARLA 0.9.15 with the dynamic-obstacle-cleaned qiyu_loop custom map package installed, then run the custom-map load probe and fold its metric artifact into run_result.json.
+  validation_command: >
+    python3 ops/runtime_probes/carla_custom_map_load_probe.py
+    --run-dir <run_dir>
+    --carla-root /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty/LinuxNoEditor
+    --port "${SIMCTL_CARLA_RPC_PORT:-2000}"
+    --map-name /Game/qiyu_loop_20260430_105120_dynobs/Maps/qiyu_loop_20260430_105120_dynobs/qiyu_loop_20260430_105120_dynobs
+    --connect-timeout-sec 5
+    --connect-attempts 24
+    --retry-sleep-sec 5
+    --min-actors 1
+    --expected-alignment-iou 0.9787353959979124
+    --min-alignment-iou 0.95
+  expected_observable: CARLA get_available_maps includes qiyu_loop dynobs, load_world returns the dynamic-obstacle-cleaned map, and the generic metric probe reports alignment IoU above the import-smoke threshold.
+  rollback_impact: Set asset_bundle/map_id back to carla_qiyu_loop_20260430_105120_alignv2 and remove the dynobs content directory from the source CARLA Dist runtime; no large generated assets are stored in Git.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_enabled: "false"
+    carla_root: /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty/LinuxNoEditor
+    carla_map: /Game/qiyu_loop_20260430_105120_dynobs/Maps/qiyu_loop_20260430_105120_dynobs/qiyu_loop_20260430_105120_dynobs
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_startup_timeout_sec: "180"
+    stable_preflight_strict: "false"

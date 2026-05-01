@@ -1,0 +1,79 @@
+bundle_id: carla_qiyu_loop_20260430_105120_alignv2
+site_id: gy_qyhx_qiyu_loop
+description: CARLA 0.9.15 source-built custom-map import package for the April 30 2026 Qiyu loop reconstruction smoke, with refined mesh/OpenDRIVE XY alignment
+source:
+  type: external_carla_import_bundle
+  host_role: company_ubuntu_runtime_host
+  runtime_target: source_compiled_carla0915_ue426
+  import_bundle_dir: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle
+  package_tar: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/qiyu_loop_20260430_105120_alignv2_0.9.15-dirty_alignv2.tar.gz
+  package_sha256: 94d7a30e5eea7955118f36308f489ea922a08166305d08bbd2bf989a6f133f79
+  package_size_bytes: 224521272
+  installed_content_dir: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty/LinuxNoEditor/CarlaUE4/Content/qiyu_loop_20260430_105120_alignv2
+maps:
+  carla_map:
+    path: carla-map:///Game/qiyu_loop_20260430_105120_alignv2/Maps/qiyu_loop_20260430_105120_alignv2/qiyu_loop_20260430_105120_alignv2
+    runtime_name: /Game/qiyu_loop_20260430_105120_alignv2/Maps/qiyu_loop_20260430_105120_alignv2/qiyu_loop_20260430_105120_alignv2
+  opendrive:
+    path: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_loop_20260430_105120_alignv2/qiyu_loop_20260430_105120_alignv2.xodr
+    sha256: 0790fd4dbcfbb7c95b9c519f1bbe3c3d84a2f46b36de80eac2f5b0eeade61802
+  visual_fbx:
+    path: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_loop_20260430_105120_alignv2/qiyu_loop_20260430_105120_alignv2.fbx
+    sha256: bd87bbf21f9dacee823536b5dc53d98b0ef8aec835075c6eb4b460eb6fcab59b
+  alignment_refined_xodr:
+    path: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/alignment_refine_20260501_032348/qiyu_loop_20260430_105120_alignv2.xodr
+    sha256: 2752fa00a4ba1b9a1677bdd114800853a51835fcc32c40f1b4b39ac7354356f5
+  alignment_overlay:
+    path: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/alignment_refine_20260501_032348/mesh_xodr_alignment_overlay_refined.png
+  alignment_comparison:
+    path: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/alignment_refine_20260501_032348/mesh_xodr_alignment_refine_comparison.png
+metadata:
+  owner: zmf
+  lane: reconstruction
+  carla_import_status: runtime_load_smoke_passed_on_source_compiled_carla
+  runtime:
+    selected_root: /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty/LinuxNoEditor
+    selected_version: 0.9.15-dirty
+    common_runtime_left_clean: /home/pixmoving/CARLA_0.9.15
+  source_maps:
+    selected_xodr: /home/pixmoving/lsx/gy_qyhx_gsh20260310.xodr
+    rejected_xodr:
+      path: /home/pixmoving/lsx/lsx-gsh0302map/0302.xodr
+      reason: header-only RoadRunner export with 0 road elements
+  alignment:
+    method: refined OpenDRIVE x/y translation against road mesh bbox center; no mesh change, no rotation, no scale
+    previous_bbox_iou_xy: 0.9504276622995398
+    bbox_iou_xy: 0.9787353959979124
+    xodr_translation_delta_m:
+      dx: -45.188929627060475
+      dy: -10.72074341625455
+    nearest_distance_m:
+      median: 2.0875528182916927
+      p90: 3.380043736972896
+      mean: 2.6364063280705516
+    median_vec_mesh_minus_xodr_m:
+      - 0.06535046693522872
+      - 0.04113371160353552
+    metrics_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/alignment_refine_20260501_032348/alignment_refine_metrics.json
+  import:
+    status_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/import_attempts/latest_import_qiyu_loop_20260430_105120_alignv2.status
+    log_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/import_attempts/import_qiyu_loop_20260430_105120_alignv2_20260501_032906.log
+  package:
+    status_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/package_attempts/latest_package_qiyu_loop_20260430_105120_alignv2.status
+    log_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/package_attempts/package_qiyu_loop_20260430_105120_alignv2_20260501_033013.log
+  load_smoke:
+    status_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/load_smoke_alignv2/latest_source_runtime_alignv2.status
+    log_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/load_smoke_alignv2/load_qiyu_loop_20260430_105120_alignv2_source_runtime_20260430_193350.log
+    metric_artifact: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/simctl_probe_smoke/source_runtime_alignv2_20260430_193350/runtime_verification/metric_probe_carla_custom_map_load/metric_probe_carla_custom_map_load_20260430T193402.json
+    loaded_map: qiyu_loop_20260430_105120_alignv2/Maps/qiyu_loop_20260430_105120_alignv2/qiyu_loop_20260430_105120_alignv2
+    actors_after_load: 1
+  rollback:
+    previous_bundle: carla_qiyu_loop_20260430_105120
+    previous_package_tar: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/qiyu_loop_20260430_105120_0.9.15-dirty_import_smoke.tar.gz
+  tags:
+    - public_road
+    - reconstruction
+    - carla_custom_map
+    - source_compiled_carla
+    - qiyu_loop
+    - alignv2

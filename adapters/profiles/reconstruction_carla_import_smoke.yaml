@@ -1,0 +1,16 @@
+profile_id: reconstruction_carla_import_smoke
+type: asset_import
+description: CARLA 0.9.15 custom-map import and load smoke for reconstruction-derived public-road assets
+baseline: source_compiled_carla0915_ue426
+research_focus:
+  - carla_custom_map_import
+  - opendrive_mesh_alignment
+  - source_runtime_loadability
+inputs:
+  package_tar: carla_custom_map_package
+  opendrive: aligned_xodr
+  visual_mesh: fbx_static_geometry
+outputs:
+  runtime_load_status: metric_probe_carla_custom_map_load
+  import_summary: carla_import_validation_summary
+acceptance_gate: reconstruction_carla_import_smoke_gate

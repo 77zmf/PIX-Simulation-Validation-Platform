@@ -1,0 +1,102 @@
+bundle_id: carla_qiyu_loop_20260430_105120_dynobs
+site_id: gy_qyhx_qiyu_loop
+description: CARLA 0.9.15 source-built custom-map import package for the April 30 2026 Qiyu loop reconstruction smoke, with refined OpenDRIVE alignment and planning-object dynamic obstacle cleanup
+source:
+  type: external_carla_import_bundle
+  host_role: company_ubuntu_runtime_host
+  runtime_target: source_compiled_carla0915_ue426
+  import_bundle_dir: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle
+  package_tar: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/qiyu_loop_20260430_105120_dynobs_0.9.15-dirty_dynobs.tar.gz
+  package_sha256: ca3ac6f1bc4c23fc41f16a74b7680039017138fbdc05d500d96714e149f68cb4
+  package_size_bytes: 224449287
+  installed_content_dir: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty/LinuxNoEditor/CarlaUE4/Content/qiyu_loop_20260430_105120_dynobs
+maps:
+  carla_map:
+    path: carla-map:///Game/qiyu_loop_20260430_105120_dynobs/Maps/qiyu_loop_20260430_105120_dynobs/qiyu_loop_20260430_105120_dynobs
+    runtime_name: /Game/qiyu_loop_20260430_105120_dynobs/Maps/qiyu_loop_20260430_105120_dynobs/qiyu_loop_20260430_105120_dynobs
+  opendrive:
+    path: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_loop_20260430_105120_dynobs/qiyu_loop_20260430_105120_dynobs.xodr
+    source_refined_xodr: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/alignment_refine_20260501_032348/qiyu_loop_20260430_105120_alignv2.xodr
+    source_refined_xodr_sha256: 2752fa00a4ba1b9a1677bdd114800853a51835fcc32c40f1b4b39ac7354356f5
+  visual_fbx:
+    path: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_loop_20260430_105120_dynobs/qiyu_loop_20260430_105120_dynobs.fbx
+    source_clean_fbx: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/dynamic_obstacle_cleanup_20260501_planning_objects/qiyu_loop_combined_visual_dynamic_clean_planning_objects.fbx
+    source_clean_fbx_sha256: c5e786585e54cac9daadd88d64c34f467dbd0bd1fc5aab48019ad6f071226827
+  removed_dynamic_faces:
+    path: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/dynamic_obstacle_cleanup_20260501_planning_objects/qiyu_loop_removed_dynamic_obstacle_faces.obj
+    sha256: d603747e82c26bf50e8d7c519decade700fd50e60f4c99b371b57076ab7980d4
+  dynamic_cleanup_preview:
+    path: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/dynamic_obstacle_cleanup_20260501_planning_objects/dynamic_obstacle_cleanup_topdown.svg
+metadata:
+  owner: zmf
+  lane: reconstruction
+  carla_import_status: runtime_load_smoke_passed_on_source_compiled_carla
+  runtime:
+    selected_root: /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty/LinuxNoEditor
+    selected_version: 0.9.15-dirty
+    common_runtime_left_clean: /home/pixmoving/CARLA_0.9.15
+  source_maps:
+    selected_xodr: /home/pixmoving/lsx/gy_qyhx_gsh20260310.xodr
+    rejected_xodr:
+      path: /home/pixmoving/lsx/lsx-gsh0302map/0302.xodr
+      reason: header-only RoadRunner export with 0 road elements
+  alignment:
+    method: refined OpenDRIVE x/y translation against road mesh bbox center; no mesh scale or heading change
+    previous_bbox_iou_xy: 0.9504276622995398
+    bbox_iou_xy: 0.9787353959979124
+    xodr_translation_delta_m:
+      dx: -45.188929627060475
+      dy: -10.72074341625455
+    metrics_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/alignment_refine_20260501_032348/alignment_refine_metrics.json
+  dynamic_obstacle_cleanup:
+    method: planning_objects_per_observation_oriented_boxes_on_static_visual_proxy_only
+    planning_topic: /perception/object_recognition/objects
+    planning_message_type: autoware_perception_msgs/msg/PredictedObjects
+    planning_fragments: planning_data_20260430092034_271.mcap.zst..planning_data_20260430092034_341.mcap.zst
+    planning_time_window_cst:
+      start: "2026-04-30T10:50:54.610+08:00"
+      end: "2026-04-30T11:14:34.510+08:00"
+    candidate_tracks: 4834
+    source_candidate_observations: 296367
+    deduplicated_mask_boxes: 190687
+    road_faces_preserved: 13158
+    static_proxy_faces_input: 30000
+    removed_static_faces: 1964
+    removed_static_face_ratio: 0.06546666666666667
+    report_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/dynamic_obstacle_cleanup_20260501_planning_objects/dynamic_obstacle_cleanup_report.json
+    evidence_dir: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/dynamic_obstacle_cleanup_20260501_planning_objects/planning_objects_evidence
+  import:
+    status_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/import_attempts/latest_import_qiyu_loop_20260430_105120_dynobs.status
+    log_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/import_attempts/import_qiyu_loop_20260430_105120_dynobs_20260501_161523.log
+  package:
+    status_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/package_attempts/latest_package_qiyu_loop_20260430_105120_dynobs.status
+    log_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/package_attempts/package_qiyu_loop_20260430_105120_dynobs_20260501_161634.log
+  load_smoke:
+    status_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/load_smoke_dynobs/latest_source_runtime_dynobs.status
+    log_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/load_smoke_dynobs/load_qiyu_loop_20260430_105120_dynobs_source_runtime_dynobs_port2300_20260501_162633.log
+    metric_artifact: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/simctl_probe_smoke/source_runtime_dynobs_port2300_20260501_162633/runtime_verification/metric_probe_carla_custom_map_load/metric_probe_carla_custom_map_load_source_runtime_dynobs_port2300_20260501_162633.json
+    loaded_map: qiyu_loop_20260430_105120_dynobs/Maps/qiyu_loop_20260430_105120_dynobs/qiyu_loop_20260430_105120_dynobs
+    actors_after_load: 1
+    client_load_timeout_sec: 90
+  runtime_visual_review:
+    status: passed
+    report_file: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/runtime_previews/dynobs_visual_review_20260501_191939/visual_review_report.json
+    preview_dir: external://company-ubuntu/data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/runtime_previews/dynobs_visual_review_20260501_191939
+    runtime_port: 2400
+    captures:
+      - topdown_full.png
+      - topdown_mid.png
+      - oblique_northwest.png
+      - oblique_southeast.png
+  rollback:
+    previous_bundle: carla_qiyu_loop_20260430_105120_alignv2
+    previous_package_tar: external://company-ubuntu/data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/qiyu_loop_20260430_105120_alignv2_0.9.15-dirty_alignv2.tar.gz
+    previous_package_sha256: 94d7a30e5eea7955118f36308f489ea922a08166305d08bbd2bf989a6f133f79
+  tags:
+    - public_road
+    - reconstruction
+    - carla_custom_map
+    - source_compiled_carla
+    - qiyu_loop
+    - alignv2
+    - dynamic_obstacle_cleanup

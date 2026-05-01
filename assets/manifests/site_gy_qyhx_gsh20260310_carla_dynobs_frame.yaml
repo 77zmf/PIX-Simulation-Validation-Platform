@@ -1,0 +1,52 @@
+bundle_id: site_gy_qyhx_gsh20260310_carla_dynobs_frame
+site_id: gy_qyhx_gsh
+description: CARLA-frame Lanelet2 candidate for the qiyu dynobs custom-map Autoware route smoke
+source:
+  type: generated_remote_directory
+  parent_manifest: assets/manifests/site_gy_qyhx_gsh20260310.yaml
+  parent_bundle: site_gy_qyhx_gsh20260310
+  generated_dir: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame
+  transform_report: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame/carla_dynobs_frame_transform_report.json
+maps:
+  lanelet2:
+    path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame/lanelet2_map.osm
+  projector:
+    path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame/map_projector_info.yaml
+  pointcloud_dir:
+    path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame/pointcloud_map.pcd
+  pointcloud_metadata:
+    path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame/pointcloud_map_metadata.yaml
+metadata:
+  owner: zmf
+  lane: reconstruction_to_stable_handoff
+  pointcloud_tiles: 3624
+  map_origin:
+    latitude: 26.648465
+    longitude: 106.620033
+    altitude: 1263.969482005
+  carla_target_bundle: carla_qiyu_loop_20260430_105120_dynobs
+  frame_transform:
+    source_frame: site_gy_qyhx_gsh20260310_lanelet_local_xy
+    target_frame: qiyu_loop_20260430_105120_dynobs_autoware_ros_map
+    local_x_rule: x + dx
+    local_y_rule: "-(y + dy)"
+    dx_m: -1313.72028
+    dy_m: 457.810557
+    reason: CARLA dynobs OpenDRIVE is translated from the source XODR, and autoware_carla_interface publishes ROS y as negative CARLA y.
+  generation:
+    host: company_ubuntu_runtime_host
+    generated_at: "2026-05-01T12:45:30.258829+00:00"
+    changed_tag_count: 16402
+    output_bbox:
+      x_min: -1381.19288
+      x_max: 1268.14802
+      y_min: -2161.6147570000003
+      y_max: 2472.4648429999997
+    pointcloud_policy: original pointcloud directory is symlinked for loader presence; first smoke focuses on route/localization frame alignment.
+  tags:
+    - site_proxy
+    - lanelet2
+    - autoware
+    - carla_frame_candidate
+    - qiyu_loop
+    - dynamic_obstacle_cleanup

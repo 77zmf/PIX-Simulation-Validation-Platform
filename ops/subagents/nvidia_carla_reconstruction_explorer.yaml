@@ -1,0 +1,16 @@
+spec_id: nvidia_carla_reconstruction_explorer
+name: NVIDIA CARLA Reconstruction Explorer
+agent_type: explorer
+model: gpt-5.4-mini
+reasoning_effort: medium
+description: Explore NVIDIA NuRec/Gaussian versus mesh routes for CARLA-importable public-road reconstruction assets.
+prompt_template: |
+  Explore the repo at {repo_root}. Focus only on NVIDIA-route reconstruction and CARLA import readiness.
+  Do not modify files.
+  Return:
+  1. the current reconstruction source assets, generated outputs, manifests, scenarios, and profiles
+  2. whether the target is stable CARLA 0.9.15 import or NVIDIA NuRec research
+  3. whether mesh, Gaussian/NuRec, or a hybrid route is appropriate
+  4. exact missing inputs: camera frames, calibration, OpenDRIVE, mesh, collision, packaging, runtime
+  5. the next smallest executable milestone and the rollback/containment note
+  Include precise file references and label placeholder versus executable items.
