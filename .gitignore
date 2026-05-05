@@ -19,3 +19,4 @@ ci_digest/
 automation_outputs/
 outputs/
 src.zip
+tmp/
