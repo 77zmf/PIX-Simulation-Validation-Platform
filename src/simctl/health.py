@@ -211,6 +211,9 @@ def _probe_carla_actor(
     carla_root: str,
     actor_type: str,
     ego_role_name: str,
+    min_z: float | None = None,
+    max_abs_pitch_deg: float | None = None,
+    max_abs_roll_deg: float | None = None,
     host: str = "127.0.0.1",
     attempts: int | None = None,
     wait_sec: float | None = None,
@@ -307,6 +310,59 @@ for attempt in range(1, int(config["attempts"]) + 1):
             type_match = not config["actor_type"] or str(getattr(actor, "type_id", "")) == config["actor_type"]
             role_match = not config["ego_role_name"] or actor_role(actor) == config["ego_role_name"]
             if type_match and role_match:
+                matched_actor = actor_payload(actor)
+                min_z = config.get("min_z")
+                actor_z = matched_actor.get("location_m", {}).get("z")
+                if min_z is not None and actor_z is not None and float(actor_z) < float(min_z):
+                    print(json.dumps({
+                        "required": True,
+                        "passed": False,
+                        "host": config["host"],
+                        "port": config["port"],
+                        "attempts": attempt,
+                        "world_map": last_world_map,
+                        "actor_type": config["actor_type"],
+                        "ego_role_name": config["ego_role_name"],
+                        "vehicle_count": last_vehicle_count,
+                        "matched_actor": matched_actor,
+                        "error": "carla_actor_below_min_z",
+                        "min_z": min_z,
+                    }))
+                    raise SystemExit(0)
+                rotation = matched_actor.get("rotation_deg", {})
+                actor_pitch = rotation.get("pitch")
+                actor_roll = rotation.get("roll")
+                max_abs_pitch_deg = config.get("max_abs_pitch_deg")
+                max_abs_roll_deg = config.get("max_abs_roll_deg")
+                pitch_failed = (
+                    max_abs_pitch_deg is not None
+                    and actor_pitch is not None
+                    and abs(float(actor_pitch)) > float(max_abs_pitch_deg)
+                )
+                roll_failed = (
+                    max_abs_roll_deg is not None
+                    and actor_roll is not None
+                    and abs(float(actor_roll)) > float(max_abs_roll_deg)
+                )
+                if pitch_failed or roll_failed:
+                    print(json.dumps({
+                        "required": True,
+                        "passed": False,
+                        "host": config["host"],
+                        "port": config["port"],
+                        "attempts": attempt,
+                        "world_map": last_world_map,
+                        "actor_type": config["actor_type"],
+                        "ego_role_name": config["ego_role_name"],
+                        "vehicle_count": last_vehicle_count,
+                        "matched_actor": matched_actor,
+                        "error": "carla_actor_orientation_out_of_bounds",
+                        "max_abs_pitch_deg": max_abs_pitch_deg,
+                        "max_abs_roll_deg": max_abs_roll_deg,
+                        "observed_abs_pitch_deg": abs(float(actor_pitch)) if actor_pitch is not None else None,
+                        "observed_abs_roll_deg": abs(float(actor_roll)) if actor_roll is not None else None,
+                    }))
+                    raise SystemExit(0)
                 print(json.dumps({
                     "required": True,
                     "passed": True,
@@ -317,7 +373,7 @@ for attempt in range(1, int(config["attempts"]) + 1):
                     "actor_type": config["actor_type"],
                     "ego_role_name": config["ego_role_name"],
                     "vehicle_count": last_vehicle_count,
-                    "matched_actor": actor_payload(actor),
+                    "matched_actor": matched_actor,
                 }))
                 raise SystemExit(0)
     except (OSError, RuntimeError) as exc:
@@ -345,6 +401,9 @@ print(json.dumps({
         "carla_root": carla_root,
         "actor_type": actor_type,
         "ego_role_name": ego_role_name,
+        "min_z": min_z,
+        "max_abs_pitch_deg": max_abs_pitch_deg,
+        "max_abs_roll_deg": max_abs_roll_deg,
         "attempts": attempts,
         "wait_sec": wait_sec,
         "client_timeout_sec": CARLA_CLIENT_TIMEOUT_SEC,
@@ -507,6 +566,9 @@ def probe_runtime_health(
     carla_actor_check: bool = False,
     carla_actor_type: str = "",
     carla_ego_role_name: str = "",
+    carla_actor_min_z: float | None = None,
+    carla_actor_max_abs_pitch_deg: float | None = None,
+    carla_actor_max_abs_roll_deg: float | None = None,
     carla_root: str = "",
 ) -> dict[str, Any]:
     process_check = _probe_processes(logs, expected_start_steps=expected_process_steps)
@@ -534,9 +596,17 @@ def probe_runtime_health(
             carla_root=carla_root,
             actor_type=carla_actor_type,
             ego_role_name=carla_ego_role_name,
+            min_z=carla_actor_min_z,
+            max_abs_pitch_deg=carla_actor_max_abs_pitch_deg,
+            max_abs_roll_deg=carla_actor_max_abs_roll_deg,
         )
         required_checks["carla_actor"] = bool(actor_check["passed"])
         checks["carla_actor"] = actor_check
+
+    process_check_after_probes = _probe_processes(logs, expected_start_steps=expected_process_steps)
+    if process_check_after_probes != process_check:
+        checks["processes_after_probes"] = process_check_after_probes
+    required_checks["processes"] = bool(process_check["passed"]) and bool(process_check_after_probes["passed"])
 
     failed_checks = [name for name, passed in required_checks.items() if not passed]
     report_path = run_dir / "health.json"

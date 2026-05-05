@@ -187,6 +187,53 @@ class RuntimeEvidenceTests(unittest.TestCase):
                 "change_to_autonomous",
             )
 
+    def test_closed_loop_route_completion_requires_kinematic_sanity(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_l1_follow_lane"
+            runtime_dir = run_dir / "runtime_verification"
+            runtime_dir.mkdir(parents=True)
+            (runtime_dir / "closed_loop_route_sync_20260502T113402.json").write_text(
+                json.dumps(
+                    {
+                        "service_calls": [
+                            {
+                                "step": "initialize_localization",
+                                "returncode": 0,
+                                "output": "InitializeLocalization_Response(status=ResponseStatus(success=True, code=0, message=''))",
+                            },
+                            {
+                                "step": "set_route_points",
+                                "returncode": 0,
+                                "output": "SetRoutePoints_Response(status=ResponseStatus(success=True, code=0, message=''))",
+                            },
+                        ],
+                        "summary": {
+                            "moved": True,
+                            "reached_near_goal": True,
+                            "route_service_calls_successful": True,
+                            "total_delta_m": 44.5,
+                            "max_speed_mps": 246.1,
+                            "min_ego_z_m": -3185.6,
+                            "max_ego_z_m": -2.6,
+                            "max_abs_pitch_deg": 0.0,
+                            "max_abs_roll_deg": 0.0,
+                            "kinematic_sanity_passed": False,
+                            "sample_count": 2,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            summary = collect_runtime_evidence(run_dir, {"scenario_params": {}})
+
+            self.assertEqual(summary["attempt_count"], 1)
+            self.assertEqual(summary["successful_attempt_count"], 0)
+            self.assertEqual(summary["metrics"]["route_completion"], 0.0)
+            self.assertEqual(summary["metrics"]["kinematic_sanity_passed"], 0.0)
+            self.assertEqual(summary["metrics"]["min_ego_z_m"], -3185.6)
+            self.assertEqual(summary["metrics"]["max_speed_mps"], 246.1)
+
     def test_closed_loop_route_diagnostic_metrics_survive_service_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             run_dir = Path(tempdir) / "run_l2_sumo_route_failed"

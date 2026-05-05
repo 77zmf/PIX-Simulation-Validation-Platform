@@ -433,22 +433,189 @@ class ResearchConfigTests(unittest.TestCase):
     def test_qiyu_loop_dynobs_autoware_route_smoke_uses_carla_frame_lanelet_candidate(self) -> None:
         scenario = load_scenario("scenarios/l2/reconstruction_qiyu_loop_dynobs_autoware_route_smoke.yaml", REPO_ROOT)
         payload = load_yaml(REPO_ROOT / "scenarios" / "l2" / "reconstruction_qiyu_loop_dynobs_autoware_route_smoke.yaml")
-        manifest = load_yaml(REPO_ROOT / "assets" / "manifests" / "site_gy_qyhx_gsh20260310_carla_dynobs_frame.yaml")
+        manifest = load_yaml(
+            REPO_ROOT
+            / "assets"
+            / "manifests"
+            / "site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate.yaml"
+        )
 
-        self.assertEqual(scenario.asset_bundle, "site_gy_qyhx_gsh20260310_carla_dynobs_frame")
-        self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_application_topology")
+        self.assertEqual(scenario.asset_bundle, "site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate")
+        self.assertEqual(scenario.map_id, "site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate")
+        self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_route_smoke_core")
         self.assertEqual(scenario.algorithm_profile, "planning_control_baseline")
-        self.assertEqual(scenario.kpi_gate, "planning_control_smoke")
+        self.assertEqual(scenario.kpi_gate, "planning_control_smoke_kinematic_sanity")
+        self.assertNotIn("route", payload)
+        self.assertIn("direct_goal_route", scenario.labels)
+        self.assertNotIn("multipoint_route", scenario.labels)
+        self.assertGreater(payload["ego_init"]["pose"]["x"], 100.0)
+        self.assertAlmostEqual(payload["ego_init"]["pose"]["yaw_deg"], 178.90)
+        self.assertLess(payload["goal"]["pose"]["x"], payload["ego_init"]["pose"]["x"])
+        self.assertAlmostEqual(payload["goal"]["pose"]["yaw_deg"], 179.89)
         self.assertEqual(
             payload["execution"]["stable_runtime"]["autoware_map_path"],
-            "/data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame",
+            "/data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate",
         )
-        self.assertIn("qiyu_loop_20260430_105120_dynobs", payload["execution"]["stable_runtime"]["carla_map"])
+        self.assertEqual(
+            payload["execution"]["stable_runtime"]["carla_map"],
+            "/Game/qiyu_rp14/Maps/qiyu_rp14/qiyu_rp14",
+        )
+        self.assertEqual(
+            payload["execution"]["stable_runtime"]["carla_server_map"],
+            "Town01",
+        )
+        self.assertEqual(payload["execution"]["stable_runtime"]["pix_carla_skip_wheel_steer_angle"], "1")
+        self.assertEqual(payload["execution"]["stable_runtime"]["pix_carla_ros_y_sign"], "1")
+        self.assertEqual(payload["execution"]["stable_runtime"]["pix_carla_sensor_queue_timeout_sec"], "2")
+        self.assertEqual(payload["execution"]["stable_runtime"]["carla_localization_bridge_source"], "carla_actor")
+        self.assertEqual(payload["execution"]["stable_runtime"]["carla_bridge_sync_mode"], "False")
+        self.assertEqual(payload["execution"]["stable_runtime"]["carla_actor_health_check"], "true")
+        self.assertEqual(payload["execution"]["stable_runtime"]["carla_actor_min_z"], "-20.0")
+        self.assertEqual(payload["execution"]["stable_runtime"]["carla_actor_max_abs_pitch_deg"], "30.0")
+        self.assertEqual(payload["execution"]["stable_runtime"]["carla_actor_max_abs_roll_deg"], "30.0")
+        spawn_point = payload["execution"]["stable_runtime"]["carla_spawn_point"]
+        self.assertIn("103.3400,636.0970,-3.1021,", spawn_point)
+        self.assertTrue(spawn_point.endswith(",0,0,178.90"))
+        self.assertTrue(
+            payload["execution"]["stable_runtime"]["carla_objects_definition_file"].endswith(
+                "robobus117th_route_smoke_objects.json"
+            )
+        )
+        self.assertIn("--profile robobus117th_route_smoke_core", payload["metadata"]["validation_command"])
+        self.assertIn("--carla-y-sign 1", payload["metadata"]["validation_command"])
+        self.assertIn("--carla-z-offset 0.5", payload["metadata"]["validation_command"])
+        self.assertIn("--skip-ego-reset", payload["metadata"]["validation_command"])
         self.assertIn("carla_closed_loop_route_probe.py", payload["metadata"]["validation_command"])
+        self.assertIn("timeout 600 python3 ops/runtime_probes/carla_closed_loop_route_probe.py", payload["metadata"]["validation_command"])
         self.assertEqual(manifest["metadata"]["frame_transform"]["dx_m"], -1313.72028)
         self.assertEqual(manifest["metadata"]["frame_transform"]["dy_m"], 457.810557)
         self.assertEqual(manifest["metadata"]["frame_transform"]["local_y_rule"], "-(y + dy)")
+        self.assertEqual(manifest["metadata"]["lanelet_semantic_patch"]["participant_vehicle_added"], 1606)
         self.assertIn("carla_frame_candidate", manifest["metadata"]["tags"])
+        self.assertIn("vehicle_bounds_candidate", manifest["metadata"]["tags"])
+
+    def test_qiyu_loop_minimal_westbound_lincoln_smoke_is_bounded_surrogate(self) -> None:
+        scenario = load_scenario(
+            "scenarios/l2/reconstruction_qiyu_loop_minimal_westbound_lincoln_kinematic_smoke.yaml",
+            REPO_ROOT,
+        )
+        payload = load_yaml(
+            REPO_ROOT / "scenarios" / "l2" / "reconstruction_qiyu_loop_minimal_westbound_lincoln_kinematic_smoke.yaml"
+        )
+        gate = load_kpi_gate("planning_control_smoke_kinematic_sanity", REPO_ROOT)
+
+        self.assertEqual(scenario.asset_bundle, "site_gy_qyhx_gsh20260310_carla_dynobs_frame")
+        self.assertEqual(scenario.map_id, "qiyu_rp10_minimal_westbound_route_map")
+        self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_route_smoke_core")
+        self.assertEqual(scenario.algorithm_profile, "planning_control_baseline")
+        self.assertEqual(scenario.kpi_gate, "planning_control_smoke_kinematic_sanity")
+        self.assertIn("surrogate_vehicle", scenario.labels)
+        stable_runtime = payload["execution"]["stable_runtime"]
+        self.assertEqual(stable_runtime["autoware_map_path"], "/data/pix/assets/qiyu_rp10_minimal_westbound_route_map")
+        self.assertEqual(stable_runtime["carla_vehicle_type"], "vehicle.lincoln.mkz_2020")
+        self.assertEqual(stable_runtime["pix_carla_steer_gain"], "-0.25")
+        self.assertEqual(stable_runtime["pix_carla_throttle_gain"], "2.0")
+        self.assertEqual(stable_runtime["pix_carla_max_throttle"], "0.45")
+        self.assertEqual(stable_runtime["carla_actor_max_abs_pitch_deg"], "30.0")
+        self.assertEqual(stable_runtime["carla_actor_max_abs_roll_deg"], "30.0")
+        self.assertIn("--goal-tolerance-m 14.0", payload["metadata"]["validation_command"])
+        self.assertIn("--stop-ego-after-goal", payload["metadata"]["validation_command"])
+        self.assertIn("Surrogate map/control smoke only.", payload["metadata"]["acceptance_boundary"])
+        self.assertIn("kinematic_sanity_passed", gate.metrics)
+        self.assertIn("max_speed_mps", gate.metrics)
+        self.assertIn("kinematic_sanity_failure", gate.failure_labels)
+
+    def test_qiyu_loop_minimal_westbound_robobus_smoke_uses_real_vehicle_actor(self) -> None:
+        scenario = load_scenario(
+            "scenarios/l2/reconstruction_qiyu_loop_minimal_westbound_robobus_kinematic_smoke.yaml",
+            REPO_ROOT,
+        )
+        payload = load_yaml(
+            REPO_ROOT / "scenarios" / "l2" / "reconstruction_qiyu_loop_minimal_westbound_robobus_kinematic_smoke.yaml"
+        )
+        gate = load_kpi_gate("planning_control_smoke_kinematic_sanity", REPO_ROOT)
+
+        self.assertEqual(scenario.asset_bundle, "site_gy_qyhx_gsh20260310_carla_dynobs_frame")
+        self.assertEqual(scenario.map_id, "qiyu_rp10_minimal_westbound_route_map")
+        self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_route_smoke_core")
+        self.assertEqual(scenario.algorithm_profile, "planning_control_baseline")
+        self.assertEqual(scenario.kpi_gate, "planning_control_smoke_kinematic_sanity")
+        self.assertIn("robobus117th", scenario.labels)
+        self.assertNotIn("surrogate_vehicle", scenario.labels)
+        stable_runtime = payload["execution"]["stable_runtime"]
+        self.assertEqual(stable_runtime["autoware_map_path"], "/data/pix/assets/qiyu_rp10_minimal_westbound_route_map")
+        self.assertEqual(stable_runtime["carla_vehicle_type"], "vehicle.pixmoving.robobus")
+        self.assertEqual(stable_runtime["pix_carla_steer_gain"], "0.90")
+        self.assertEqual(stable_runtime["pix_carla_throttle_gain"], "3.8")
+        self.assertEqual(stable_runtime["carla_actor_max_abs_pitch_deg"], "30.0")
+        self.assertEqual(stable_runtime["carla_actor_max_abs_roll_deg"], "30.0")
+        self.assertIn("timeout 240 python3 ops/runtime_probes/carla_closed_loop_route_probe.py", payload["metadata"]["validation_command"])
+        self.assertIn("--skip-ego-reset", payload["metadata"]["validation_command"])
+        self.assertIn("--stop-ego-after-goal", payload["metadata"]["validation_command"])
+        self.assertIn("Robobus minimal route smoke only.", payload["metadata"]["acceptance_boundary"])
+        self.assertIn("empty-route response", payload["metadata"]["acceptance_boundary"])
+        self.assertIn("kinematic_sanity_passed", gate.metrics)
+
+    def test_qiyu_loop_dynobs_vehicle_bounds_candidate_robobus_smoke_uses_full_candidate_map(self) -> None:
+        scenario = load_scenario(
+            "scenarios/l2/reconstruction_qiyu_loop_dynobs_vehicle_bounds_candidate_robobus_kinematic_smoke.yaml",
+            REPO_ROOT,
+        )
+        payload = load_yaml(
+            REPO_ROOT
+            / "scenarios"
+            / "l2"
+            / "reconstruction_qiyu_loop_dynobs_vehicle_bounds_candidate_robobus_kinematic_smoke.yaml"
+        )
+        manifest = load_yaml(
+            REPO_ROOT
+            / "assets"
+            / "manifests"
+            / "site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate.yaml"
+        )
+
+        self.assertEqual(scenario.asset_bundle, "site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate")
+        self.assertEqual(scenario.map_id, "site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate")
+        self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_route_smoke_core")
+        self.assertEqual(scenario.algorithm_profile, "planning_control_baseline")
+        self.assertEqual(scenario.kpi_gate, "planning_control_smoke_kinematic_sanity")
+        self.assertIn("vehicle_bounds_candidate", scenario.labels)
+        stable_runtime = payload["execution"]["stable_runtime"]
+        self.assertEqual(
+            stable_runtime["autoware_map_path"],
+            "/data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate",
+        )
+        self.assertEqual(stable_runtime["carla_vehicle_type"], "vehicle.pixmoving.robobus")
+        self.assertEqual(stable_runtime["pix_carla_ros_y_sign"], "1")
+        self.assertLess(payload["goal"]["pose"]["x"], -20.0)
+        self.assertGreater(payload["goal"]["pose"]["x"], -30.0)
+        self.assertIn("--goal-tolerance-m 12.0", payload["metadata"]["validation_command"])
+        self.assertIn("--max-duration-sec 60", payload["metadata"]["validation_command"])
+        self.assertIn("--stop-ego-after-goal", payload["metadata"]["validation_command"])
+        self.assertIn("Candidate semantic-map smoke only.", payload["metadata"]["acceptance_boundary"])
+        self.assertIn("x=-58m CARLA mesh/collision drop", payload["metadata"]["acceptance_boundary"])
+        self.assertEqual(manifest["metadata"]["lanelet_semantic_patch"]["road_lanelets"], 1606)
+        self.assertEqual(manifest["metadata"]["lanelet_semantic_patch"]["participant_vehicle_added"], 1606)
+        self.assertEqual(manifest["metadata"]["lanelet_semantic_patch"]["road_lanelet_left_right_roles_swapped"], 1606)
+        self.assertIn("vehicle_bounds_candidate", manifest["metadata"]["tags"])
+
+    def test_qiyu_loop_robobus_spawn_stability_is_carla_only_asset_gate(self) -> None:
+        scenario = load_scenario("scenarios/l2/reconstruction_qiyu_loop_robobus_spawn_stability.yaml", REPO_ROOT)
+        payload = load_yaml(REPO_ROOT / "scenarios" / "l2" / "reconstruction_qiyu_loop_robobus_spawn_stability.yaml")
+        gate = load_kpi_gate("robobus117th_qiyu_spawn_stability", REPO_ROOT)
+
+        self.assertEqual(scenario.asset_bundle, "site_gy_qyhx_gsh20260310_carla_dynobs_frame")
+        self.assertEqual(scenario.kpi_gate, "robobus117th_qiyu_spawn_stability")
+        self.assertIn("spawn_stability", scenario.labels)
+        stable_runtime = payload["execution"]["stable_runtime"]
+        self.assertEqual(stable_runtime["autoware_enabled"], "false")
+        self.assertEqual(stable_runtime["health_expected_process_steps"], ["start-carla-server"])
+        self.assertEqual(stable_runtime["carla_server_map"], "Town01")
+        self.assertIn("carla_vehicle_spawn_stability_probe.py", payload["metadata"]["validation_command"])
+        self.assertIn("--actor-id vehicle.pixmoving.robobus", payload["metadata"]["validation_command"])
+        self.assertIn("--carla-map /Game/qiyu_rp10/Maps/qiyu_rp10/qiyu_rp10", payload["metadata"]["validation_command"])
+        self.assertIn("robobus_qiyu_spawn_stability_passed", gate.metrics)
+        self.assertIn("robobus_physics_asset_failure", gate.failure_labels)
 
     def test_static_gaussian_reconstruction_scenario_loads(self) -> None:
         scenario = load_scenario("scenarios/l2/reconstruction_static_public_road_gaussian_base.yaml", REPO_ROOT)

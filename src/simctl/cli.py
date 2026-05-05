@@ -160,6 +160,20 @@ def _scenario_carla_actor_health_enabled(scenario: Any) -> bool:
     return _truthy_config_value(_scenario_stable_runtime_value(scenario, "carla_actor_health_check"))
 
 
+def _scenario_carla_actor_min_z(scenario: Any) -> float | None:
+    value = _scenario_stable_runtime_value(scenario, "carla_actor_min_z")
+    if value is None or str(value).strip() == "":
+        return None
+    return float(value)
+
+
+def _scenario_optional_float(scenario: Any, key: str) -> float | None:
+    value = _scenario_stable_runtime_value(scenario, key)
+    if value is None or str(value).strip() == "":
+        return None
+    return float(value)
+
+
 def _scenario_metadata(scenario: Any) -> dict[str, Any]:
     payload = load_yaml(scenario.scenario_path)
     metadata = payload.get("metadata", {})
@@ -232,6 +246,9 @@ def _validation_shell_command(
             sumo_traci_port = None
     if sumo_traci_port is not None:
         lines.append(f"export SIMCTL_SUMO_TRACI_PORT={shlex.quote(str(sumo_traci_port))}")
+    carla_ros_y_sign = _scenario_stable_runtime_value(scenario, "pix_carla_ros_y_sign")
+    if carla_ros_y_sign is not None:
+        lines.append(f"export SIMCTL_CARLA_ROS_Y_SIGN={shlex.quote(str(carla_ros_y_sign))}")
     if rmw_implementation:
         lines.append(f"export RMW_IMPLEMENTATION={shlex.quote(rmw_implementation)}")
     lines.extend(
@@ -1454,6 +1471,13 @@ def handle_run(args: argparse.Namespace) -> int:
                     carla_actor_check=_scenario_carla_actor_health_enabled(scenario),
                     carla_actor_type=str(_scenario_stable_runtime_value(scenario, "carla_vehicle_type") or ""),
                     carla_ego_role_name=str(_scenario_stable_runtime_value(scenario, "carla_ego_vehicle_role_name") or ""),
+                    carla_actor_min_z=_scenario_carla_actor_min_z(scenario),
+                    carla_actor_max_abs_pitch_deg=_scenario_optional_float(
+                        scenario, "carla_actor_max_abs_pitch_deg"
+                    ),
+                    carla_actor_max_abs_roll_deg=_scenario_optional_float(
+                        scenario, "carla_actor_max_abs_roll_deg"
+                    ),
                     carla_root=str(_scenario_stable_runtime_value(scenario, "carla_root") or ""),
                 )
             status, gate_eval = _launch_gate_eval(logs, runtime_health)
@@ -1652,8 +1676,12 @@ def handle_replay(args: argparse.Namespace) -> int:
         asset_bundle_id=asset_bundle_id,
         execute=False,
     )
-    rosbag_path = result["artifacts"].get("rosbag2")
-    carla_recorder_path = result["artifacts"].get("carla_recorder")
+    artifacts = result.get("artifacts", {})
+    replay_artifacts = result.get("replay", {})
+    if not isinstance(replay_artifacts, dict):
+        replay_artifacts = {}
+    rosbag_path = artifacts.get("rosbag2") or replay_artifacts.get("rosbag2")
+    carla_recorder_path = artifacts.get("carla_recorder") or replay_artifacts.get("carla_recorder")
     context.update(
         {
             "rosbag_path": _to_bash_path(rosbag_path),

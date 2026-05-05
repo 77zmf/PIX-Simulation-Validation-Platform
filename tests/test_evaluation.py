@@ -120,6 +120,55 @@ class EvaluationTests(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertEqual(result["failure_labels"], ["robobus_bbox_collision_failure"])
 
+    def test_kinematic_sanity_metrics_map_to_kinematic_label(self) -> None:
+        gate = KpiGate(
+            gate_id="planning_control_smoke_kinematic_sanity",
+            description="test gate",
+            metrics={
+                "route_completion": {"op": ">=", "value": 0.95},
+                "kinematic_sanity_passed": {"op": ">=", "value": 1.0},
+                "max_abs_roll_deg": {"op": "<=", "value": 30.0},
+            },
+            failure_labels=[
+                "route_completion_failure",
+                "planning_control_gate_failure",
+                "kinematic_sanity_failure",
+            ],
+            gate_path=Path("evaluation/kpi_gates/planning_control_smoke_kinematic_sanity.yaml"),
+        )
+
+        result = evaluate_metrics(
+            {"route_completion": 1.0, "kinematic_sanity_passed": 0.0, "max_abs_roll_deg": 178.0},
+            gate,
+        )
+
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["failure_labels"], ["kinematic_sanity_failure"])
+
+    def test_robobus_qiyu_spawn_metrics_map_to_physics_asset_label(self) -> None:
+        gate = KpiGate(
+            gate_id="robobus117th_qiyu_spawn_stability",
+            description="test gate",
+            metrics={
+                "robobus_qiyu_spawn_stability_passed": {"op": ">=", "value": 1.0},
+                "robobus_qiyu_spawn_stable_count": {"op": ">=", "value": 1.0},
+            },
+            failure_labels=[
+                "robobus_qiyu_spawn_instability",
+                "robobus_physics_asset_failure",
+                "carla_vehicle_asset_failure",
+            ],
+            gate_path=Path("evaluation/kpi_gates/robobus117th_qiyu_spawn_stability.yaml"),
+        )
+
+        result = evaluate_metrics(
+            {"robobus_qiyu_spawn_stability_passed": 0.0, "robobus_qiyu_spawn_stable_count": 0.0},
+            gate,
+        )
+
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["failure_labels"], ["robobus_qiyu_spawn_instability"])
+
 
 if __name__ == "__main__":
     unittest.main()

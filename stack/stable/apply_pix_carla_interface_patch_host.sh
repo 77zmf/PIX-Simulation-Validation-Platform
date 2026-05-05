@@ -54,9 +54,18 @@ done
 
 SOURCE_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/carla_ros.py"
 BUILD_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/carla_ros.py"
+SOURCE_BRIDGE_LOOP_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/carla_autoware.py"
+BUILD_BRIDGE_LOOP_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/carla_autoware.py"
+SOURCE_WRAPPER_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/modules/carla_wrapper.py"
+BUILD_WRAPPER_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/modules/carla_wrapper.py"
+SOURCE_UTILS_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/modules/carla_utils.py"
+BUILD_UTILS_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/modules/carla_utils.py"
 SOURCE_LAUNCH_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/launch/autoware_carla_interface.launch.xml"
 INSTALL_LAUNCH_FILE="${AUTOWARE_WS}/install/autoware_carla_interface/share/autoware_carla_interface/autoware_carla_interface.launch.xml"
 BACKUP_SUFFIX=".pix_actuation_map.bak"
+BRIDGE_LOOP_BACKUP_SUFFIX=".pix_sensor_timeout_tolerance.bak"
+WRAPPER_BACKUP_SUFFIX=".pix_sensor_queue_timeout.bak"
+UTILS_BACKUP_SUFFIX=".pix_ros_y_sign.bak"
 LAUNCH_BACKUP_SUFFIX=".pix_static_tf_node_names.bak"
 
 python3 - "$SOURCE_FILE" "$BUILD_FILE" "$BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
@@ -78,6 +87,7 @@ if build_file != source_file:
 
 marker = "PIX_CARLA_ACTUATION_MAP_PATCH"
 steer_hold_marker = "PIX_CARLA_STEER_HOLD_PATCH"
+wheel_steer_marker = "PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH"
 steer_method_pattern = re.compile(
     r"    def first_order_steering\(self, steer_input\):\n.*?\n    def control_callback\(self, in_cmd\):",
     re.DOTALL,
@@ -85,6 +95,11 @@ steer_method_pattern = re.compile(
 method_pattern = re.compile(
     r"    def control_callback\(self, in_cmd\):\n.*?\n    def ego_status\(self\):",
     re.DOTALL,
+)
+wheel_steer_pattern = re.compile(
+    r"        out_steering_state\.steering_tire_angle = -math\.radians\(\n"
+    r"            self\.ego_actor\.get_wheel_steer_angle\(carla\.VehicleWheelLocation\.FL_Wheel\)\n"
+    r"        \)",
 )
 patched_steer_method = '''    def first_order_steering(self, steer_input):
         """First order steering model."""
@@ -133,6 +148,9 @@ patched_method = '''    def control_callback(self, in_cmd):
         brake_gain = _env_float("PIX_CARLA_BRAKE_GAIN", 1.0)
         max_brake = _env_float("PIX_CARLA_MAX_BRAKE", 1.0)
         brake_deadband = _env_float("PIX_CARLA_BRAKE_DEADBAND", 0.0)
+        speed_guard_max_mps = _env_float("PIX_CARLA_SPEED_GUARD_MAX_MPS", 0.0)
+        speed_guard_band_mps = max(_env_float("PIX_CARLA_SPEED_GUARD_BAND_MPS", 1.0), 0.01)
+        speed_guard_brake_gain = _env_float("PIX_CARLA_SPEED_GUARD_BRAKE_GAIN", 0.0)
 
         throttle = raw_throttle * throttle_gain
         if raw_throttle > 0.0 and throttle < min_throttle:
@@ -143,6 +161,18 @@ patched_method = '''    def control_callback(self, in_cmd):
 
         brake = 0.0 if raw_brake < brake_deadband else raw_brake * brake_gain
         brake = min(max(brake, 0.0), max_brake)
+        if speed_guard_max_mps > 0.0:
+            speed_guard_start_mps = max(speed_guard_max_mps - speed_guard_band_mps, 0.0)
+            if ego_speed_mps >= speed_guard_max_mps:
+                throttle = 0.0
+                overspeed_mps = ego_speed_mps - speed_guard_max_mps
+                if speed_guard_brake_gain > 0.0 and overspeed_mps > 0.0:
+                    brake = max(brake, min(overspeed_mps * speed_guard_brake_gain, max_brake))
+            elif ego_speed_mps > speed_guard_start_mps:
+                guard_scale = (speed_guard_max_mps - ego_speed_mps) / (
+                    speed_guard_max_mps - speed_guard_start_mps
+                )
+                throttle *= min(max(guard_scale, 0.0), 1.0)
         if brake > 0.0:
             throttle = 0.0
 
@@ -177,6 +207,15 @@ patched_method = '''    def control_callback(self, in_cmd):
         self.current_control = out_cmd
 
     def ego_status(self):'''
+patched_wheel_steer = '''        # PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH: some PIX CARLA builds block on
+        # get_wheel_steer_angle after custom-map sensor spawning. Allow the
+        # stable launcher to publish a neutral steering report instead.
+        if os.environ.get("PIX_CARLA_SKIP_WHEEL_STEER_ANGLE", "").strip().lower() in {"1", "true", "yes", "y", "on"}:
+            out_steering_state.steering_tire_angle = 0.0
+        else:
+            out_steering_state.steering_tire_angle = -math.radians(
+                self.ego_actor.get_wheel_steer_angle(carla.VehicleWheelLocation.FL_Wheel)
+            )'''
 
 for path in targets:
     if not path.exists():
@@ -207,12 +246,20 @@ for path in targets:
         patched_text = patched_text[: steer_match.start()] + patched_steer_method + patched_text[steer_match.end() :]
         patch_descriptions.append("held steering output across same-tick callbacks")
 
-    if marker not in patched_text:
+    if marker not in patched_text or "PIX_CARLA_SPEED_GUARD_MAX_MPS" not in patched_text:
         match = method_pattern.search(patched_text)
         if not match:
             raise SystemExit(f"actuation target block not found: {path}")
         patched_text = patched_text[: match.start()] + patched_method + patched_text[match.end() :]
-        patch_descriptions.append("calibrated throttle, brake, and steer")
+        if marker in text:
+            patch_descriptions.append("upgraded calibrated throttle, brake, steer, and speed guard")
+        else:
+            patch_descriptions.append("calibrated throttle, brake, steer, and speed guard")
+
+    if wheel_steer_marker not in patched_text:
+        patched_text, wheel_patch_count = wheel_steer_pattern.subn(patched_wheel_steer, patched_text, count=1)
+        if wheel_patch_count:
+            patch_descriptions.append("guarded wheel steer status query")
 
     if not patch_descriptions:
         print(f"already patched: {path}")
@@ -237,6 +284,380 @@ for path in targets:
 PY
 
 echo "Patch operation completed."
+
+python3 - "$SOURCE_WRAPPER_FILE" "$BUILD_WRAPPER_FILE" "$WRAPPER_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
+from __future__ import annotations
+
+import py_compile
+import re
+import sys
+from pathlib import Path
+
+source_file = Path(sys.argv[1])
+build_file = Path(sys.argv[2])
+backup_suffix = sys.argv[3]
+rollback = sys.argv[4] == "1"
+dry_run = sys.argv[5] == "1"
+targets = [source_file]
+if build_file != source_file:
+    targets.append(build_file)
+
+marker = "PIX_CARLA_SENSOR_QUEUE_TIMEOUT_PATCH"
+timeout_pattern = re.compile(r"        self\._queue_timeout = 10\n")
+patched_timeout = '''        # PIX_CARLA_SENSOR_QUEUE_TIMEOUT_PATCH: allow heavy custom-map sensor
+        # bundles to tolerate intermittent CARLA sensor delivery stalls.
+        try:
+            self._queue_timeout = float(os.environ.get("PIX_CARLA_SENSOR_QUEUE_TIMEOUT_SEC", "10") or "10")
+        except ValueError:
+            self._queue_timeout = 10
+'''
+
+for path in targets:
+    if not path.exists():
+        raise SystemExit(f"wrapper target file not found: {path}")
+
+    backup = Path(str(path) + backup_suffix)
+    text = path.read_text()
+
+    if rollback:
+        if not backup.exists():
+            print(f"no wrapper backup to restore: {backup}")
+            continue
+        if dry_run:
+            print(f"would restore wrapper: {backup} -> {path}")
+            continue
+        path.write_text(backup.read_text())
+        py_compile.compile(str(path), doraise=True)
+        print(f"restored wrapper: {path}")
+        continue
+
+    patched_text = text
+    if marker in patched_text:
+        print(f"wrapper already patched: {path}")
+        continue
+
+    patched_text, patch_count = timeout_pattern.subn(patched_timeout, patched_text, count=1)
+    if not patch_count:
+        raise SystemExit(f"sensor queue timeout target block not found: {path}")
+
+    if "import os\n" not in patched_text:
+        if "import numpy as np\n" in patched_text:
+            patched_text = patched_text.replace("import numpy as np\n", "import os\nimport numpy as np\n", 1)
+        elif "from queue import Empty, Queue\n" in patched_text:
+            patched_text = patched_text.replace("from queue import Empty, Queue\n", "import os\nfrom queue import Empty, Queue\n", 1)
+        else:
+            raise SystemExit(f"cannot add os import to wrapper: {path}")
+
+    if dry_run:
+        print(f"would patch wrapper sensor queue timeout: {path}")
+        continue
+
+    if not backup.exists():
+        backup.write_text(text)
+        print(f"wrapper backup: {backup}")
+
+    path.write_text(patched_text)
+    py_compile.compile(str(path), doraise=True)
+    print(f"patched wrapper sensor queue timeout: {path}")
+PY
+
+echo "Wrapper patch operation completed."
+
+python3 - "$SOURCE_UTILS_FILE" "$BUILD_UTILS_FILE" "$UTILS_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
+from __future__ import annotations
+
+import py_compile
+import re
+import sys
+from pathlib import Path
+
+source_file = Path(sys.argv[1])
+build_file = Path(sys.argv[2])
+backup_suffix = sys.argv[3]
+rollback = sys.argv[4] == "1"
+dry_run = sys.argv[5] == "1"
+targets = [source_file]
+if build_file != source_file:
+    targets.append(build_file)
+
+marker = "PIX_CARLA_ROS_Y_SIGN_PATCH"
+location_pattern = re.compile(
+    r"def carla_location_to_ros_point\(carla_location\):\n"
+    r"    \"\"\"Convert a carla location to a ROS point\.\"\"\"\n"
+    r"    ros_point = Point\(\)\n"
+    r"    ros_point\.x = carla_location\.x\n"
+    r"    ros_point\.y = -carla_location\.y\n"
+    r"    ros_point\.z = carla_location\.z\n"
+    r"\n"
+    r"    return ros_point\n",
+)
+rotation_pattern = re.compile(
+    r"def carla_rotation_to_ros_quaternion\(carla_rotation\):\n"
+    r"    \"\"\"Convert a carla rotation to a ROS quaternion\.\"\"\"\n"
+    r"    roll = math\.radians\(carla_rotation\.roll\)\n"
+    r"    pitch = -math\.radians\(carla_rotation\.pitch\)\n"
+    r"    yaw = -math\.radians\(carla_rotation\.yaw\)\n"
+    r"    quat = euler2quat\(roll, pitch, yaw\)\n"
+    r"    ros_quaternion = Quaternion\(w=quat\[0\], x=quat\[1\], y=quat\[2\], z=quat\[3\]\)\n"
+    r"\n"
+    r"    return ros_quaternion\n",
+)
+ros_rotation_pattern = re.compile(
+    r"def ros_quaternion_to_carla_rotation\(ros_quaternion\):\n"
+    r"    \"\"\"Convert ROS quaternion to (?:CARLA|carla) rotation\.\"\"\"\n"
+    r"    roll, pitch, yaw = quat2euler\(\n"
+    r"        \[ros_quaternion\.w, ros_quaternion\.x, ros_quaternion\.y, ros_quaternion\.z\]\n"
+    r"    \)\n"
+    r"\n"
+    r"    return carla\.Rotation\(\n"
+    r"        roll=math\.degrees\(roll\), pitch=-math\.degrees\(pitch\), yaw=-math\.degrees\(yaw\)\n"
+    r"    \)\n",
+)
+pose_pattern = re.compile(
+    r"def ros_pose_to_carla_transform\(ros_pose\):\n"
+    r"    \"\"\"Convert ROS pose to carla transform\.\"\"\"\n"
+    r"    return carla\.Transform\(\n"
+    r"        carla\.Location\(ros_pose\.position\.x, -ros_pose\.position\.y, ros_pose\.position\.z\),\n"
+    r"        ros_quaternion_to_carla_rotation\(ros_pose\.orientation\),\n"
+    r"    \)\n",
+)
+patched_helper = '''def pix_carla_ros_y_sign():
+    # PIX_CARLA_ROS_Y_SIGN_PATCH: CARLA's default ROS bridge flips y. Some
+    # imported public-road XODR/lanelet bundles are already in the same y axis
+    # as CARLA and need PIX_CARLA_ROS_Y_SIGN=1 at scenario scope.
+    value = os.environ.get("PIX_CARLA_ROS_Y_SIGN", "-1").strip().lower()
+    return 1.0 if value in {"1", "+1", "same", "positive", "carla"} else -1.0
+
+
+'''
+patched_location = '''def carla_location_to_ros_point(carla_location):
+    """Convert a carla location to a ROS point."""
+    y_sign = pix_carla_ros_y_sign()
+    ros_point = Point()
+    ros_point.x = carla_location.x
+    ros_point.y = y_sign * carla_location.y
+    ros_point.z = carla_location.z
+
+    return ros_point
+'''
+patched_rotation = '''def carla_rotation_to_ros_quaternion(carla_rotation):
+    """Convert a carla rotation to a ROS quaternion."""
+    y_sign = pix_carla_ros_y_sign()
+    roll = math.radians(carla_rotation.roll)
+    pitch = y_sign * math.radians(carla_rotation.pitch)
+    yaw = y_sign * math.radians(carla_rotation.yaw)
+    quat = euler2quat(roll, pitch, yaw)
+    ros_quaternion = Quaternion(w=quat[0], x=quat[1], y=quat[2], z=quat[3])
+
+    return ros_quaternion
+'''
+patched_ros_rotation = '''def ros_quaternion_to_carla_rotation(ros_quaternion):
+    """Convert ROS quaternion to carla rotation."""
+    y_sign = pix_carla_ros_y_sign()
+    roll, pitch, yaw = quat2euler(
+        [ros_quaternion.w, ros_quaternion.x, ros_quaternion.y, ros_quaternion.z]
+    )
+
+    return carla.Rotation(
+        roll=math.degrees(roll), pitch=y_sign * math.degrees(pitch), yaw=y_sign * math.degrees(yaw)
+    )
+'''
+patched_pose = '''def ros_pose_to_carla_transform(ros_pose):
+    """Convert ROS pose to carla transform."""
+    y_sign = pix_carla_ros_y_sign()
+    return carla.Transform(
+        carla.Location(ros_pose.position.x, y_sign * ros_pose.position.y, ros_pose.position.z),
+        ros_quaternion_to_carla_rotation(ros_pose.orientation),
+    )
+'''
+
+for path in targets:
+    if not path.exists():
+        raise SystemExit(f"utils target file not found: {path}")
+
+    backup = Path(str(path) + backup_suffix)
+    text = path.read_text()
+
+    if rollback:
+        if not backup.exists():
+            print(f"no utils backup to restore: {backup}")
+            continue
+        if dry_run:
+            print(f"would restore utils: {backup} -> {path}")
+            continue
+        path.write_text(backup.read_text())
+        py_compile.compile(str(path), doraise=True)
+        print(f"restored utils: {path}")
+        continue
+
+    if marker in text:
+        print(f"utils already patched: {path}")
+        continue
+
+    patched_text = text
+    if "import os\n" not in patched_text:
+        patched_text = patched_text.replace("import math\n", "import math\nimport os\n", 1)
+    patched_text = patched_text.replace("\n\ndef carla_location_to_ros_point", "\n\n" + patched_helper + "def carla_location_to_ros_point", 1)
+    patched_text, location_count = location_pattern.subn(patched_location, patched_text, count=1)
+    patched_text, rotation_count = rotation_pattern.subn(patched_rotation, patched_text, count=1)
+    patched_text, ros_rotation_count = ros_rotation_pattern.subn(patched_ros_rotation, patched_text, count=1)
+    patched_text, pose_count = pose_pattern.subn(patched_pose, patched_text, count=1)
+    if not all((location_count, rotation_count, ros_rotation_count, pose_count)):
+        raise SystemExit(f"ROS y-sign utility target block not found: {path}")
+
+    if dry_run:
+        print(f"would patch utils ROS y sign: {path}")
+        continue
+
+    if not backup.exists():
+        backup.write_text(text)
+        print(f"utils backup: {backup}")
+
+    path.write_text(patched_text)
+    py_compile.compile(str(path), doraise=True)
+    print(f"patched utils ROS y sign: {path}")
+PY
+
+echo "Utils patch operation completed."
+
+python3 - "$SOURCE_BRIDGE_LOOP_FILE" "$BUILD_BRIDGE_LOOP_FILE" "$BRIDGE_LOOP_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
+from __future__ import annotations
+
+import py_compile
+import re
+import sys
+from pathlib import Path
+
+source_file = Path(sys.argv[1])
+build_file = Path(sys.argv[2])
+backup_suffix = sys.argv[3]
+rollback = sys.argv[4] == "1"
+dry_run = sys.argv[5] == "1"
+targets = [source_file]
+if build_file != source_file:
+    targets.append(build_file)
+
+timeout_marker = "PIX_CARLA_SENSOR_TIMEOUT_TOLERANCE_PATCH"
+opendrive_marker = "PIX_CARLA_OPENDRIVE_WORLD_PATCH"
+raise_pattern = re.compile(
+    r"(?P<indent>[ \t]+)except SensorReceivedNoData as e:\n"
+    r"(?P=indent)    raise RuntimeError\(e\)\n"
+)
+load_world_pattern = re.compile(
+    r"(?P<indent>[ \t]+)(?:"
+    r"self\.world = client\.load_world\(self\.carla_map\)"
+    r"|client\.load_world\(self\.carla_map\)\n(?P=indent)self\.world = client\.get_world\(\)"
+    r")\n"
+)
+
+
+def patched_except(match: re.Match[str]) -> str:
+    indent = match.group("indent")
+    inner = indent + "    "
+    return (
+        f"{indent}except SensorReceivedNoData as e:\n"
+        f"{inner}# PIX_CARLA_SENSOR_TIMEOUT_TOLERANCE_PATCH: keep the CARLA bridge\n"
+        f"{inner}# ticking through intermittent heavy-map sensor stalls.\n"
+        f"{inner}print(f\"PIX_CARLA_SENSOR_TIMEOUT_TOLERANCE_PATCH: {{e}}\", flush=True)\n"
+        f"{inner}ego_action = self.ego_actor.get_control()\n"
+    )
+
+for path in targets:
+    if not path.exists():
+        raise SystemExit(f"bridge loop target file not found: {path}")
+
+    backup = Path(str(path) + backup_suffix)
+    text = path.read_text()
+
+    if rollback:
+        if not backup.exists():
+            print(f"no bridge loop backup to restore: {backup}")
+            continue
+        if dry_run:
+            print(f"would restore bridge loop: {backup} -> {path}")
+            continue
+        path.write_text(backup.read_text())
+        py_compile.compile(str(path), doraise=True)
+        print(f"restored bridge loop: {path}")
+        continue
+
+    patched_text = text
+    patch_descriptions = []
+
+    if opendrive_marker not in patched_text:
+        def patched_load_world(match: re.Match[str]) -> str:
+            indent = match.group("indent")
+            inner = indent + "    "
+            return (
+                f"{indent}if self.carla_map.endswith(\".xodr\") and os.path.isfile(self.carla_map):\n"
+                f"{inner}# PIX_CARLA_OPENDRIVE_WORLD_PATCH: use a CARLA-generated\n"
+                f"{inner}# OpenDRIVE world when the cooked reconstruction mesh lacks\n"
+                f"{inner}# drivable collision but the XODR/lanelet route is valid.\n"
+                f"{inner}with open(self.carla_map, \"r\", encoding=\"utf-8\") as xodr_file:\n"
+                f"{inner}    xodr_data = xodr_file.read()\n"
+                f"{inner}generation_params = carla.OpendriveGenerationParameters()\n"
+                f"{inner}generation_params.vertex_distance = 2.0\n"
+                f"{inner}generation_params.max_road_length = 500.0\n"
+                f"{inner}generation_params.wall_height = 0.0\n"
+                f"{inner}generation_params.additional_width = 1.0\n"
+                f"{inner}generation_params.smooth_junctions = True\n"
+                f"{inner}generation_params.enable_mesh_visibility = True\n"
+                f"{inner}generation_params.enable_pedestrian_navigation = False\n"
+                f"{inner}self.world = client.generate_opendrive_world(xodr_data, generation_params)\n"
+                f"{indent}else:\n"
+                f"{inner}self.world = client.load_world(self.carla_map)\n"
+            )
+
+        patched_text, opendrive_patch_count = load_world_pattern.subn(patched_load_world, patched_text, count=1)
+        if not opendrive_patch_count:
+            raise SystemExit(f"OpenDRIVE world target block not found: {path}")
+        patch_descriptions.append("added OpenDRIVE world fallback")
+    elif "generation_params.enable_pedestrian_navigation" not in patched_text:
+        patched_text = patched_text.replace(
+            "generation_params.enable_mesh_visibility = True\n",
+            "generation_params.enable_mesh_visibility = False\n"
+            "            generation_params.enable_pedestrian_navigation = False\n",
+            1,
+        )
+        patch_descriptions.append("disabled OpenDRIVE pedestrian navigation generation")
+    elif "generation_params.enable_mesh_visibility = False" in patched_text:
+        patched_text = patched_text.replace(
+            "generation_params.enable_mesh_visibility = False\n",
+            "generation_params.enable_mesh_visibility = True\n",
+            1,
+        )
+        patch_descriptions.append("enabled OpenDRIVE mesh visibility generation")
+
+    if timeout_marker not in patched_text:
+        patched_text, timeout_patch_count = raise_pattern.subn(patched_except, patched_text, count=1)
+        if not timeout_patch_count:
+            raise SystemExit(f"sensor timeout target block not found: {path}")
+        patch_descriptions.append("added sensor timeout tolerance")
+
+    if not patch_descriptions:
+        print(f"bridge loop already patched: {path}")
+        continue
+
+    if "import os\n" not in patched_text:
+        if "import random\n" in patched_text:
+            patched_text = patched_text.replace("import random\n", "import os\nimport random\n", 1)
+        else:
+            raise SystemExit(f"cannot add os import to bridge loop: {path}")
+
+    if dry_run:
+        print(f"would patch bridge loop ({'; '.join(patch_descriptions)}): {path}")
+        continue
+
+    if not backup.exists():
+        backup.write_text(text)
+        print(f"bridge loop backup: {backup}")
+
+    path.write_text(patched_text)
+    py_compile.compile(str(path), doraise=True)
+    print(f"patched bridge loop ({'; '.join(patch_descriptions)}): {path}")
+PY
+
+echo "Bridge loop patch operation completed."
 
 python3 - "$SOURCE_LAUNCH_FILE" "$INSTALL_LAUNCH_FILE" "$LAUNCH_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
 from __future__ import annotations

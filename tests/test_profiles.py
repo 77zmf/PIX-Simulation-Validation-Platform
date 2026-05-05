@@ -25,6 +25,16 @@ class ProfileLoaderTests(unittest.TestCase):
         self.assertIn("actor_masks", profile.payload["deliverables"])
         self.assertIn("rear_camera", profile.sensors)
 
+    def test_load_robobus_route_smoke_core_sensor_profile(self) -> None:
+        profile = load_sensor_profile("robobus_pixrover14_route_smoke_core", REPO_ROOT)
+        self.assertEqual(profile.profile_id, "robobus_pixrover14_route_smoke_core")
+        self.assertIn("robosense_m1plus_front_top_lidar_x1", profile.sensors)
+        self.assertNotIn("senyun_ar0233_surround_cameras_x5", profile.sensors)
+        self.assertEqual(
+            profile.payload["containment"]["full_topology_acceptance_profile"],
+            "robobus_pixrover14_application_topology",
+        )
+
     def test_load_algorithm_profile_from_yaml(self) -> None:
         profile = load_algorithm_profile("planning_control_baseline", REPO_ROOT)
         self.assertEqual(profile.profile_id, "planning_control_baseline")

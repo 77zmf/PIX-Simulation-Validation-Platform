@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 import time
 import unittest
@@ -137,6 +138,20 @@ class RuntimeProbeSerializationTests(unittest.TestCase):
         self.assertIn("/perception/object_recognition/objects", topics)
         self.assertTrue(all(not spec.sample_required for spec in profile))
 
+    def test_sensor_probe_has_route_smoke_core_profile(self) -> None:
+        profile = carla_sensor_topic_probe.PROFILES["robobus117th_route_smoke_core"]
+        topics = {spec.topic for spec in profile}
+
+        self.assertIn("/sensing/lidar/top/pointcloud_before_sync", topics)
+        self.assertIn("/sensing/imu/tamagawa/imu_raw", topics)
+        self.assertIn("/sensing/gnss/pose_with_covariance", topics)
+        self.assertIn("/localization/kinematic_state", topics)
+        self.assertIn("/control/command/control_cmd", topics)
+        self.assertNotIn("/sensing/camera/CAM_FRONT/image_raw", topics)
+        self.assertNotIn("/sensing/lidar/rear_top/pointcloud_before_sync", topics)
+        self.assertFalse(next(spec for spec in profile if spec.topic == "/vehicle/status/control_mode").sample_required)
+        self.assertFalse(next(spec for spec in profile if spec.topic == "/vehicle/status/steering_status").sample_required)
+
     def test_sensor_topic_tail_normalizes_timeout_bytes(self) -> None:
         self.assertEqual(
             carla_sensor_topic_probe._tail(b"prefix-\xe4\xb8\xad\xe6\x96\x87", limit=6),
@@ -187,6 +202,65 @@ class RuntimeProbeSerializationTests(unittest.TestCase):
         self.assertTrue(payload["overall_passed"])
         self.assertEqual(payload["attempt"], 2)
         self.assertEqual(len(payload["attempts"]), 2)
+
+    def test_closed_loop_route_parser_defaults_to_simctl_runtime_env(self) -> None:
+        original_argv = sys.argv[:]
+        original_env = {
+            "ROS_DOMAIN_ID": os.environ.get("ROS_DOMAIN_ID"),
+            "RMW_IMPLEMENTATION": os.environ.get("RMW_IMPLEMENTATION"),
+            "SIMCTL_CARLA_RPC_PORT": os.environ.get("SIMCTL_CARLA_RPC_PORT"),
+            "SIMCTL_CARLA_ROS_Y_SIGN": os.environ.get("SIMCTL_CARLA_ROS_Y_SIGN"),
+        }
+        try:
+            os.environ["ROS_DOMAIN_ID"] = "22"
+            os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
+            os.environ["SIMCTL_CARLA_RPC_PORT"] = "2010"
+            os.environ["SIMCTL_CARLA_ROS_Y_SIGN"] = "1"
+            sys.argv = ["carla_closed_loop_route_probe.py", "--run-dir", "/tmp/run"]
+
+            args = carla_closed_loop_route_probe.parse_args()
+        finally:
+            sys.argv = original_argv
+            for name, value in original_env.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+
+        self.assertEqual(args.ros_domain_id, 22)
+        self.assertEqual(args.rmw_implementation, "rmw_cyclonedds_cpp")
+        self.assertEqual(args.carla_port, 2010)
+        self.assertEqual(args.carla_y_sign, 1.0)
+
+    def test_closed_loop_route_carla_pose_respects_y_sign(self) -> None:
+        map_pose = {"x": 1.0, "y": 2.0, "z": 3.0, "yaw_deg": 45.0}
+
+        flipped = carla_closed_loop_route_probe.carla_pose_from_map_pose(map_pose, 0.5, -1.0)
+        same_axis = carla_closed_loop_route_probe.carla_pose_from_map_pose(map_pose, 0.5, 1.0)
+
+        self.assertEqual(flipped["y"], -2.0)
+        self.assertEqual(same_axis["y"], 2.0)
+        self.assertEqual(flipped["yaw"], 45.0)
+        self.assertEqual(same_axis["yaw"], 45.0)
+        self.assertEqual(carla_closed_loop_route_probe.ego_sample_to_map_xy({"x": 1.0, "y": 2.0}, 1.0), (1.0, 2.0))
+
+    def test_closed_loop_route_segment_distance_detects_goal_crossing(self) -> None:
+        previous_sample = {"x": -134.55, "y": 639.82}
+        current_sample = {"x": -220.39, "y": 641.23}
+        goal = {"x": -164.116, "y": 639.35}
+
+        sample_distance = min(
+            carla_closed_loop_route_probe.distance_to_goal_m(previous_sample, goal),
+            carla_closed_loop_route_probe.distance_to_goal_m(current_sample, goal),
+        )
+        segment_distance = carla_closed_loop_route_probe.distance_to_goal_segment_m(
+            previous_sample,
+            current_sample,
+            goal,
+        )
+
+        self.assertGreater(sample_distance, 25.0)
+        self.assertLess(segment_distance, 2.0)
 
     def test_closed_loop_route_service_success_detects_adapi_success_false(self) -> None:
         self.assertFalse(
@@ -260,6 +334,55 @@ class RuntimeProbeSerializationTests(unittest.TestCase):
             "allow_goal_modification: false",
             carla_dynamic_actor_probe.route_yaml(goal, allow_goal_modification=False),
         )
+
+    def test_route_yaml_serializes_route_waypoints(self) -> None:
+        goal = {"x": 30.0, "y": 4.0, "z": 0.0, "yaw_deg": 90.0}
+        waypoints = [
+            {"x": 10.0, "y": 2.0, "z": 0.0, "yaw_deg": 0.0},
+            {"x": 20.0, "y": 3.0, "z": 0.0, "yaw": 45.0},
+        ]
+
+        payload = carla_dynamic_actor_probe.route_yaml(goal, waypoints=waypoints)
+
+        self.assertIn("goal: {position: {x: 30.000000000, y: 4.000000000", payload)
+        self.assertIn("waypoints: [{position: {x: 10.000000000, y: 2.000000000", payload)
+        self.assertIn("{position: {x: 20.000000000, y: 3.000000000", payload)
+        self.assertIn("z: 0.382683432365, w: 0.923879532511", payload)
+
+    def test_closed_loop_route_extracts_route_points_as_waypoints_and_goal(self) -> None:
+        fallback_goal = {"x": 99.0, "y": 0.0, "z": 0.0, "yaw_deg": 0.0}
+        payload = {
+            "route": {
+                "points": [
+                    {"pose": {"x": 1.0, "y": 2.0, "z": 0.0, "yaw_deg": 10.0}},
+                    {"x": 3.0, "y": 4.0, "z": 0.0, "yaw_deg": 20.0},
+                    {"pose": {"x": 5.0, "y": 6.0, "z": 0.0, "yaw_deg": 30.0}},
+                ]
+            }
+        }
+
+        waypoints, goal = carla_closed_loop_route_probe.route_from_payload(payload, fallback_goal)
+
+        self.assertEqual([waypoint["x"] for waypoint in waypoints], [1.0, 3.0])
+        self.assertEqual(goal["x"], 5.0)
+        self.assertEqual(goal["yaw_deg"], 30.0)
+
+    def test_closed_loop_route_extracts_intermediate_waypoints_with_root_goal(self) -> None:
+        fallback_goal = {"x": 99.0, "y": 8.0, "z": 0.0, "yaw_deg": 90.0}
+        payload = {
+            "route": {
+                "waypoints": [
+                    {"x": 10.0, "y": 1.0, "z": 0.0, "yaw_deg": 0.0},
+                    {"pose": {"x": 20.0, "y": 2.0, "z": 0.0, "yaw_deg": 45.0}},
+                ]
+            }
+        }
+
+        waypoints, goal = carla_closed_loop_route_probe.route_from_payload(payload, fallback_goal)
+
+        self.assertEqual([waypoint["x"] for waypoint in waypoints], [10.0, 20.0])
+        self.assertEqual(goal["x"], 99.0)
+        self.assertEqual(goal["yaw_deg"], 90.0)
 
     def test_closed_loop_route_speed_target_summary(self) -> None:
         reached = carla_closed_loop_route_probe.speed_target_summary(10.8, 11.111111, 0.5)

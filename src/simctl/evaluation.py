@@ -103,12 +103,18 @@ def _failure_label_keywords(metric: str) -> list[str]:
         return ["actor_bridge", "perception", "pedestrian_perception"]
     if metric in {"sensor_topic_coverage", "sensor_sample_coverage"}:
         return ["sensor", "robobus_sensor_bridge"]
+    if metric in {"kinematic_sanity_passed", "min_ego_z_m", "max_abs_pitch_deg", "max_abs_roll_deg"}:
+        return ["kinematic_sanity", "control", "planning_control"]
+    if metric in {"max_speed_mps", "max_speed_kph"}:
+        return ["speed", "kinematic_sanity", "control", "planning_control"]
     if metric in {"lateral_error_m", "route_goal_lateral_error_m", "longitudinal_error_m", "jerk_mps3"}:
         return ["route_completion", "planning_control", "control"]
     if metric in {"robobus_blueprint_found", "robobus_ego_actor_seen", "robobus_actor_type_match"}:
         return ["blueprint", "robobus_blueprint"]
     if metric.startswith("robobus_bbox") or metric == "robobus_pose_height_plausible":
         return ["bbox", "collision", "robobus_bbox"]
+    if metric.startswith("robobus_qiyu_spawn"):
+        return ["robobus_qiyu_spawn", "robobus_physics_asset", "carla_vehicle_asset"]
     if metric.startswith("robobus_wheel") or metric in {
         "robobus_front_tread_match",
         "robobus_rear_tread_match",

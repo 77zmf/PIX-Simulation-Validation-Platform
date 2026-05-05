@@ -174,7 +174,108 @@ class RuntimeHealthTests(unittest.TestCase):
             }
             with (
                 patch("simctl.health._probe_ros_graph", return_value={"available": False, "passed": None}),
+                patch("simctl.health._probe_carla_actor", return_value=actor_check) as actor_probe,
+                patch("simctl.health.dump_json", side_effect=_write_health_report),
+            ):
+                report = probe_runtime_health(
+                    run_dir=Path(tempdir),
+                    slot=self._slot(port),
+                    logs=logs,
+                    runtime_namespace="/stable/slot01",
+                    carla_actor_check=True,
+                    carla_actor_type="vehicle.pixmoving.robobus",
+                    carla_ego_role_name="ego_vehicle",
+                    carla_actor_min_z=-20.0,
+                    carla_actor_max_abs_pitch_deg=12.0,
+                    carla_actor_max_abs_roll_deg=12.0,
+                    carla_root="/opt/carla",
+                )
+
+            self.assertTrue(report["passed"])
+            self.assertEqual(report["checks"]["carla_actor"]["matched_actor"]["type_id"], "vehicle.pixmoving.robobus")
+            self.assertEqual(report["checks"]["carla_actor"]["matched_actor"]["role_name"], "ego_vehicle")
+            self.assertEqual(actor_probe.call_args.kwargs["min_z"], -20.0)
+            self.assertEqual(actor_probe.call_args.kwargs["max_abs_pitch_deg"], 12.0)
+            self.assertEqual(actor_probe.call_args.kwargs["max_abs_roll_deg"], 12.0)
+
+    def test_probe_runtime_health_fails_when_carla_ego_actor_orientation_is_out_of_bounds(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir, socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+            server.bind(("127.0.0.1", 0))
+            server.listen(1)
+            port = server.getsockname()[1]
+            logs = [
+                {"step": "start-carla-server", "status": "started", "pid": os.getpid()},
+                {"step": "start-autoware-bridge", "status": "started", "pid": os.getpid()},
+                {"step": "start-autoware-stack", "status": "started", "pid": os.getpid()},
+                {"step": "start-carla-localization-bridge", "status": "started", "pid": os.getpid()},
+            ]
+            actor_check = {
+                "required": True,
+                "passed": False,
+                "vehicle_count": 1,
+                "matched_actor": {
+                    "id": 197,
+                    "type_id": "vehicle.pixmoving.robobus",
+                    "role_name": "ego_vehicle",
+                    "rotation_deg": {"pitch": 52.55, "yaw": 179.1, "roll": 0.7},
+                },
+                "error": "carla_actor_orientation_out_of_bounds",
+                "max_abs_pitch_deg": 12.0,
+                "max_abs_roll_deg": 12.0,
+                "observed_abs_pitch_deg": 52.55,
+                "observed_abs_roll_deg": 0.7,
+            }
+            with (
+                patch("simctl.health._probe_ros_graph", return_value={"available": False, "passed": None}),
                 patch("simctl.health._probe_carla_actor", return_value=actor_check),
+                patch("simctl.health.dump_json", side_effect=_write_health_report),
+            ):
+                report = probe_runtime_health(
+                    run_dir=Path(tempdir),
+                    slot=self._slot(port),
+                    logs=logs,
+                    runtime_namespace="/stable/slot01",
+                    carla_actor_check=True,
+                    carla_actor_type="vehicle.pixmoving.robobus",
+                    carla_ego_role_name="ego_vehicle",
+                    carla_actor_max_abs_pitch_deg=12.0,
+                    carla_actor_max_abs_roll_deg=12.0,
+                    carla_root="/opt/carla",
+                )
+
+            self.assertFalse(report["passed"])
+            self.assertIn("carla_actor", report["failed_checks"])
+            self.assertEqual(
+                report["checks"]["carla_actor"]["error"],
+                "carla_actor_orientation_out_of_bounds",
+            )
+
+    def test_probe_runtime_health_rechecks_process_logs_after_actor_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir, socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+            server.bind(("127.0.0.1", 0))
+            server.listen(1)
+            port = server.getsockname()[1]
+            carla_log = Path(tempdir) / "start-carla-server.log"
+            carla_log.write_text("", encoding="utf-8")
+            logs = [
+                {
+                    "step": "start-carla-server",
+                    "status": "started",
+                    "pid": os.getpid(),
+                    "log_path": str(carla_log),
+                },
+                {"step": "start-autoware-bridge", "status": "started", "pid": os.getpid()},
+                {"step": "start-autoware-stack", "status": "started", "pid": os.getpid()},
+                {"step": "start-carla-localization-bridge", "status": "started", "pid": os.getpid()},
+            ]
+
+            def actor_probe_side_effect(**_: object) -> dict[str, object]:
+                carla_log.write_text("Signal 11 caught.\nSegmentation fault (core dumped)\n", encoding="utf-8")
+                return {"required": True, "passed": True, "vehicle_count": 1}
+
+            with (
+                patch("simctl.health._probe_ros_graph", return_value={"available": False, "passed": None}),
+                patch("simctl.health._probe_carla_actor", side_effect=actor_probe_side_effect),
                 patch("simctl.health.dump_json", side_effect=_write_health_report),
             ):
                 report = probe_runtime_health(
@@ -188,8 +289,11 @@ class RuntimeHealthTests(unittest.TestCase):
                     carla_root="/opt/carla",
                 )
 
-            self.assertTrue(report["passed"])
-            self.assertEqual(report["checks"]["carla_actor"]["matched_actor"]["type_id"], "vehicle.pixmoving.robobus")
+            self.assertFalse(report["passed"])
+            self.assertIn("processes", report["failed_checks"])
+            self.assertIn("processes_after_probes", report["checks"])
+            carla_check = report["checks"]["processes_after_probes"]["process_checks"][0]
+            self.assertEqual(carla_check["reason"], "crash_log:Signal 11 caught")
 
     def test_probe_runtime_health_fails_when_required_carla_ego_actor_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir, socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:

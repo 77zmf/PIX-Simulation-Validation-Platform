@@ -102,6 +102,64 @@ class CliTests(unittest.TestCase):
         self.assertIn("rosbags/capture", payload["steps"][0]["command"])
         self.assertIn("capture.log", payload["steps"][1]["command"])
 
+    def test_replay_uses_replay_paths_when_missing_artifacts_were_pruned(self) -> None:
+        temp_root = REPO_ROOT / ".tmp" / "test_replay_pruned_artifacts"
+        shutil.rmtree(temp_root, ignore_errors=True)
+        run_dir = temp_root / "run_001"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        run_result_path = run_dir / "run_result.json"
+        run_result_path.write_text(
+            json.dumps(
+                {
+                    "run_id": "run_001",
+                    "scenario_id": "stable_l2_reconstruction_public_road_map_refresh",
+                    "stack": "stable",
+                    "scenario_path": str(REPO_ROOT / "scenarios" / "l2" / "reconstruction_public_road_map_refresh.yaml"),
+                    "scenario_params": {
+                        "asset_bundle": "site_gy_qyhx_gsh20260302",
+                        "sensor_profile": "reconstruction_capture",
+                        "algorithm_profile": "reconstruction_public_road_map_refresh",
+                    },
+                    "resolved_profiles": {
+                        "sensor": {"profile_id": "reconstruction_capture"},
+                        "algorithm": {"profile_id": "reconstruction_public_road_map_refresh"},
+                    },
+                    "artifacts": {
+                        "run_dir": str(run_dir),
+                    },
+                    "replay": {
+                        "stack": "stable",
+                        "rosbag2": str(run_dir / "rosbags" / "capture"),
+                        "carla_recorder": str(run_dir / "carla" / "capture.log"),
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        try:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "replay",
+                        "--run-result",
+                        str(run_result_path),
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            payload = json.loads(stream.getvalue())
+        finally:
+            shutil.rmtree(temp_root, ignore_errors=True)
+
+        self.assertEqual(payload["action"], "replay")
+        self.assertEqual(len(payload["steps"]), 2)
+        self.assertNotIn('""', payload["steps"][0]["command"])
+        self.assertNotIn("''", payload["steps"][1]["command"])
+        self.assertIn("rosbags/capture", payload["steps"][0]["command"])
+        self.assertIn("capture.log", payload["steps"][1]["command"])
+
     def test_run_creates_passed_stub_result(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             stream = io.StringIO()
@@ -205,6 +263,9 @@ class CliTests(unittest.TestCase):
                 "--autoware-ws '/home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware'",
                 localization_bridge_command,
             )
+            self.assertIn("--carla-port '2000'", localization_bridge_command)
+            self.assertIn("--ego-vehicle-role-name 'ego_vehicle'", localization_bridge_command)
+            self.assertIn("--source 'topics'", localization_bridge_command)
             self.assertIn("--kill-simple-sim 'true'", localization_bridge_command)
             self.assertIn("start_carla_actor_object_bridge_host.sh", actor_object_bridge_command)
             self.assertIn("--enabled 'false'", actor_object_bridge_command)
@@ -508,6 +569,51 @@ class CliTests(unittest.TestCase):
             self.assertIn("--vehicle-type 'vehicle.pixmoving.robobus'", bridge_command)
             self.assertIn("--spawn-point '229.7817,2.0201,-0.5,0,0,0'", bridge_command)
             self.assertIn("robobus117th_sensor_kit_calibration.yaml", bridge_command)
+
+    def test_up_passes_pix_carla_gains_for_qiyu_lincoln_surrogate(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with patch.dict(
+                os.environ,
+                {
+                    "SIMCTL_PIX_CARLA_SPEED_GUARD_MAX_MPS": "9.2",
+                    "SIMCTL_PIX_CARLA_SPEED_GUARD_BAND_MPS": "1.5",
+                    "SIMCTL_PIX_CARLA_SPEED_GUARD_BRAKE_GAIN": "0.4",
+                },
+                clear=False,
+            ), redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "up",
+                        "--stack",
+                        "stable",
+                        "--scenario",
+                        "scenarios/l2/reconstruction_qiyu_loop_minimal_westbound_lincoln_kinematic_smoke.yaml",
+                        "--run-dir",
+                        tempdir,
+                        "--slot",
+                        "stable-slot-02",
+                    ]
+                )
+
+            self.assertEqual(rc, 0)
+            plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
+            bridge_step = next(step for step in plan["steps"] if step["name"] == "start-autoware-bridge")
+            bridge_env = bridge_step["env"]
+            self.assertEqual(bridge_env["PIX_CARLA_STEER_GAIN"], "-0.25")
+            self.assertEqual(bridge_env["PIX_CARLA_THROTTLE_GAIN"], "2.0")
+            self.assertEqual(bridge_env["PIX_CARLA_MIN_THROTTLE"], "0.18")
+            self.assertEqual(bridge_env["PIX_CARLA_MAX_THROTTLE"], "0.45")
+            self.assertEqual(bridge_env["PIX_CARLA_CREEP_THROTTLE"], "0.22")
+            self.assertEqual(bridge_env["PIX_CARLA_CREEP_SPEED_THRESHOLD_MPS"], "0.5")
+            self.assertEqual(bridge_env["PIX_CARLA_BRAKE_GAIN"], "0.55")
+            self.assertEqual(bridge_env["PIX_CARLA_MAX_BRAKE"], "0.6")
+            self.assertEqual(bridge_env["PIX_CARLA_SPEED_GUARD_MAX_MPS"], "9.2")
+            self.assertEqual(bridge_env["PIX_CARLA_SPEED_GUARD_BAND_MPS"], "1.5")
+            self.assertEqual(bridge_env["PIX_CARLA_SPEED_GUARD_BRAKE_GAIN"], "0.4")
+            self.assertIn("--vehicle-type 'vehicle.lincoln.mkz_2020'", bridge_step["command"])
 
     def test_run_fails_fast_for_missing_algorithm_profile(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

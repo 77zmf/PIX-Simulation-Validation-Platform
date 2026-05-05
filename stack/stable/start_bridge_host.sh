@@ -23,6 +23,7 @@ SENSOR_KIT_CALIBRATION_FILE=""
 OBJECTS_DEFINITION_FILE=""
 USE_TRAFFIC_MANAGER=""
 BRIDGE_TIMEOUT=""
+BRIDGE_SYNC_MODE=""
 EXECUTE=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -53,6 +54,7 @@ while [[ $# -gt 0 ]]; do
     --objects-definition-file) OBJECTS_DEFINITION_FILE="$2"; shift 2 ;;
     --use-traffic-manager) USE_TRAFFIC_MANAGER="$2"; shift 2 ;;
     --timeout) BRIDGE_TIMEOUT="$2"; shift 2 ;;
+    --sync-mode) BRIDGE_SYNC_MODE="$2"; shift 2 ;;
     -Execute|--execute) EXECUTE=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -70,6 +72,7 @@ CARLA_MAP="${CARLA_MAP:-${SIMCTL_CARLA_MAP:-Town01}}"
 EGO_VEHICLE_ROLE_NAME="${EGO_VEHICLE_ROLE_NAME:-${CARLA_EGO_VEHICLE_ROLE_NAME:-ego_vehicle}}"
 USE_TRAFFIC_MANAGER="${USE_TRAFFIC_MANAGER:-${CARLA_USE_TRAFFIC_MANAGER:-False}}"
 BRIDGE_TIMEOUT="${BRIDGE_TIMEOUT:-${CARLA_BRIDGE_TIMEOUT:-${SIMCTL_CARLA_BRIDGE_TIMEOUT:-90}}}"
+BRIDGE_SYNC_MODE="${BRIDGE_SYNC_MODE:-${CARLA_BRIDGE_SYNC_MODE:-}}"
 PIX_SKIP_WHEEL_STEER_ANGLE="${PIX_CARLA_SKIP_WHEEL_STEER_ANGLE:-}"
 PIX_STEER_GAIN="${PIX_CARLA_STEER_GAIN:-}"
 PIX_THROTTLE_GAIN="${PIX_CARLA_THROTTLE_GAIN:-}"
@@ -80,6 +83,11 @@ PIX_CREEP_SPEED_THRESHOLD_MPS="${PIX_CARLA_CREEP_SPEED_THRESHOLD_MPS:-}"
 PIX_BRAKE_GAIN="${PIX_CARLA_BRAKE_GAIN:-}"
 PIX_MAX_BRAKE="${PIX_CARLA_MAX_BRAKE:-}"
 PIX_BRAKE_DEADBAND="${PIX_CARLA_BRAKE_DEADBAND:-}"
+PIX_SPEED_GUARD_MAX_MPS="${PIX_CARLA_SPEED_GUARD_MAX_MPS:-}"
+PIX_SPEED_GUARD_BAND_MPS="${PIX_CARLA_SPEED_GUARD_BAND_MPS:-}"
+PIX_SPEED_GUARD_BRAKE_GAIN="${PIX_CARLA_SPEED_GUARD_BRAKE_GAIN:-}"
+PIX_ROS_Y_SIGN="${PIX_CARLA_ROS_Y_SIGN:-}"
+PIX_SENSOR_QUEUE_TIMEOUT_SEC="${PIX_CARLA_SENSOR_QUEUE_TIMEOUT_SEC:-}"
 if [[ "${VEHICLE_TYPE}" == vehicle.pixmoving.* ]]; then
   PIX_STEER_GAIN="${PIX_STEER_GAIN:-0.90}"
   PIX_THROTTLE_GAIN="${PIX_THROTTLE_GAIN:-3.8}"
@@ -136,6 +144,7 @@ add_launch_arg_if_supported "sensor_mapping_file" "${SENSOR_MAPPING_FILE}"
 add_launch_arg_if_supported "objects_definition_file" "${OBJECTS_DEFINITION_FILE}"
 add_launch_arg_if_supported "use_traffic_manager" "${USE_TRAFFIC_MANAGER}"
 add_launch_arg_if_supported "timeout" "${BRIDGE_TIMEOUT}"
+add_launch_arg_if_supported "sync_mode" "${BRIDGE_SYNC_MODE}"
 
 SOURCE_STEPS=("source /opt/ros/humble/setup.bash")
 if [[ -n "${AUTOWARE_UNDERLAY_WS}" ]]; then
@@ -200,6 +209,21 @@ if [[ -n "${PIX_MAX_BRAKE}" ]]; then
 fi
 if [[ -n "${PIX_BRAKE_DEADBAND}" ]]; then
   PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_BRAKE_DEADBAND=$(shell_quote "${PIX_BRAKE_DEADBAND}")"
+fi
+if [[ -n "${PIX_SPEED_GUARD_MAX_MPS}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_SPEED_GUARD_MAX_MPS=$(shell_quote "${PIX_SPEED_GUARD_MAX_MPS}")"
+fi
+if [[ -n "${PIX_SPEED_GUARD_BAND_MPS}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_SPEED_GUARD_BAND_MPS=$(shell_quote "${PIX_SPEED_GUARD_BAND_MPS}")"
+fi
+if [[ -n "${PIX_SPEED_GUARD_BRAKE_GAIN}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_SPEED_GUARD_BRAKE_GAIN=$(shell_quote "${PIX_SPEED_GUARD_BRAKE_GAIN}")"
+fi
+if [[ -n "${PIX_ROS_Y_SIGN}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_ROS_Y_SIGN=$(shell_quote "${PIX_ROS_Y_SIGN}")"
+fi
+if [[ -n "${PIX_SENSOR_QUEUE_TIMEOUT_SEC}" ]]; then
+  PIX_BRIDGE_EXPORT_CMD+=" && export PIX_CARLA_SENSOR_QUEUE_TIMEOUT_SEC=$(shell_quote "${PIX_SENSOR_QUEUE_TIMEOUT_SEC}")"
 fi
 CMD="${SOURCE_CMD} && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && export ROS2CLI_DISABLE_DAEMON=1 && export PYTHONNOUSERSITE=1${PYTHONPATH_EXPORT_CMD}${RMW_EXPORT_CMD} && export SIMCTL_RUNTIME_NAMESPACE=$(shell_quote "${RUNTIME_NAMESPACE}") && export SIMCTL_TRAFFIC_MANAGER_PORT=${TRAFFIC_MANAGER_PORT}${PIX_BRIDGE_EXPORT_CMD} && ${ROS_CMD_DISPLAY}"
 
@@ -273,6 +297,7 @@ echo "CARLA sensor kit calibration: ${SENSOR_KIT_CALIBRATION_FILE}"
 echo "CARLA objects definition: ${OBJECTS_DEFINITION_FILE}"
 echo "CARLA use traffic manager: ${USE_TRAFFIC_MANAGER}"
 echo "CARLA bridge timeout: ${BRIDGE_TIMEOUT}"
+echo "CARLA bridge sync mode: ${BRIDGE_SYNC_MODE}"
 echo "CARLA Python path: ${CARLA_PYTHONPATH}"
 echo "PIX skip wheel steer angle: ${PIX_SKIP_WHEEL_STEER_ANGLE}"
 echo "PIX steer gain: ${PIX_STEER_GAIN}"
@@ -284,6 +309,11 @@ echo "PIX creep speed threshold mps: ${PIX_CREEP_SPEED_THRESHOLD_MPS}"
 echo "PIX brake gain: ${PIX_BRAKE_GAIN}"
 echo "PIX max brake: ${PIX_MAX_BRAKE}"
 echo "PIX brake deadband: ${PIX_BRAKE_DEADBAND}"
+echo "PIX speed guard max mps: ${PIX_SPEED_GUARD_MAX_MPS}"
+echo "PIX speed guard band mps: ${PIX_SPEED_GUARD_BAND_MPS}"
+echo "PIX speed guard brake gain: ${PIX_SPEED_GUARD_BRAKE_GAIN}"
+echo "PIX ROS y sign: ${PIX_ROS_Y_SIGN}"
+echo "PIX sensor queue timeout sec: ${PIX_SENSOR_QUEUE_TIMEOUT_SEC}"
 if [[ "${#SKIPPED_LAUNCH_ARGS[@]}" -gt 0 ]]; then
   echo "Skipped unsupported launch args: ${SKIPPED_LAUNCH_ARGS[*]}"
 fi
@@ -345,6 +375,21 @@ if [[ "$EXECUTE" -eq 1 ]]; then
   fi
   if [[ -n "${PIX_BRAKE_DEADBAND}" ]]; then
     export PIX_CARLA_BRAKE_DEADBAND="${PIX_BRAKE_DEADBAND}"
+  fi
+  if [[ -n "${PIX_SPEED_GUARD_MAX_MPS}" ]]; then
+    export PIX_CARLA_SPEED_GUARD_MAX_MPS="${PIX_SPEED_GUARD_MAX_MPS}"
+  fi
+  if [[ -n "${PIX_SPEED_GUARD_BAND_MPS}" ]]; then
+    export PIX_CARLA_SPEED_GUARD_BAND_MPS="${PIX_SPEED_GUARD_BAND_MPS}"
+  fi
+  if [[ -n "${PIX_SPEED_GUARD_BRAKE_GAIN}" ]]; then
+    export PIX_CARLA_SPEED_GUARD_BRAKE_GAIN="${PIX_SPEED_GUARD_BRAKE_GAIN}"
+  fi
+  if [[ -n "${PIX_ROS_Y_SIGN}" ]]; then
+    export PIX_CARLA_ROS_Y_SIGN="${PIX_ROS_Y_SIGN}"
+  fi
+  if [[ -n "${PIX_SENSOR_QUEUE_TIMEOUT_SEC}" ]]; then
+    export PIX_CARLA_SENSOR_QUEUE_TIMEOUT_SEC="${PIX_SENSOR_QUEUE_TIMEOUT_SEC}"
   fi
   if [[ -n "$CPU_AFFINITY" ]]; then
     exec taskset -c "$CPU_AFFINITY" "${ROS_CMD[@]}"

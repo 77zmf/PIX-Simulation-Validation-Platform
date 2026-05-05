@@ -566,6 +566,11 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             "total_delta_m": total_delta_m,
             "max_speed_mps": max_speed_mps,
             "max_speed_kph": max_speed_kph,
+            "min_ego_z_m": _as_float(summary.get("min_ego_z_m"), math.nan),
+            "max_ego_z_m": _as_float(summary.get("max_ego_z_m"), math.nan),
+            "max_abs_pitch_deg": _as_float(summary.get("max_abs_pitch_deg"), math.nan),
+            "max_abs_roll_deg": _as_float(summary.get("max_abs_roll_deg"), math.nan),
+            "kinematic_sanity_passed": bool(summary.get("kinematic_sanity_passed", True)),
             "effective_goal": summary.get("effective_goal"),
             "final_map_location": summary.get("final_map_location"),
             "final_carla_waypoint": summary.get("final_carla_waypoint"),
@@ -616,7 +621,11 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
                 ignored_entry["service_calls"] = invalid_service_calls
             ignored.append(ignored_entry)
 
-    successful = [item for item in attempts if item["moved"] and item["reached_near_goal"]]
+    successful = [
+        item
+        for item in attempts
+        if item["moved"] and item["reached_near_goal"] and item.get("kinematic_sanity_passed", True)
+    ]
     traffic = (run_result.get("scenario_params") or {}).get("traffic_profile") or {}
     traffic_mode = str(traffic.get("mode", "")).lower()
     empty_scene = (
@@ -858,6 +867,9 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             "route_goal_lateral_error_m",
             "longitudinal_error_m",
             "jerk_mps3",
+            "max_abs_pitch_deg",
+            "max_abs_roll_deg",
+            "max_ego_z_m",
         ):
             values = [
                 _as_float(item.get(metric_name), math.nan) for item in closed_loop_metric_attempts
@@ -866,6 +878,20 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             if finite_values:
                 metrics[metric_name] = max(finite_values)
                 metric_sources[metric_name] = closed_loop_metric_source
+        min_z_values = [
+            _as_float(item.get("min_ego_z_m"), math.nan) for item in closed_loop_metric_attempts
+        ]
+        finite_min_z_values = [value for value in min_z_values if not math.isnan(value)]
+        if finite_min_z_values:
+            metrics["min_ego_z_m"] = min(finite_min_z_values)
+            metric_sources["min_ego_z_m"] = closed_loop_metric_source
+        sanity_values = [
+            1.0 if item.get("kinematic_sanity_passed", True) else 0.0
+            for item in closed_loop_metric_attempts
+        ]
+        if sanity_values:
+            metrics["kinematic_sanity_passed"] = min(sanity_values)
+            metric_sources["kinematic_sanity_passed"] = closed_loop_metric_source
     if dynamic_attempts:
         metrics["dynamic_actor_response"] = len(responsive_dynamic) / len(dynamic_attempts)
         metric_sources["dynamic_actor_response"] = "runtime_dynamic_probe"
