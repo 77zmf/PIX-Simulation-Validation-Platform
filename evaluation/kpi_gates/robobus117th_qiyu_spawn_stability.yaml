@@ -1,0 +1,31 @@
+gate_id: robobus117th_qiyu_spawn_stability
+description: CARLA-only qiyu custom-map spawn stability gate for vehicle.pixmoving.robobus.
+failure_labels:
+  - robobus_qiyu_spawn_instability
+  - robobus_physics_asset_failure
+  - carla_vehicle_asset_failure
+metrics:
+  robobus_qiyu_spawn_blueprint_found:
+    op: ">="
+    value: 1.0
+  robobus_qiyu_spawn_spawned_count:
+    op: ">="
+    value: 1.0
+  robobus_qiyu_spawn_stable_count:
+    op: ">="
+    value: 1.0
+  robobus_qiyu_spawn_driveable_count:
+    op: ">="
+    value: 1.0
+  robobus_qiyu_spawn_stability_passed:
+    op: ">="
+    value: 1.0
+  robobus_qiyu_spawn_best_max_abs_pitch_deg:
+    op: "<="
+    value: 12.0
+  robobus_qiyu_spawn_best_max_abs_roll_deg:
+    op: "<="
+    value: 12.0
+  robobus_qiyu_spawn_best_min_z_m:
+    op: ">="
+    value: -20.0

@@ -1,0 +1,133 @@
+scenario_id: stable_l2_qiyu_rp10_minimal_westbound_robobus_kinematic_smoke
+stack: stable
+map_id: qiyu_rp10_minimal_westbound_route_map
+asset_bundle: site_gy_qyhx_gsh20260310_carla_dynobs_frame
+ego_init:
+  pose:
+    x: 103.340
+    y: 636.097
+    z: -2.602
+    yaw_deg: 178.90
+goal:
+  pose:
+    x: 73.000
+    y: 636.093
+    z: -1.550
+    yaw_deg: 179.89
+traffic_profile:
+  mode: empty_public_road_route_smoke
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_route_smoke_core
+algorithm_profile: planning_control_baseline
+seed: 20260430
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/qiyu_rp10_minimal_westbound_robobus_kinematic_smoke
+  carla_recorder:
+    enabled: true
+    path: carla/qiyu_rp10_minimal_westbound_robobus_kinematic_smoke.log
+kpi_gate: planning_control_smoke_kinematic_sanity
+labels:
+  - L2
+  - stable
+  - public_road
+  - reconstruction
+  - qiyu_loop
+  - autoware_route_smoke
+  - robobus117th
+  - kinematic_sanity
+metadata:
+  owner: zmf
+  source_assets:
+    - assets/manifests/site_gy_qyhx_gsh20260310_carla_dynobs_frame.yaml
+    - /data/pix/assets/qiyu_rp10_minimal_westbound_route_map/lanelet2_map.osm
+    - /data/pix/assets/qiyu_rp10_minimal_westbound_route_map/map_projector_info.yaml
+    - /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_rp10/qiyu_rp10.fbx
+    - /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_rp10/qiyu_rp10.xodr
+    - assets/sensors/carla/robobus117th_route_smoke_objects.json
+    - assets/vehicles/robobus117th/README_CN.md
+    - ops/runtime_probes/carla_sensor_topic_probe.py
+    - ops/runtime_probes/carla_closed_loop_route_probe.py
+  validation_method: Execute a bounded stable-stack smoke on the qiyu_rp10 CARLA 0.9.15 overlay using the minimal westbound Lanelet2 route and the real vehicle.pixmoving.robobus CARLA actor. This scenario exists after the qiyu packaged runtime has been synchronized with the known-good robobus cooked vehicle assets and binary. It validates robobus spawn, core sensor topics, Autoware route service, localization bridge, control bridge, KPI finalization, report, and replay on a route known to be routable.
+  validation_command: >
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th_route_smoke_core
+    --continue-on-failure
+    &&
+    timeout 240 python3 ops/runtime_probes/carla_closed_loop_route_probe.py
+    --run-dir <run_dir>
+    --goal-tolerance-m 14.0
+    --min-duration-sec 0.0
+    --max-duration-sec 20
+    --sample-period 0.25
+    --carla-y-sign 1
+    --carla-z-offset 0.5
+    --skip-ego-reset
+    --max-speed-mps-for-pass 25
+    --min-ego-z-m-for-pass -20
+    --max-abs-pitch-deg-for-pass 30
+    --max-abs-roll-deg-for-pass 30
+    --stop-ego-after-goal
+  expected_observable: CARLA loads the qiyu_rp10 custom map, the PIX robobus remains upright on the road deck, Autoware accepts the minimal westbound route, the ego moves westbound, reaches the mid-route goal tolerance without collision, and finalization produces route, sensor, and kinematic sanity KPIs that pass planning_control_smoke_kinematic_sanity.
+  acceptance_boundary: Robobus minimal route smoke only. It proves the qiyu CARLA mesh plus minimal routable Lanelet2 map can close with vehicle.pixmoving.robobus. The dynobs-frame map remains blocked until /api/routing/set_route_points no longer returns an empty-route response on that map.
+  rollback_impact: Revert this scenario or switch carla_vehicle_type back to vehicle.lincoln.mkz_2020 to return to the surrogate map/control smoke. Restore the qiyu runtime from the recorded runtime asset backup if the robobus cooked-asset sync regresses other CARLA maps.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /data/pix/assets/qiyu_rp10_minimal_westbound_route_map
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    carla_root: /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty_qiyu_rp10_continuous_road_deck_normalstest/LinuxNoEditor
+    carla_server_map: Town01
+    carla_map: /Game/qiyu_rp10/Maps/qiyu_rp10/qiyu_rp10
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: "103.3400,636.0970,-3.1021,0,0,178.90"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_route_smoke_objects.json
+    carla_use_traffic_manager: "False"
+    pix_carla_skip_wheel_steer_angle: "1"
+    pix_carla_steer_gain: "0.90"
+    pix_carla_throttle_gain: "3.8"
+    pix_carla_min_throttle: "0.0"
+    pix_carla_max_throttle: "1.0"
+    pix_carla_creep_throttle: "0.0"
+    pix_carla_creep_speed_threshold_mps: "0.08"
+    pix_carla_brake_gain: "0.2"
+    pix_carla_max_brake: "0.8"
+    pix_carla_brake_deadband: "0.05"
+    pix_carla_ros_y_sign: "1"
+    pix_carla_sensor_queue_timeout_sec: "2"
+    carla_localization_bridge_source: carla_actor
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_startup_timeout_sec: "180"
+    carla_bridge_sync_mode: "False"
+    carla_actor_health_check: "true"
+    carla_actor_min_z: "-20.0"
+    carla_actor_max_abs_pitch_deg: "30.0"
+    carla_actor_max_abs_roll_deg: "30.0"
+    stable_preflight_strict: "false"
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /localization/kinematic_state
+      - /localization/acceleration
+      - /vehicle/status/control_mode
+      - /vehicle/status/velocity_status

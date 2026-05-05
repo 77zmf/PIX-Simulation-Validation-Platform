@@ -1,0 +1,46 @@
+bundle_id: site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate
+site_id: gy_qyhx_gsh
+description: CARLA-frame Lanelet2 candidate with vehicle participant tags and corrected road left/right bounds for qiyu dynobs route smoke
+source:
+  type: generated_remote_directory
+  parent_manifest: assets/manifests/site_gy_qyhx_gsh20260310_carla_dynobs_frame.yaml
+  parent_bundle: site_gy_qyhx_gsh20260310_carla_dynobs_frame
+  generated_dir: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate
+  transform_report: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame/carla_dynobs_frame_transform_report.json
+  vehicle_bounds_report: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate/vehicle_bounds_candidate_report.json
+maps:
+  lanelet2:
+    path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate/lanelet2_map.osm
+  projector:
+    path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate/map_projector_info.yaml
+  pointcloud_dir:
+    path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate/pointcloud_map.pcd
+  pointcloud_metadata:
+    path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate/pointcloud_map_metadata.yaml
+metadata:
+  owner: zmf
+  lane: reconstruction_to_stable_handoff
+  pointcloud_tiles: 3624
+  carla_target_bundle: carla_qiyu_loop_20260430_105120_dynobs
+  frame_transform:
+    source_frame: site_gy_qyhx_gsh20260310_lanelet_local_xy
+    target_frame: qiyu_loop_20260430_105120_dynobs_autoware_ros_map
+    local_x_rule: x + dx
+    local_y_rule: "-(y + dy)"
+    dx_m: -1313.72028
+    dy_m: 457.810557
+  lanelet_semantic_patch:
+    generated_at: "2026-05-02T15:15:52.582411+00:00"
+    road_lanelets: 1606
+    participant_vehicle_added: 1606
+    participant_vehicle_already_present: 0
+    road_lanelet_left_right_roles_swapped: 1606
+    reason: The full dynobs-frame map had road lanelets without participant:vehicle=yes and westbound road lanelets used north-side ways as the left boundary, unlike the routable minimal westbound map. This candidate tests whether Autoware routing was filtering invalid road polygons out of the vehicle routing graph.
+  tags:
+    - site_proxy
+    - lanelet2
+    - autoware
+    - carla_frame_candidate
+    - vehicle_bounds_candidate
+    - qiyu_loop
+    - dynamic_obstacle_cleanup

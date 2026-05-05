@@ -1,0 +1,32 @@
+gate_id: planning_control_smoke_kinematic_sanity
+description: Stable route smoke gate with explicit CARLA actor kinematic sanity checks
+failure_labels:
+  - route_completion_failure
+  - collision_failure
+  - planning_control_gate_failure
+  - kinematic_sanity_failure
+metrics:
+  route_completion:
+    op: ">="
+    value: 0.95
+  collision_count:
+    op: "<="
+    value: 0
+  min_ttc_sec:
+    op: ">="
+    value: 1.5
+  kinematic_sanity_passed:
+    op: ">="
+    value: 1.0
+  max_speed_mps:
+    op: "<="
+    value: 25.0
+  min_ego_z_m:
+    op: ">="
+    value: -20.0
+  max_abs_pitch_deg:
+    op: "<="
+    value: 30.0
+  max_abs_roll_deg:
+    op: "<="
+    value: 30.0
