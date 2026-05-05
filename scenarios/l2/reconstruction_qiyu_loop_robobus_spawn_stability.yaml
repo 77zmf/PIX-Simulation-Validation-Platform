@@ -1,0 +1,91 @@
+scenario_id: stable_l2_qiyu_rp10_robobus_spawn_stability
+stack: stable
+map_id: qiyu_rp10_continuous_road_deck_normals
+asset_bundle: site_gy_qyhx_gsh20260310_carla_dynobs_frame
+ego_init:
+  pose:
+    x: 103.340
+    y: 636.097
+    z: -3.1021
+    yaw_deg: 178.90
+goal:
+  pose:
+    x: 73.000
+    y: 636.093
+    z: -1.550
+    yaw_deg: 179.89
+traffic_profile:
+  mode: empty_vehicle_spawn_stability_probe
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_route_smoke_core
+algorithm_profile: planning_control_baseline
+seed: 20260430
+recording:
+  rosbag2:
+    enabled: false
+    path: rosbags/qiyu_rp10_robobus_spawn_stability
+  carla_recorder:
+    enabled: false
+    path: carla/qiyu_rp10_robobus_spawn_stability.log
+kpi_gate: robobus117th_qiyu_spawn_stability
+labels:
+  - L2
+  - stable
+  - public_road
+  - reconstruction
+  - qiyu_loop
+  - robobus117th
+  - vehicle_asset
+  - spawn_stability
+metadata:
+  owner: zmf
+  source_assets:
+    - assets/manifests/site_gy_qyhx_gsh20260310_carla_dynobs_frame.yaml
+    - /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_rp10/qiyu_rp10.fbx
+    - /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_rp10/qiyu_rp10.xodr
+    - assets/vehicles/robobus117th/README_CN.md
+    - assets/vehicles/robobus117th/patches/carla_0_9_15_robobus_bbox_override.patch
+    - ops/runtime_probes/carla_vehicle_spawn_stability_probe.py
+    - evaluation/kpi_gates/robobus117th_qiyu_spawn_stability.yaml
+  validation_method: CARLA-only qiyu custom-map spawn stability sweep for vehicle.pixmoving.robobus. The probe starts CARLA on a bootstrap Town01 map, loads the qiyu_rp10 custom map through the Python API, spawns the robobus at the formal route-smoke start pose, then tries baseline and runtime physics diagnostic variants before reporting whether any variant remains upright and driveable.
+  validation_command: >
+    python3 ops/runtime_probes/carla_vehicle_spawn_stability_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th_qiyu_spawn_stability
+    --carla-map /Game/qiyu_rp10/Maps/qiyu_rp10/qiyu_rp10
+    --actor-id vehicle.pixmoving.robobus
+    --ego-role-name ego_vehicle
+    --spawn-x 103.340
+    --spawn-y 636.097
+    --spawn-z -3.1021
+    --spawn-yaw-deg 178.90
+    --spawn-z-offsets -0.5,0.0,0.5,1.0
+    --com-z-cm-values=-50,-100,-200
+    --mass-kg 12000
+    --settle-ticks 100
+    --drive-ticks 60
+    --throttle 0.35
+    --max-abs-pitch-deg 12
+    --max-abs-roll-deg 12
+    --min-z-m=-20
+    --min-delta-m 1.0
+    --min-speed-mps 0.5
+  expected_observable: At least one vehicle.pixmoving.robobus spawn/physics variant remains upright on the qiyu road deck, stays above the minimum z bound, and moves under direct CARLA throttle. The spawn z was corrected from -0.1021 (airborne) to -3.1021 (road deck) with a symmetric z-offset sweep to tolerate local mesh height variation.
+  rollback_impact: This scenario is CARLA-only and does not change runtime assets. Remove it from required campaigns if the formal robobus qiyu acceptance is deferred; the Lincoln surrogate smoke remains the map/control closure fallback.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_enabled: "false"
+    health_expected_process_steps:
+      - start-carla-server
+    ros_expected_topics: []
+    carla_root: /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty_qiyu_rp10_continuous_road_deck_normalstest/LinuxNoEditor
+    carla_server_map: Town01
+    carla_map: /Game/qiyu_rp10/Maps/qiyu_rp10/qiyu_rp10
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_startup_timeout_sec: "180"
+    stable_preflight_strict: "false"
