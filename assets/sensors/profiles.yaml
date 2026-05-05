@@ -29,6 +29,17 @@ profiles:
       - gnss
     truth_mode: disabled
     catalog: assets/sensors/robobus_pixrover14_application_topology.yaml
+  robobus_pixrover14_route_smoke_core:
+    description: Qiyu custom-map planning/control smoke profile using the minimal 117th CARLA bridge sensors needed for stable route validation
+    sensors:
+      - robosense_m1plus_front_top_lidar_x1
+      - imu
+      - gnss
+    truth_mode: disabled
+    catalog: assets/sensors/robobus_pixrover14_application_topology.yaml
+    containment:
+      full_topology_acceptance_profile: robobus_pixrover14_application_topology
+      reason: Avoid using the full 6-camera and 5-lidar load to validate qiyu map/route closure after the custom map reproduced a CARLA UE4 Signal 11 under full bridge load.
   carla0915_high_fidelity:
     description: CARLA 0.9.15 / UE4.26 high-fidelity camera stack for perception and shadow validation
     sensors:

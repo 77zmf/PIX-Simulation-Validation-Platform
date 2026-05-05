@@ -74,3 +74,32 @@ Do not start the NVIDIA visual route until these are available:
 - pose prior or sparse reconstruction
 - clear target runtime: NuRec-capable CARLA/NVIDIA stack versus offline visual demo
 
+## Curve-First 3DGS Handoff
+
+For Qiyu loop turns, generate one reconstruction job per detected curve cluster before running any heavy trainer:
+
+```bash
+python tools/build_curve_3dgs_carla_jobs.py \
+  --xodr /data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/qiyu_loop_20260430_105120.xodr \
+  --source-bag /data/pix/road_tests/qiyu_loop_20260430_second_lap/raw/perception_data_20260430105120 \
+  --metadata /data/pix/road_tests/qiyu_loop_20260430_second_lap/raw/perception_data_20260430105120/metadata.yaml \
+  --pointcloud-ply /data/pix/reconstruction/runs/qiyu_loop_20260430_105120_lidar_map_smoke/full_map_base_link_complete_sample3s/qiyu_loop_20260430_105120_lidar_map_base_link_complete_sample3s.ply \
+  --trajectory-csv /data/pix/reconstruction/runs/qiyu_loop_20260430_105120_lidar_map_smoke/full_map_base_link_complete_sample3s/trajectory_samples.csv \
+  --import-manifest /data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/carla_import_bundle_manifest.json \
+  --import-preflight-report /data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_prep/carla_import_preflight_report.json \
+  --output-dir /data/pix/reconstruction/runs/qiyu_loop_20260430_105120_curve_3dgs_jobs
+```
+
+This produces:
+
+- `curve_3dgs_carla_jobs.json`
+- `curve_3dgs_carla_jobs.md`
+- per-curve expected output paths under `jobs/qiyu_curve_*`
+- per-curve CARLA-local crop bboxes and, when the import preflight report is provided, source-map crop bboxes for MCAP frame/pose extraction
+
+Each curve job keeps the stable CARLA import contract explicit:
+
+- `3DGS / NuRec`: visual reconstruction layer
+- `mesh + OpenDRIVE + collision proxy`: CARLA 0.9.15 drivable import path
+
+Do not publish a curve as CARLA-importable until the handoff manifest references the mesh/XODR/collision proxy and a sandbox CARLA load or route smoke.

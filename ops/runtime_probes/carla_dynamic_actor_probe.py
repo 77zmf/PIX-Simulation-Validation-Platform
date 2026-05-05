@@ -324,14 +324,26 @@ def pose_yaml(pose: dict[str, float]) -> str:
     )
 
 
-def route_yaml(goal: dict[str, float], *, allow_goal_modification: bool = True) -> str:
-    q = q_from_yaw(goal.get("yaw_deg", 0.0))
+def route_pose_yaml(pose: dict[str, float]) -> str:
+    q = q_from_yaw(pose.get("yaw_deg", pose.get("yaw", 0.0)))
+    return (
+        "{position: {x: %.9f, y: %.9f, z: %.3f}, orientation: {x: 0.0, y: 0.0, z: %.12f, w: %.12f}}"
+        % (pose["x"], pose["y"], pose.get("z", 0.0), q["z"], q["w"])
+    )
+
+
+def route_yaml(
+    goal: dict[str, float],
+    *,
+    allow_goal_modification: bool = True,
+    waypoints: list[dict[str, float]] | None = None,
+) -> str:
     allow_goal_modification_yaml = "true" if allow_goal_modification else "false"
+    waypoint_yaml = ", ".join(route_pose_yaml(waypoint) for waypoint in (waypoints or []))
     return (
         "{header: {frame_id: map}, option: {allow_goal_modification: %s}, "
-        "goal: {position: {x: %.9f, y: %.9f, z: %.3f}, orientation: {x: 0.0, y: 0.0, z: %.12f, w: %.12f}}, "
-        "waypoints: []}"
-        % (allow_goal_modification_yaml, goal["x"], goal["y"], goal.get("z", 0.0), q["z"], q["w"])
+        "goal: %s, waypoints: [%s]}"
+        % (allow_goal_modification_yaml, route_pose_yaml(goal), waypoint_yaml)
     )
 
 
@@ -509,7 +521,9 @@ def sample_actor(actor: Any) -> dict[str, Any]:
         "x": transform.location.x,
         "y": transform.location.y,
         "z": transform.location.z,
+        "pitch": transform.rotation.pitch,
         "yaw": transform.rotation.yaw,
+        "roll": transform.rotation.roll,
         "speed_mps": speed,
         "throttle": getattr(control, "throttle", None),
         "brake": getattr(control, "brake", None),

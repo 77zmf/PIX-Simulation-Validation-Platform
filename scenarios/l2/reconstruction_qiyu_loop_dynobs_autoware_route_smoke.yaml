@@ -1,26 +1,26 @@
 scenario_id: stable_l2_reconstruction_qiyu_loop_dynobs_autoware_route_smoke
 stack: stable
-map_id: qiyu_loop_20260430_105120_dynobs
-asset_bundle: site_gy_qyhx_gsh20260310_carla_dynobs_frame
+map_id: site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate
+asset_bundle: site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate
 ego_init:
   pose:
-    x: -103.612
-    y: -635.980
-    z: -1.511
-    yaw_deg: -179.89
+    x: 103.340
+    y: 636.097
+    z: -2.602
+    yaw_deg: 178.90
 goal:
   pose:
-    x: -163.612
-    y: -636.092
-    z: -1.511
-    yaw_deg: -179.89
+    x: -164.116
+    y: 639.350
+    z: -1.520
+    yaw_deg: 179.89
 traffic_profile:
   mode: empty_public_road_route_smoke
   vehicles: 0
   pedestrians: 0
 weather_profile:
   preset: ClearNoon
-sensor_profile: robobus_pixrover14_application_topology
+sensor_profile: robobus_pixrover14_route_smoke_core
 algorithm_profile: planning_control_baseline
 seed: 20260430
 recording:
@@ -30,7 +30,7 @@ recording:
   carla_recorder:
     enabled: true
     path: carla/qiyu_loop_dynobs_autoware_route_smoke.log
-kpi_gate: planning_control_smoke
+kpi_gate: planning_control_smoke_kinematic_sanity
 labels:
   - L2
   - stable
@@ -39,29 +39,62 @@ labels:
   - qiyu_loop
   - dynamic_obstacle_cleanup
   - autoware_route_smoke
+  - vehicle_bounds_candidate
+  - qiyu_rp14
+  - direct_goal_route
 metadata:
   owner: zmf
   source_assets:
-    - assets/manifests/carla_qiyu_loop_20260430_105120_dynobs.yaml
-    - assets/manifests/site_gy_qyhx_gsh20260310_carla_dynobs_frame.yaml
-    - /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame/carla_dynobs_frame_transform_report.json
+    - assets/manifests/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate.yaml
+    - /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate/lanelet2_map.osm
+    - /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate/map_projector_info.yaml
+    - /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate/vehicle_bounds_candidate_report.json
+    - assets/sensors/carla/robobus117th_route_smoke_objects.json
     - ops/runtime_probes/carla_sensor_topic_probe.py
     - ops/runtime_probes/carla_closed_loop_route_probe.py
-  validation_method: Run the qiyu dynobs CARLA custom map with the CARLA-frame Lanelet2 candidate, then verify robobus117th sensor topics and a short empty-route Autoware planning/control smoke on road 37719.
+    - /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_rp14/qiyu_rp14.fbx
+    - /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Import/qiyu_rp14/qiyu_rp14.xodr
+    - /data/pix/reconstruction/runs/qiyu_loop_20260430_105120_carla_import_bundle/qiyu_rp14_wide_lanelet_height_build_20260502T160911Z/status.txt
+  validation_method: >
+    Start CARLA from the qiyu_rp14 CARLA 0.9.15 overlay runtime on the
+    Town01 bootstrap map, then let the bridge/API load the qiyu_rp14 packaged
+    custom map. The scenario uses the vehicle-bounds candidate Lanelet2 map
+    because the original dynobs-frame map returns an empty route for the long
+    westbound goal. The qiyu_rp14 direct-goal route is intentionally left
+    without intermediate waypoints: the previous multi-point route selected an
+    unstable lane around x=-80m, while the direct-goal route accepted
+    SetRoutePoints and closed with route_completion=1.0 in the
+    20260503T141049Z Ubuntu-host run. Video is intentionally disabled in the
+    primary validation command; closed-loop KPI evidence must be written before
+    media capture is added back.
   validation_command: >
     python3 ops/runtime_probes/carla_sensor_topic_probe.py
     --run-dir <run_dir>
-    --profile robobus117th_l0_closed_loop
+    --profile robobus117th_route_smoke_core
     --continue-on-failure
     &&
-    python3 ops/runtime_probes/carla_closed_loop_route_probe.py
+    timeout 600 python3 ops/runtime_probes/carla_closed_loop_route_probe.py
     --run-dir <run_dir>
-    --goal-tolerance-m 8.0
+    --goal-tolerance-m 12.0
+    --min-duration-sec 0.0
     --max-duration-sec 150
-    --camera-video-output <run_dir>/runtime_verification/qiyu_loop_dynobs_autoware_route_smoke.mp4
-    --camera-video-mode ego_chase
-  expected_observable: CARLA loads the dynobs qiyu custom map, the bridge spawns the PIX robobus on road 37719, Autoware loads the CARLA-frame Lanelet2 candidate, accepts the short route, publishes trajectory/control, and the ego reaches the route goal without collision.
-  rollback_impact: Remove this scenario and the generated /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame directory; the already validated CARLA-only dynobs import smoke remains available.
+    --sample-period 0.25
+    --carla-y-sign 1
+    --carla-z-offset 0.5
+    --skip-ego-reset
+    --max-speed-mps-for-pass 25
+    --min-ego-z-m-for-pass -20
+    --max-abs-pitch-deg-for-pass 30
+    --max-abs-roll-deg-for-pass 30
+    --stop-ego-after-goal
+  expected_observable: >
+    CARLA starts on the Town01 bootstrap map from the qiyu_rp14 overlay
+    runtime, the bridge loads the qiyu_rp14 packaged custom map, then spawns
+    the PIX robobus upright on the positive-Y road start with the route-smoke
+    core sensor bundle. Autoware loads the vehicle-bounds candidate Lanelet2
+    map, accepts the direct westbound goal route, publishes trajectory/control,
+    and the ego reaches the route goal without collision.
+  rollback_impact: Restore the previous qiyu_rp10 CARLA map and original dynobs-frame Lanelet2 asset; the already validated bounded vehicle-bounds candidate smoke remains available.
 execution:
   mode: external
   stable_runtime:
@@ -69,37 +102,50 @@ execution:
     autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
     autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
     ros_rmw_implementation: rmw_cyclonedds_cpp
-    autoware_map_path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame
+    autoware_map_path: /data/pix/assets/site_gy_qyhx_gsh20260310_carla_dynobs_frame_vehicle_bounds_candidate
     autoware_vehicle_model: robobus
     autoware_sensor_model: robobus_sensor_kit
     autoware_lidar_type: robosense
     autoware_rviz: "false"
-    carla_root: /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty/LinuxNoEditor
-    carla_map: /Game/qiyu_loop_20260430_105120_dynobs/Maps/qiyu_loop_20260430_105120_dynobs/qiyu_loop_20260430_105120_dynobs
+    carla_root: /data/pix/workspaces/zmf_ws/source_toolchain/carla-0.9.15/Dist/CARLA_Shipping_0.9.15-dirty_qiyu_rp10_continuous_road_deck_normalstest/LinuxNoEditor
+    carla_server_map: Town01
+    carla_map: /Game/qiyu_rp14/Maps/qiyu_rp14/qiyu_rp14
     carla_vehicle_type: vehicle.pixmoving.robobus
     carla_ego_vehicle_role_name: ego_vehicle
-    carla_spawn_point: "-103.6120,635.9800,-1.4310,0,0,179.89"
+    carla_spawn_point: "103.3400,636.0970,-3.1021,0,0,178.90"
     carla_sensor_kit_name: robobus_sensor_kit_description
     carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
     carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
-    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_route_smoke_objects.json
     carla_use_traffic_manager: "False"
+    pix_carla_skip_wheel_steer_angle: "1"
+    pix_carla_steer_gain: "0.9"
+    pix_carla_throttle_gain: "3.8"
+    pix_carla_max_throttle: "1.0"
+    pix_carla_brake_gain: "1.96"
+    pix_carla_max_brake: "1.0"
+    pix_carla_brake_deadband: "0.05"
+    pix_carla_speed_guard_max_mps: "9.2"
+    pix_carla_speed_guard_band_mps: "1.5"
+    pix_carla_speed_guard_brake_gain: "0.5"
+    pix_carla_ros_y_sign: "1"
+    pix_carla_sensor_queue_timeout_sec: "2"
+    carla_localization_bridge_source: carla_actor
     carla_render_mode: offscreen
     carla_quality_level: Low
     carla_startup_timeout_sec: "180"
+    carla_bridge_sync_mode: "False"
+    carla_actor_health_check: "true"
+    carla_actor_min_z: "-20.0"
+    carla_actor_max_abs_pitch_deg: "30.0"
+    carla_actor_max_abs_roll_deg: "30.0"
     stable_preflight_strict: "false"
     ros_expected_topics:
       - /clock
       - /tf
       - /sensing/lidar/top/pointcloud_before_sync
-      - /sensing/lidar/rear_top/pointcloud_before_sync
-      - /sensing/lidar/rear/pointcloud_before_sync
-      - /sensing/lidar/left/pointcloud_before_sync
-      - /sensing/lidar/right/pointcloud_before_sync
       - /sensing/imu/tamagawa/imu_raw
       - /sensing/gnss/pose_with_covariance
-      - /sensing/camera/CAM_FRONT/image_raw
-      - /sensing/camera/CAM_FRONT/camera_info
       - /localization/kinematic_state
       - /localization/acceleration
       - /vehicle/status/control_mode

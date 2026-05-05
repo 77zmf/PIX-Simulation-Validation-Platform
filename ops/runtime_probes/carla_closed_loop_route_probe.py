@@ -64,6 +64,26 @@ OPERATION_MODE_BLOCKER_TOPIC_SPECS: tuple[tuple[str, str, str | None], ...] = (
 )
 
 
+def env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value in {None, ""}:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def env_float(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    if value in {None, ""}:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
 def utc_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
 
@@ -400,12 +420,14 @@ def load_yaml(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-def pose_from_payload(payload: dict[str, Any], key: str, fallback: dict[str, float]) -> dict[str, float]:
-    pose = payload.get(key)
+def pose_from_value(value: Any, fallback: dict[str, float], *, require_xy: bool = False) -> dict[str, float] | None:
+    pose = value
     if isinstance(pose, dict) and isinstance(pose.get("pose"), dict):
         pose = pose["pose"]
     if not isinstance(pose, dict):
-        return dict(fallback)
+        return None
+    if require_xy and ("x" not in pose or "y" not in pose):
+        return None
     return {
         "x": float(pose.get("x", fallback["x"])),
         "y": float(pose.get("y", fallback["y"])),
@@ -413,6 +435,47 @@ def pose_from_payload(payload: dict[str, Any], key: str, fallback: dict[str, flo
         "yaw": float(pose.get("yaw_deg", pose.get("yaw", fallback.get("yaw", fallback.get("yaw_deg", 0.0))))),
         "yaw_deg": float(pose.get("yaw_deg", pose.get("yaw", fallback.get("yaw_deg", fallback.get("yaw", 0.0))))),
     }
+
+
+def pose_from_payload(payload: dict[str, Any], key: str, fallback: dict[str, float]) -> dict[str, float]:
+    return pose_from_value(payload.get(key), fallback) or dict(fallback)
+
+
+def pose_list_from_value(value: Any) -> list[dict[str, float]]:
+    if not isinstance(value, list):
+        return []
+    poses: list[dict[str, float]] = []
+    fallback = {"x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "yaw_deg": 0.0}
+    for item in value:
+        pose = pose_from_value(item, fallback, require_xy=True)
+        if pose is None:
+            continue
+        poses.append(pose)
+        fallback = pose
+    return poses
+
+
+def route_from_payload(
+    payload: dict[str, Any],
+    fallback_goal: dict[str, float],
+) -> tuple[list[dict[str, float]], dict[str, float]]:
+    route = payload.get("route")
+    route_payload = route if isinstance(route, dict) else {}
+
+    for points_value in (payload.get("route_points"), route_payload.get("points"), route_payload.get("route_points")):
+        points = pose_list_from_value(points_value)
+        if points:
+            return points[:-1], points[-1]
+
+    waypoint_values = (
+        payload.get("route_waypoints"),
+        payload.get("waypoints"),
+        route_payload.get("waypoints"),
+        route_payload.get("via"),
+    )
+    waypoints = [pose for value in waypoint_values for pose in pose_list_from_value(value)]
+    goal = pose_from_value(route_payload.get("goal"), fallback_goal) or fallback_goal
+    return waypoints, goal
 
 
 def scenario_payload(run_dir: Path, explicit_scenario: str | None) -> dict[str, Any]:
@@ -425,10 +488,10 @@ def scenario_payload(run_dir: Path, explicit_scenario: str | None) -> dict[str, 
     return params if isinstance(params, dict) else {}
 
 
-def carla_pose_from_map_pose(map_pose: dict[str, float], z_offset: float) -> dict[str, float]:
+def carla_pose_from_map_pose(map_pose: dict[str, float], z_offset: float, y_sign: float = -1.0) -> dict[str, float]:
     return {
         "x": float(map_pose["x"]),
-        "y": -float(map_pose["y"]),
+        "y": float(y_sign) * float(map_pose["y"]),
         "z": float(map_pose.get("z", 0.0)) + z_offset,
         "yaw": float(map_pose.get("yaw_deg", map_pose.get("yaw", 0.0))),
     }
@@ -440,7 +503,44 @@ def distance_to_goal_m(carla_location: dict[str, Any], goal_map: dict[str, float
     return min(direct, flipped)
 
 
-def carla_waypoint_context(world: Any, carla: Any, ego_sample: dict[str, Any]) -> dict[str, Any] | None:
+def point_to_segment_distance_m(
+    point: tuple[float, float],
+    start: tuple[float, float],
+    end: tuple[float, float],
+) -> float:
+    dx = end[0] - start[0]
+    dy = end[1] - start[1]
+    length_sq = dx * dx + dy * dy
+    if length_sq <= 1e-9:
+        return math.hypot(point[0] - start[0], point[1] - start[1])
+    ratio = ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / length_sq
+    ratio = max(0.0, min(1.0, ratio))
+    closest = (start[0] + ratio * dx, start[1] + ratio * dy)
+    return math.hypot(point[0] - closest[0], point[1] - closest[1])
+
+
+def distance_to_goal_segment_m(
+    previous_carla_location: dict[str, Any],
+    current_carla_location: dict[str, Any],
+    goal_map: dict[str, float],
+) -> float:
+    start = (float(previous_carla_location["x"]), float(previous_carla_location["y"]))
+    end = (float(current_carla_location["x"]), float(current_carla_location["y"]))
+    direct_goal = (float(goal_map["x"]), float(goal_map["y"]))
+    flipped_goal = (float(goal_map["x"]), -float(goal_map["y"]))
+    return min(
+        point_to_segment_distance_m(direct_goal, start, end),
+        point_to_segment_distance_m(flipped_goal, start, end),
+    )
+
+
+def carla_waypoint_context(
+    world: Any,
+    carla: Any,
+    ego_sample: dict[str, Any],
+    *,
+    y_sign: float = -1.0,
+) -> dict[str, Any] | None:
     try:
         waypoint = world.get_map().get_waypoint(
             carla.Location(
@@ -474,7 +574,7 @@ def carla_waypoint_context(world: Any, carla: Any, ego_sample: dict[str, Any]) -
         },
         "center_map": {
             "x": float(location.x),
-            "y": -float(location.y),
+            "y": float(y_sign) * float(location.y),
             "z": float(location.z),
             "yaw": float(transform.rotation.yaw),
         },
@@ -920,8 +1020,8 @@ def required_service_call_successful(service_calls: list[dict[str, Any]], requir
     return service_call_successful(matched_calls)
 
 
-def ego_sample_to_map_xy(sample: dict[str, Any]) -> tuple[float, float]:
-    return (float(sample["x"]), -float(sample["y"]))
+def ego_sample_to_map_xy(sample: dict[str, Any], y_sign: float = -1.0) -> tuple[float, float]:
+    return (float(sample["x"]), float(y_sign) * float(sample["y"]))
 
 
 def abs_jerk_samples_mps3(samples: list[dict[str, Any]]) -> list[float]:
@@ -1064,6 +1164,7 @@ def setup_route(
     calls: list[dict[str, Any]],
     setup_checks: list[dict[str, Any]],
     *,
+    waypoints_map: list[dict[str, float]] | None = None,
     allow_goal_modification: bool = True,
     operation_mode_ready_timeout_sec: float = 45.0,
     operation_mode_ready_poll_sec: float = 2.0,
@@ -1116,7 +1217,7 @@ def setup_route(
             "call",
             "/api/routing/set_route_points",
             "autoware_adapi_v1_msgs/srv/SetRoutePoints",
-            route_yaml(goal_map, allow_goal_modification=allow_goal_modification),
+            route_yaml(goal_map, allow_goal_modification=allow_goal_modification, waypoints=waypoints_map),
         ],
         env,
         calls,
@@ -1190,7 +1291,8 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     payload = scenario_payload(run_dir, args.scenario)
     start_map = pose_from_payload(payload, "ego_init", DEFAULT_START_MAP)
     goal_map = pose_from_payload(payload, "goal", DEFAULT_GOAL_MAP)
-    start_carla = carla_pose_from_map_pose(start_map, args.carla_z_offset)
+    route_waypoints_map, goal_map = route_from_payload(payload, goal_map)
+    start_carla = carla_pose_from_map_pose(start_map, args.carla_z_offset, args.carla_y_sign)
     stamp = utc_stamp()
     output_dir = run_dir / "runtime_verification"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1270,63 +1372,132 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             video_error = str(exc)
             video_recorder = None
 
+    sample_start_t = time.time()
+    setup_sampling_errors: list[str] = []
+    sample_period = args.sample_period
+    goal_reached_observed = threading.Event()
+
+    def record_ego_sample(phase: str) -> dict[str, Any]:
+        nonlocal last_spectator_view, last_camera_view
+        elapsed = time.time() - sample_start_t
+        ego_sample = sample_actor(ego)
+        effective_goal_map = telemetry.effective_goal_map() or goal_map
+        sample_goal_distance = distance_to_goal_m(ego_sample, effective_goal_map)
+        segment_goal_distance = sample_goal_distance
+        if samples:
+            previous_ego = samples[-1].get("ego")
+            if isinstance(previous_ego, dict):
+                segment_goal_distance = min(
+                    segment_goal_distance,
+                    distance_to_goal_segment_m(previous_ego, ego_sample, effective_goal_map),
+                )
+        route_progress_goal_distance = min(sample_goal_distance, segment_goal_distance)
+        if route_progress_goal_distance <= args.goal_tolerance_m:
+            goal_reached_observed.set()
+        if args.stop_ego_after_goal and goal_reached_observed.is_set():
+            try:
+                ego.set_target_velocity(carla.Vector3D(0, 0, 0))
+                ego.set_target_angular_velocity(carla.Vector3D(0, 0, 0))
+                ego.apply_control(carla.VehicleControl(throttle=0.0, brake=1.0, steer=0.0))
+            except Exception as exc:
+                setup_sampling_errors.append(f"stop_ego_after_goal_failed: {exc}")
+        if args.spectator_mode != "none":
+            last_spectator_view = apply_spectator_view(
+                world=world,
+                carla=carla,
+                mode=args.spectator_mode,
+                ego_sample=ego_sample,
+                target_samples=[],
+            )
+        if video_recorder is not None:
+            camera_view = spectator_transform_params(args.camera_video_mode, ego_sample, [])
+            if camera_view is not None:
+                video_recorder.set_transform(carla=carla, transform_params=camera_view)
+                last_camera_view = camera_view
+            video_recorder.drain()
+        sample_record = {
+            "i": len(samples),
+            "t": elapsed,
+            "phase": phase,
+            "frame": world.get_snapshot().frame,
+            "ego": ego_sample,
+            "goal_distance_m": sample_goal_distance,
+            "goal_segment_distance_m": segment_goal_distance,
+            "route_progress_goal_distance_m": route_progress_goal_distance,
+            "effective_goal": effective_goal_map,
+        }
+        lane_context = carla_waypoint_context(world, carla, ego_sample, y_sign=args.carla_y_sign)
+        if lane_context is not None:
+            sample_record["carla_waypoint"] = lane_context
+        ros_sample = telemetry.sample_snapshot()
+        if ros_sample:
+            sample_record["ros_telemetry"] = ros_sample
+        samples.append(sample_record)
+        return sample_record
+
+    setup_sampling_stop = threading.Event()
+
+    def setup_sampler() -> None:
+        while not setup_sampling_stop.is_set():
+            try:
+                record_ego_sample("route_setup")
+            except Exception as exc:  # Best-effort diagnostics; setup errors still surface normally.
+                setup_sampling_errors.append(str(exc))
+                return
+            setup_sampling_stop.wait(sample_period)
+
     try:
+        setup_sampling_thread = threading.Thread(target=setup_sampler, daemon=True)
+        setup_sampling_thread.start()
         setup_route(
             env,
             start_map,
             goal_map,
             service_calls,
             setup_checks,
+            waypoints_map=route_waypoints_map,
             allow_goal_modification=not args.disable_goal_modification,
             operation_mode_ready_timeout_sec=args.operation_mode_ready_timeout_sec,
             operation_mode_ready_poll_sec=args.operation_mode_ready_poll_sec,
             operation_mode_service_retries=args.operation_mode_service_retries,
         )
+        setup_sampling_stop.set()
+        setup_sampling_thread.join(timeout=max(1.0, sample_period * 2.0))
         if ego_start_guard is not None:
             ego_start_guard.stop()
         start_t = time.time()
-        reached_near_goal = False
-        min_goal_distance_m = math.inf
-        max_speed_mps = 0.0
-        sample_period = args.sample_period
+        reached_near_goal = any(
+            float(sample.get("route_progress_goal_distance_m", sample.get("goal_distance_m", math.inf))) <= args.goal_tolerance_m
+            for sample in samples
+        )
+        min_sample_goal_distance_m = min(
+            [float(sample.get("goal_distance_m", math.inf)) for sample in samples],
+            default=math.inf,
+        )
+        min_goal_distance_m = min(
+            [
+                float(sample.get("route_progress_goal_distance_m", sample.get("goal_distance_m", math.inf)))
+                for sample in samples
+            ],
+            default=math.inf,
+        )
+        max_speed_mps = max(
+            [float((sample.get("ego") or {}).get("speed_mps", 0.0)) for sample in samples],
+            default=0.0,
+        )
         max_samples = max(1, int(args.max_duration_sec / sample_period))
         for index in range(max_samples):
             elapsed = time.time() - start_t
-            ego_sample = sample_actor(ego)
-            effective_goal_map = telemetry.effective_goal_map() or goal_map
-            goal_distance = distance_to_goal_m(ego_sample, effective_goal_map)
-            reached_near_goal = reached_near_goal or goal_distance <= args.goal_tolerance_m
-            min_goal_distance_m = min(min_goal_distance_m, goal_distance)
+            if reached_near_goal and elapsed >= args.min_duration_sec:
+                break
+            sample_record = record_ego_sample("route_tracking")
+            ego_sample = sample_record["ego"]
+            goal_distance = float(sample_record["goal_distance_m"])
+            route_progress_goal_distance = float(sample_record["route_progress_goal_distance_m"])
+            reached_near_goal = reached_near_goal or route_progress_goal_distance <= args.goal_tolerance_m
+            min_sample_goal_distance_m = min(min_sample_goal_distance_m, goal_distance)
+            min_goal_distance_m = min(min_goal_distance_m, route_progress_goal_distance)
             max_speed_mps = max(max_speed_mps, float(ego_sample["speed_mps"]))
-            if args.spectator_mode != "none":
-                last_spectator_view = apply_spectator_view(
-                    world=world,
-                    carla=carla,
-                    mode=args.spectator_mode,
-                    ego_sample=ego_sample,
-                    target_samples=[],
-                )
-            if video_recorder is not None:
-                camera_view = spectator_transform_params(args.camera_video_mode, ego_sample, [])
-                if camera_view is not None:
-                    video_recorder.set_transform(carla=carla, transform_params=camera_view)
-                    last_camera_view = camera_view
-                video_recorder.drain()
-            sample_record = {
-                "i": index,
-                "t": elapsed,
-                "frame": world.get_snapshot().frame,
-                "ego": ego_sample,
-                "goal_distance_m": goal_distance,
-                "effective_goal": effective_goal_map,
-            }
-            lane_context = carla_waypoint_context(world, carla, ego_sample)
-            if lane_context is not None:
-                sample_record["carla_waypoint"] = lane_context
-            ros_sample = telemetry.sample_snapshot()
-            if ros_sample:
-                sample_record["ros_telemetry"] = ros_sample
-            samples.append(sample_record)
             if reached_near_goal and elapsed >= args.min_duration_sec:
                 break
             time.sleep(sample_period)
@@ -1358,6 +1529,28 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             total_delta_m = math.hypot(float(last["x"]) - float(first["x"]), float(last["y"]) - float(first["y"]))
         last_location = samples[-1]["ego"] if samples else None
         moved = total_delta_m > args.min_delta_m or max_speed_mps > args.min_speed_mps
+        ego_z_values = [
+            float((sample.get("ego") or {}).get("z", 0.0))
+            for sample in samples
+        ]
+        ego_pitch_values = [
+            abs(float((sample.get("ego") or {}).get("pitch", 0.0)))
+            for sample in samples
+        ]
+        ego_roll_values = [
+            abs(float((sample.get("ego") or {}).get("roll", 0.0)))
+            for sample in samples
+        ]
+        min_ego_z_m = min(ego_z_values) if ego_z_values else None
+        max_ego_z_m = max(ego_z_values) if ego_z_values else None
+        max_abs_pitch_deg = max(ego_pitch_values) if ego_pitch_values else None
+        max_abs_roll_deg = max(ego_roll_values) if ego_roll_values else None
+        kinematic_sanity_passed = (
+            max_speed_mps <= args.max_speed_mps_for_pass
+            and (min_ego_z_m is None or min_ego_z_m >= args.min_ego_z_m_for_pass)
+            and (max_abs_pitch_deg is None or max_abs_pitch_deg <= args.max_abs_pitch_deg_for_pass)
+            and (max_abs_roll_deg is None or max_abs_roll_deg <= args.max_abs_roll_deg_for_pass)
+        )
         all_service_calls_successful = service_call_successful(service_calls)
         route_required_steps = {"initialize_localization", "set_route_points"}
         route_valid = required_service_call_successful(service_calls, route_required_steps)
@@ -1368,7 +1561,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         final_carla_waypoint = None
         final_effective_goal_map = telemetry.effective_goal_map() or goal_map
         if last_location is not None:
-            final_map_x, final_map_y = ego_sample_to_map_xy(last_location)
+            final_map_x, final_map_y = ego_sample_to_map_xy(last_location, args.carla_y_sign)
             final_map_location = {
                 "x": final_map_x,
                 "y": final_map_y,
@@ -1377,7 +1570,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             }
             route_goal_lateral_error_m = abs(final_map_y - float(final_effective_goal_map["y"]))
             longitudinal_error_m = abs(float(final_effective_goal_map["x"]) - final_map_x)
-            final_carla_waypoint = carla_waypoint_context(world, carla, last_location)
+            final_carla_waypoint = carla_waypoint_context(world, carla, last_location, y_sign=args.carla_y_sign)
             if final_carla_waypoint is not None:
                 lateral_error_m = float(final_carla_waypoint["carla_lateral_error_m"])
             else:
@@ -1397,13 +1590,25 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             "moved": moved,
             "total_delta_m": total_delta_m,
             "max_speed_mps": max_speed_mps,
+            "max_speed_mps_for_pass": args.max_speed_mps_for_pass,
             **speed_summary,
+            "min_ego_z_m": min_ego_z_m,
+            "max_ego_z_m": max_ego_z_m,
+            "min_ego_z_m_for_pass": args.min_ego_z_m_for_pass,
+            "max_abs_pitch_deg": max_abs_pitch_deg,
+            "max_abs_roll_deg": max_abs_roll_deg,
+            "max_abs_pitch_deg_for_pass": args.max_abs_pitch_deg_for_pass,
+            "max_abs_roll_deg_for_pass": args.max_abs_roll_deg_for_pass,
+            "kinematic_sanity_passed": kinematic_sanity_passed,
             "requested_goal": goal_map,
+            "requested_route_waypoints": route_waypoints_map,
+            "requested_route_waypoint_count": len(route_waypoints_map),
             "effective_goal": final_effective_goal_map,
             "last_location": last_location,
             "final_map_location": final_map_location,
             "final_carla_waypoint": final_carla_waypoint,
             "min_goal_distance_m": min_goal_distance_m if math.isfinite(min_goal_distance_m) else None,
+            "min_sample_goal_distance_m": min_sample_goal_distance_m if math.isfinite(min_sample_goal_distance_m) else None,
             "lateral_error_m": lateral_error_m,
             "route_goal_lateral_error_m": route_goal_lateral_error_m,
             "longitudinal_error_m": longitudinal_error_m,
@@ -1421,7 +1626,10 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             "setup_checks_passed": all(bool(check.get("passed")) for check in setup_checks),
             "ego_start_pose_preparation": ego_start_pose_preparation,
             "ego_start_traffic_guard": ego_start_guard.snapshot() if ego_start_guard is not None else None,
+            "setup_sampling_error_count": len(setup_sampling_errors),
+            "setup_sampling_errors": setup_sampling_errors,
             "route_goal_modification_allowed": not args.disable_goal_modification,
+            "stop_ego_after_goal": bool(args.stop_ego_after_goal),
             "topic_sample_count": len(topic_samples),
             "topic_samples_received": sum(1 for item in topic_samples if item.get("sample_received")),
             "ros_telemetry": ros_telemetry,
@@ -1444,16 +1652,22 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             "run_dir": str(run_dir),
             "start": {"map": start_map, "carla": start_carla},
             "goal": goal_map,
+            "route_waypoints": route_waypoints_map,
             "service_calls": service_calls,
             "setup_checks": setup_checks,
             "topic_samples": topic_samples,
             "samples": samples,
             "summary": summary,
             "verdict": {
-                "overall_passed": route_valid and moved and reached_near_goal and speed_target_passed,
+                "overall_passed": route_valid
+                and moved
+                and reached_near_goal
+                and speed_target_passed
+                and kinematic_sanity_passed,
                 "route_passed": route_valid and reached_near_goal,
                 "movement_passed": moved,
                 "target_speed_passed": speed_target_passed,
+                "kinematic_sanity_passed": kinematic_sanity_passed,
             },
         }
         artifact_path.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -1497,10 +1711,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-dir", required=True, help="Existing simctl run directory on the runtime host")
     parser.add_argument("--scenario", help="Optional scenario YAML path; defaults to run_result.scenario_path")
-    parser.add_argument("--ros-domain-id", type=int, default=21)
-    parser.add_argument("--rmw-implementation", default="rmw_cyclonedds_cpp")
+    parser.add_argument("--ros-domain-id", type=int, default=env_int("ROS_DOMAIN_ID", 21))
+    parser.add_argument("--rmw-implementation", default=os.environ.get("RMW_IMPLEMENTATION", "rmw_cyclonedds_cpp"))
     parser.add_argument("--carla-host", default="127.0.0.1")
-    parser.add_argument("--carla-port", type=int, default=2000)
+    parser.add_argument("--carla-port", type=int, default=env_int("SIMCTL_CARLA_RPC_PORT", 2000))
     parser.add_argument("--carla-timeout", type=float, default=10.0)
     parser.add_argument("--ego-timeout", type=int, default=20)
     parser.add_argument("--sample-period", type=float, default=0.2)
@@ -1512,6 +1726,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Send SetRoutePoints with allow_goal_modification=false to keep the requested goal pose.",
     )
+    parser.add_argument(
+        "--stop-ego-after-goal",
+        action="store_true",
+        help="Continuously brake the CARLA ego once any sample reaches the goal tolerance.",
+    )
     parser.add_argument("--min-delta-m", type=float, default=5.0)
     parser.add_argument("--min-speed-mps", type=float, default=1.0)
     parser.add_argument(
@@ -1521,7 +1740,38 @@ def parse_args() -> argparse.Namespace:
         help="Optional target speed evidence gate. When set, overall_passed also requires max_speed_mps to reach it within tolerance.",
     )
     parser.add_argument("--target-speed-tolerance-mps", type=float, default=0.5)
+    parser.add_argument(
+        "--max-speed-mps-for-pass",
+        type=float,
+        default=30.0,
+        help="Fail overall_passed when CARLA ego exceeds this speed, catching physics explosions.",
+    )
+    parser.add_argument(
+        "--min-ego-z-m-for-pass",
+        type=float,
+        default=-20.0,
+        help="Fail overall_passed when CARLA ego drops below this z height.",
+    )
+    parser.add_argument(
+        "--max-abs-pitch-deg-for-pass",
+        type=float,
+        default=45.0,
+        help="Fail overall_passed when absolute ego pitch exceeds this threshold.",
+    )
+    parser.add_argument(
+        "--max-abs-roll-deg-for-pass",
+        type=float,
+        default=45.0,
+        help="Fail overall_passed when absolute ego roll exceeds this threshold.",
+    )
     parser.add_argument("--carla-z-offset", type=float, default=0.08)
+    parser.add_argument(
+        "--carla-y-sign",
+        type=float,
+        default=env_float("SIMCTL_CARLA_ROS_Y_SIGN", env_float("PIX_CARLA_ROS_Y_SIGN", -1.0)),
+        choices=[-1.0, 1.0],
+        help="Map-to-CARLA y sign. Default -1 keeps CARLA's standard ROS y flip; use 1 for CARLA-frame XODR/lanelet bundles.",
+    )
     parser.add_argument(
         "--spectator-mode",
         choices=["none", "ego_chase", "overview"],

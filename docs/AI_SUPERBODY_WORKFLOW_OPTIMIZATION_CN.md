@@ -313,3 +313,14 @@ Mac 上的通过结论只能写作 repo-local validation，不能写作 stable c
 5. 把 stable acceptance 和 shadow comparison 从报告层分开
 
 这一顺序的原因是：先让主线能形成可信结果，再扩展资产和研究线，否则报告会堆积信息但不能回答“是否通过”。
+
+## 16. 外部对标导入规则
+
+外部平台方法只在能落到本项目证据链时导入：
+
+- 数据闭环必须落到 `asset manifest / scenario / KPI gate / report`。
+- 仿真任务管理必须落到 `simctl run/batch/report/digest`，先不要引入新的 runtime。
+- 合成数据必须通过真实性和效用门槛，不能直接作为 stable acceptance。
+- 具身智能方向先进入 shadow comparison，不接管 stable 控制链。
+
+深信科创 / OASIS 对标建议见 `docs/AI_SUPERBODY_SYNKROTRON_BENCHMARK_CN.md`。

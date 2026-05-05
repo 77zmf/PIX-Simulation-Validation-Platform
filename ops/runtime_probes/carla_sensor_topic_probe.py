@@ -85,11 +85,25 @@ ROBOBUS117TH_PRESENCE_SMOKE_TOPICS: tuple[TopicSpec, ...] = tuple(
     for spec in ROBOBUS117TH_TOPICS
 )
 
+ROBOBUS117TH_ROUTE_SMOKE_CORE_TOPICS: tuple[TopicSpec, ...] = (
+    TopicSpec("/sensing/lidar/top/pointcloud_before_sync", "lidar"),
+    TopicSpec("/sensing/imu/tamagawa/imu_raw", "imu"),
+    TopicSpec("/sensing/gnss/pose_with_covariance", "gnss"),
+    TopicSpec("/clock", "core", sample_required=False, sample_field=None),
+    TopicSpec("/tf", "core", sample_required=False, sample_field=None),
+    TopicSpec("/localization/kinematic_state", "localization"),
+    TopicSpec("/vehicle/status/control_mode", "vehicle", sample_required=False, sample_field=None),
+    TopicSpec("/vehicle/status/velocity_status", "vehicle"),
+    TopicSpec("/vehicle/status/steering_status", "vehicle", sample_required=False, sample_field=None),
+    TopicSpec("/control/command/control_cmd", "control", sample_required=False, sample_field=None),
+)
+
 PROFILES: dict[str, tuple[TopicSpec, ...]] = {
     "robobus117th": ROBOBUS117TH_TOPICS,
     "robobus117th_bridge_only": ROBOBUS117TH_BRIDGE_ONLY_TOPICS,
     "robobus117th_l0_closed_loop": ROBOBUS117TH_L0_CLOSED_LOOP_TOPICS,
     "robobus117th_presence_smoke": ROBOBUS117TH_PRESENCE_SMOKE_TOPICS,
+    "robobus117th_route_smoke_core": ROBOBUS117TH_ROUTE_SMOKE_CORE_TOPICS,
 }
 
 
