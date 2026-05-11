@@ -86,13 +86,16 @@
 目标：
 
 - 把重建定位为公开道路地图刷新、场景复现和定位回归链路的一部分
-- 先做 `map refresh`，再做 `static Gaussian`，最后才考虑 `dynamic Gaussian`
+- 先做 `FAST-LIO SLAM pose prior` 和 `map refresh`，再做 `static Gaussian`，最后才考虑 `dynamic Gaussian`
+- SLAM 只作为离线重建 producer，产出轨迹、去畸变/配准点云和对齐诊断，不进入 stable 实时控制链路
 
 仓库入口：
 
+- `adapters/profiles/reconstruction_fast_lio_slam_pose_prior.yaml`
 - `adapters/profiles/reconstruction_public_road_map_refresh.yaml`
 - `adapters/profiles/reconstruction_static_public_road_gaussians.yaml`
 - `adapters/profiles/reconstruction_dynamic_public_road_gaussians.yaml`
+- `scenarios/l2/reconstruction_fast_lio_slam_pose_prior.yaml`
 - `scenarios/l2/reconstruction_public_road_map_refresh.yaml`
 - `scenarios/l2/reconstruction_static_public_road_gaussian_base.yaml`
 - `scenarios/l3/reconstruction_dynamic_public_road_gaussian_replay.yaml`

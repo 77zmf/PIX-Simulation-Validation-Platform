@@ -62,7 +62,12 @@ start:
     runner: bash
     background: true
     when: autoware_enabled
-    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_ws}' --map-path '{autoware_map_path}' --vehicle-model '{autoware_vehicle_model}' --sensor-model '{autoware_sensor_model}' --lidar-type '{autoware_lidar_type}' --rviz '{autoware_rviz}' --rviz-config '{autoware_rviz_config}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_ws}' --map-path '{autoware_map_path}' --vehicle-model '{autoware_vehicle_model}' --sensor-model '{autoware_sensor_model}' --lidar-type '{autoware_lidar_type}' --rviz '{autoware_rviz}' --rviz-config '{autoware_rviz_config}' --launch-file '{autoware_launch_file}' --data-path '{autoware_data_path}' --launch-extra-args '{autoware_launch_extra_args}' {execute_flag}"
+  - name: start-bevfusion-perception
+    runner: bash
+    background: true
+    when: bevfusion_enabled
+    command: "bash '{repo_root}/stack/stable/start_bevfusion_perception_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{bevfusion_autoware_ws}' --extra-setup '{bevfusion_extra_setup}' --input-pointcloud '{bevfusion_input_pointcloud}' --output-objects '{bevfusion_output_objects}' --data-path '{bevfusion_data_path}' --model-name '{bevfusion_model_name}' --log-level '{bevfusion_log_level}' --build-only '{bevfusion_build_only}' --model-param-path '{bevfusion_model_param_path}' --ml-package-param-path '{bevfusion_ml_package_param_path}' --class-remapper-param-path '{bevfusion_class_remapper_param_path}' --common-param-path '{bevfusion_common_param_path}' {execute_flag}"
   - name: start-carla-localization-bridge
     runner: bash
     background: true

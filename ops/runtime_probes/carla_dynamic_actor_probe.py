@@ -18,6 +18,7 @@ import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -157,6 +158,52 @@ PROBES: dict[str, ProbeConfig] = {
                 start={"x": 250.0, "y": -5.8, "z": 0.15, "yaw": 0.0},
                 final_y=-5.8,
                 speed_x=1.8,
+                cut_in_duration=0.0,
+            ),
+        ),
+    ),
+    "l2_overtake_reference": ProbeConfig(
+        kind="l2_overtake_reference",
+        classification="l2_overtake_reference_multi_lane_with_perception_pipeline",
+        target_type="vehicle.audi.tt",
+        target_start={"x": 276.0, "y": 2.0, "z": 0.15, "yaw": 0.0},
+        target_final_y=2.0,
+        target_speed_x=0.8,
+        cut_in_duration=0.0,
+        max_duration=72.0,
+        safe_ttc_sec=1.8,
+        min_actor_observed_count=3,
+        actors=(
+            ActorSpec(
+                name="slow_lead_vehicle",
+                target_type="vehicle.audi.tt",
+                start={"x": 276.0, "y": 2.0, "z": 0.15, "yaw": 0.0},
+                final_y=2.0,
+                speed_x=0.8,
+                cut_in_duration=0.0,
+            ),
+            ActorSpec(
+                name="left_lane_overtake_target",
+                target_type="vehicle.audi.tt",
+                start={"x": 253.0, "y": -5.8, "z": 0.15, "yaw": 0.0},
+                final_y=-5.8,
+                speed_x=2.8,
+                cut_in_duration=0.0,
+            ),
+            ActorSpec(
+                name="right_lane_background_vehicle",
+                target_type="vehicle.audi.tt",
+                start={"x": 260.0, "y": 6.0, "z": 0.15, "yaw": 0.0},
+                final_y=6.0,
+                speed_x=2.2,
+                cut_in_duration=0.0,
+            ),
+            ActorSpec(
+                name="far_lead_vehicle",
+                target_type="vehicle.audi.tt",
+                start={"x": 305.0, "y": 2.0, "z": 0.15, "yaw": 0.0},
+                final_y=2.0,
+                speed_x=2.5,
                 cut_in_duration=0.0,
             ),
         ),
@@ -807,6 +854,8 @@ class CameraVideoRecorder:
         self._queue: queue.Queue[bytes] = queue.Queue(maxsize=max(4, fps * 3))
         self._proc: subprocess.Popen[bytes] | None = None
         self._camera: Any | None = None
+        self._writer_stop = False
+        self._writer_thread: Any | None = None
 
     def start(self, *, world: Any, carla: Any, blueprint_library: Any, transform_params: dict[str, float]) -> None:
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -831,6 +880,9 @@ class CameraVideoRecorder:
             str(self.output_path),
         ]
         self._proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self._writer_stop = False
+        self._writer_thread = threading.Thread(target=self._write_frames, daemon=True)
+        self._writer_thread.start()
         camera_bp = blueprint_library.find("sensor.camera.rgb")
         camera_bp.set_attribute("image_size_x", str(self.width))
         camera_bp.set_attribute("image_size_y", str(self.height))
@@ -850,6 +902,11 @@ class CameraVideoRecorder:
             self._camera.set_transform(carla_transform_from_params(carla, transform_params))
 
     def drain(self) -> None:
+        if self._writer_thread is not None:
+            return
+        self._drain_inline()
+
+    def _drain_inline(self) -> None:
         if self._proc is None or self._proc.stdin is None:
             return
         while True:
@@ -863,6 +920,22 @@ class CameraVideoRecorder:
             except BrokenPipeError:
                 return
 
+    def _write_frames(self) -> None:
+        while not self._writer_stop or not self._queue.empty():
+            try:
+                frame = self._queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if self._proc is None or self._proc.stdin is None:
+                self.frames_dropped += 1
+                continue
+            try:
+                self._proc.stdin.write(frame)
+                self.frames_written += 1
+            except (BrokenPipeError, ValueError):
+                self.frames_dropped += 1
+                return
+
     def close(self) -> None:
         if self._camera is not None:
             try:
@@ -870,17 +943,34 @@ class CameraVideoRecorder:
                 self._camera.destroy()
             except Exception:
                 pass
-        self.drain()
+        # Do not drain the full pending frame queue during close by default.
+        # On long probes a saturated ffmpeg stdin can block the validation
+        # process after JSON evidence has already been written. Regular samples
+        # call drain(), so closing stdin is enough for a valid trailer.
+        if os.environ.get("PIX_CARLA_VIDEO_DRAIN_ON_CLOSE", "").strip().lower() in {"1", "true", "yes", "y", "on"}:
+            self._drain_inline()
+        self._writer_stop = True
         if self._proc is not None:
+            close_timeout_sec = float(os.environ.get("PIX_CARLA_VIDEO_CLOSE_TIMEOUT_SEC", "10") or "10")
+            if self._writer_thread is not None:
+                self._writer_thread.join(timeout=close_timeout_sec)
+                if self._writer_thread.is_alive():
+                    self._proc.terminate()
+                    self._writer_thread.join(timeout=1)
             if self._proc.stdin is not None:
                 try:
                     self._proc.stdin.close()
                 except Exception:
                     pass
             try:
-                self._proc.wait(timeout=10)
+                self._proc.wait(timeout=close_timeout_sec)
             except subprocess.TimeoutExpired:
                 self._proc.terminate()
+                try:
+                    self._proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    self._proc.kill()
+                    self._proc.wait(timeout=3)
 
 
 def object_topic_sample(env: dict[str, str]) -> dict[str, Any]:

@@ -16,6 +16,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,9 +53,11 @@ PROFILES: dict[str, tuple[TopicSpec, ...]] = {
         TopicSpec("/sensing/lidar/left/pointcloud_before_sync", "sensor"),
         TopicSpec("/sensing/lidar/right/pointcloud_before_sync", "sensor"),
         TopicSpec("/sensing/camera/CAM_FRONT/image_raw", "sensor"),
-        TopicSpec("/perception/object_recognition/objects", "perception"),
+        TopicSpec("/perception/object_recognition/detection/bevfusion/objects", "bevfusion"),
+        TopicSpec("/perception/object_recognition/objects", "planner_interface"),
         TopicSpec("/perception/object_recognition/detection/objects", "perception", required=False),
         TopicSpec("/perception/object_recognition/tracking/objects", "perception", required=False),
+        TopicSpec("/hmi_input/perception/object_recognition/objects", "planner_interface", required=False),
         TopicSpec("/planning/scenario_planning/trajectory", "planning", required=False, sample_required=False),
     ),
 }
@@ -275,6 +278,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--require-metrics", action="store_true", help="Fail if the metrics artifact is missing or incomplete")
     parser.add_argument("--topic-timeout-sec", type=float, default=8.0)
     parser.add_argument("--discovery-timeout-sec", type=float, default=8.0)
+    parser.add_argument("--attempts", type=int, default=1, help="Number of readiness polling attempts before failing")
+    parser.add_argument("--retry-sec", type=float, default=5.0, help="Delay between readiness polling attempts")
     return parser
 
 
@@ -282,7 +287,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     run_dir = Path(args.run_dir).resolve()
-    payload = run_probe(args)
+    attempts = max(1, args.attempts)
+    payload: dict[str, Any] = {}
+    for attempt in range(1, attempts + 1):
+        payload = run_probe(args)
+        payload["attempt"] = attempt
+        payload["attempts"] = attempts
+        if payload["overall_passed"] or attempt == attempts:
+            break
+        time.sleep(max(0.0, args.retry_sec))
     paths = write_artifacts(run_dir, payload)
     payload.update(paths)
     print(json.dumps(payload, indent=2, ensure_ascii=False))

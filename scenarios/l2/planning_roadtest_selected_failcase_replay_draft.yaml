@@ -1,0 +1,94 @@
+scenario_id: stable_l2_planning_roadtest_selected_failcase_replay_draft
+stack: stable
+description: Planning/control replay draft promoted from local zmf_test-data 82th forced-lane-change evidence.
+level: L2
+map_id: roadtest_gy_qyhx_202605
+asset_bundle: planning_road_test_failcases_202605
+ego_init:
+  route_id: roadtest_replay/82th_20260508111015_source_pose
+goal:
+  route_id: roadtest_replay/82th_20260508111015_source_goal
+traffic_profile:
+  mode: roadtest_selected_forced_lane_change_replay_draft
+  vehicles: 0
+  pedestrians: 0
+  replay_cases:
+    - planning_20260508111015_dangerous_forced_lane_change
+weather_profile:
+  preset: RoadTestRecorded
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260508111015
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/roadtest_selected_forced_lane_change_replay
+  carla_recorder:
+    enabled: true
+    path: carla/roadtest_selected_forced_lane_change_replay.log
+kpi_gate: planning_control_trajectory_stability_replay
+labels:
+  - L2
+  - stable
+  - planning_control
+  - road_test_replay
+  - roadtest_surrogate
+  - forced_lane_change
+  - lane_change_left
+  - static_obstacle
+  - virtual_wall
+  - takeover
+  - draft
+metadata:
+  owner: planning-control
+  draft_status: replay_probe_ready_blocked_on_deterministic_public_road_carla_route
+  source_evidence:
+    root: /Users/cyber/Documents/zmf_test-data
+    inventory: /tmp/zmf_planning_evidence_inventory.txt
+    selected_case_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/82th_20260508_1110_dangerous_forced_lane_change
+    selected_case_id: planning_20260508111015_dangerous_forced_lane_change
+    event_window_cst: "2026-05-08 11:09:45-11:11:14"
+  source_assets:
+    - assets/manifests/planning_road_test_failcases_202605.yaml
+    - ops/runtime_probes/planning_roadtest_replay_probe.py
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/82th_20260508_1110_dangerous_forced_lane_change/analysis_report.md
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/82th_20260508_1110_dangerous_forced_lane_change/analysis_summary.json
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/82th_20260508_1110_dangerous_forced_lane_change/rd_handoff.md
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/82th_20260508_1110_dangerous_forced_lane_change/screen_recording_20260508_111000_111100_dangerous_forced_lane_change.mp4
+  validation_method: Executable summary replay probe for the 82th 11:10 left forced-lane-change case. Promote after route, map, ego pose, and actor tracks are converted into a deterministic CARLA fixture or direct MCAP playback harness.
+  validation_command: >
+    python3 ops/runtime_probes/planning_roadtest_replay_probe.py
+    --run-dir <run_dir>
+    --manifest assets/manifests/planning_road_test_failcases_202605.yaml
+    --profile forced_lane_change
+    --case-id planning_20260508111015_dangerous_forced_lane_change
+  expected_observable: Indexed road-test evidence emits lane-change-left counts, no-safe-path virtual-wall count, manual/teleop takeover count, trajectory_jump_max_m, lateral_shift_m, and planning_validator_invalid_count into runtime evidence; KPI remains red until the real issue is fixed or safely reproduced.
+  scene_authoring_target:
+    ego: 82th robobus on recorded 2026-05-08 11:10 road section
+    primary_conflict: left forced lane change under static-obstacle and no-safe-path virtual-wall pressure
+    traffic: adjacent-lane and lead vehicles should be converted from MCAP actor tracks or hand-authored if tracks are unavailable
+    visualization: CARLA overview video plus Autoware/RViz planning overlays showing lane-change candidate/reference, virtual walls, and object stream
+  expected_observables:
+    - lane_change_left_reference_nonempty_count
+    - lane_change_left_candidate_nonempty_count
+    - lane_change_no_safe_path_wall_count
+    - manual_takeover_count
+    - teleop_takeover_count
+    - trajectory_jump_max_m
+    - lateral_shift_m
+    - planning_validator_invalid_count
+  missing_inputs:
+    - exact public-road CARLA/OpenDRIVE route fixture for the 82th 20260508 road section
+    - recorded actor/obstacle trajectories for the 11:09:45-11:11:14 CST window
+    - validated map projector and localization alignment for the selected 82th route
+  rollback_impact: Remove this scenario and the 202605 selected-case manifest entry; existing Town01 surrogates and other road-test replay drafts remain unchanged.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_render_mode: offscreen
+    carla_quality_level: Low

@@ -1,0 +1,58 @@
+scenario_id: stable_l2_reconstruction_fast_lio_slam_pose_prior
+stack: stable
+map_id: gy_qyhx_public_road_segment
+asset_bundle: site_gy_qyhx_gsh20260310
+ego_init:
+  local_pose:
+    x: 1042.0
+    y: -2885.0
+    yaw_deg: 124.0
+goal:
+  local_pose:
+    x: 908.0
+    y: -2840.0
+    yaw_deg: 107.0
+traffic_profile:
+  mode: slam_pose_prior_capture
+  vehicles: 0
+  pedestrians: 0
+  scripted_agents:
+    - survey_vehicle_loop
+weather_profile:
+  preset: ClearNoon
+sensor_profile: reconstruction_capture
+algorithm_profile: reconstruction_fast_lio_slam_pose_prior
+seed: 20260324
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/reconstruction_fast_lio_slam_pose_prior
+  carla_recorder:
+    enabled: false
+kpi_gate: reconstruction_slam_pose_prior_gate
+labels:
+  - L2
+  - public_road
+  - reconstruction
+  - slam
+  - pose_prior
+  - map_refresh
+metadata:
+  source_assets:
+    - external/liorf/readme.md
+    - external/liorf/config/lio_sam_robobus_ros2.yaml
+    - ops/scripts/record_qiyu_reconstruction_capture.sh
+  validation_command: >
+    bash ops/scripts/record_qiyu_reconstruction_capture.sh --record
+    --capture-profile rgb-map-camera
+    --out-root /home/nvidia/pix/failcase_data_local/qiyu_reconstruction_capture &&
+    ros2 launch liorf run_robobus_mapping.launch.py
+    params_file:=/data/pix/slam_ws/src/liorf/config/lio_sam_robobus_ros2.yaml
+    use_rviz:=false
+execution:
+  mode: external
+  producer:
+    host_role: reconstruction_producer
+    slam_repo: external://workspace/liorf
+    launch: ros2 launch liorf run_robobus_mapping.launch.py params_file:=<liorf>/config/lio_sam_robobus_ros2.yaml use_rviz:=false
+    boundary: offline_only_not_stable_control

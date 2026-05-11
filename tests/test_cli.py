@@ -18,7 +18,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from simctl.cli import _run_worker, main
+from simctl.config import load_yaml
 from simctl.slots import load_slot_catalog, read_slot_lock
+
+
+def _campaign_scenario_count(config_relpath: str) -> int:
+    payload = load_yaml(REPO_ROOT / config_relpath)
+    scenarios = payload.get("scenarios", [])
+    return len(scenarios) if isinstance(scenarios, list) else 0
 
 
 class CliTests(unittest.TestCase):
@@ -709,6 +716,31 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result["algorithm_execution"]["family"], "dynamic_gaussians")
             self.assertEqual(result["algorithm_execution"]["stage"], "actor_aware_replay")
             self.assertIn("dynamic_tracks", result["algorithm_execution"]["artifacts"])
+
+    def test_run_fast_lio_slam_reconstruction_outputs_pose_prior_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "run",
+                        "--scenario",
+                        "scenarios/l2/reconstruction_fast_lio_slam_pose_prior.yaml",
+                        "--run-root",
+                        tempdir,
+                        "--mock-result",
+                        "passed",
+                    ]
+                )
+            self.assertEqual(rc, 0)
+            result = json.loads(stream.getvalue())
+            self.assertEqual(result["algorithm_execution"]["family"], "slam_pose_prior")
+            self.assertEqual(result["algorithm_execution"]["stage"], "offline_pose_prior")
+            self.assertIn("slam_trajectory_tum", result["algorithm_execution"]["artifacts"])
+            self.assertIn("registered_pointcloud", result["algorithm_execution"]["artifacts"])
+            self.assertIn("boundary=not_real_time_control", result["algorithm_execution"]["notes"])
 
     def test_run_execute_marks_launch_failed_when_execution_step_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1574,7 +1606,10 @@ class CliTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         payload = json.loads(stream.getvalue())
         self.assertEqual(payload["campaign_id"], "stable_planning_control_bughunt")
-        self.assertEqual(len(payload["scenarios"]), 10)
+        self.assertEqual(
+            len(payload["scenarios"]),
+            _campaign_scenario_count("ops/test_campaigns/stable_planning_control_bughunt.yaml"),
+        )
         self.assertEqual(payload["cooldown_sec"], 60.0)
         self.assertIn(
             "stable_l2_planning_control_crosswalk_vru_yield",
@@ -1655,7 +1690,10 @@ class CliTests(unittest.TestCase):
         self.assertTrue(payload["forever"])
         self.assertEqual(payload["parallel"], 2)
         self.assertEqual(payload["slot_ids"], ["stable-slot-01", "stable-slot-02"])
-        self.assertEqual(len(payload["scenarios"]), 10)
+        self.assertEqual(
+            len(payload["scenarios"]),
+            _campaign_scenario_count("ops/test_campaigns/stable_planning_control_bughunt.yaml"),
+        )
         self.assertTrue(payload["validate"])
         self.assertTrue(payload["finalize"])
 

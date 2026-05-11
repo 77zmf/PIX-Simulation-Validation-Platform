@@ -2,6 +2,7 @@
 set -euo pipefail
 
 AUTOWARE_WS="${AUTOWARE_WS:-$HOME/zmf_ws/projects/autoware_universe/autoware}"
+PRIVATE_AUTOWARE_WS="${PRIVATE_AUTOWARE_WS:-}"
 ROLLBACK=0
 DRY_RUN=0
 
@@ -21,6 +22,10 @@ Why:
   - brake gain/max/deadband
   - steer radians-to-normalized conversion plus steer gain
   - first-order steering hold when ROS callbacks arrive faster than CARLA ticks
+  - ROS-time vehicle status stamps so Autoware component_state_monitor does
+    not treat CARLA elapsed-time vehicle reports as stale in planning_simulation
+  - simulation-tolerant vehicle status topic-rate thresholds so CARLA bridge
+    velocity/steering status jitter does not block autonomous availability
   - unique static TF node names so Autoware duplicated_node_checker does not
     block autonomous mode on generic /imu or /velodyne_top node names
   - unique raw vehicle converter node name so the CARLA bridge converter does
@@ -37,6 +42,9 @@ Rollback:
 
 Options:
   --autoware-ws PATH  Autoware workspace root.
+  --private-autoware-ws PATH
+                       Optional private Autoware underlay workspace root.
+                       Defaults to the sibling private_autoware directory.
   --dry-run           Check target files without writing.
   --rollback          Restore backups created by this script.
 EOF
@@ -45,12 +53,17 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --autoware-ws) AUTOWARE_WS="$2"; shift 2 ;;
+    --private-autoware-ws) PRIVATE_AUTOWARE_WS="$2"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --rollback) ROLLBACK=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown arg: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
+
+if [[ -z "$PRIVATE_AUTOWARE_WS" ]]; then
+  PRIVATE_AUTOWARE_WS="$(dirname "${AUTOWARE_WS}")/private_autoware"
+fi
 
 SOURCE_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/carla_ros.py"
 BUILD_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/carla_ros.py"
@@ -62,11 +75,16 @@ SOURCE_UTILS_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autow
 BUILD_UTILS_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/modules/carla_utils.py"
 SOURCE_LAUNCH_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/launch/autoware_carla_interface.launch.xml"
 INSTALL_LAUNCH_FILE="${AUTOWARE_WS}/install/autoware_carla_interface/share/autoware_carla_interface/autoware_carla_interface.launch.xml"
+SOURCE_COMPONENT_TOPICS_FILE="${AUTOWARE_WS}/src/launcher/autoware_launch/autoware_launch/config/system/component_state_monitor/topics.yaml"
+INSTALL_COMPONENT_TOPICS_FILE="${AUTOWARE_WS}/install/autoware_launch/share/autoware_launch/config/system/component_state_monitor/topics.yaml"
+PRIVATE_SOURCE_COMPONENT_TOPICS_FILE="${PRIVATE_AUTOWARE_WS}/src/launcher/autoware_launch/autoware_launch/config/system/component_state_monitor/topics.yaml"
+PRIVATE_INSTALL_COMPONENT_TOPICS_FILE="${PRIVATE_AUTOWARE_WS}/install/autoware_launch/share/autoware_launch/config/system/component_state_monitor/topics.yaml"
 BACKUP_SUFFIX=".pix_actuation_map.bak"
 BRIDGE_LOOP_BACKUP_SUFFIX=".pix_sensor_timeout_tolerance.bak"
 WRAPPER_BACKUP_SUFFIX=".pix_sensor_queue_timeout.bak"
 UTILS_BACKUP_SUFFIX=".pix_ros_y_sign.bak"
 LAUNCH_BACKUP_SUFFIX=".pix_static_tf_node_names.bak"
+COMPONENT_TOPICS_BACKUP_SUFFIX=".pix_vehicle_topic_rate.bak"
 
 python3 - "$SOURCE_FILE" "$BUILD_FILE" "$BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
 from __future__ import annotations
@@ -88,6 +106,7 @@ if build_file != source_file:
 marker = "PIX_CARLA_ACTUATION_MAP_PATCH"
 steer_hold_marker = "PIX_CARLA_STEER_HOLD_PATCH"
 wheel_steer_marker = "PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH"
+status_stamp_marker = "PIX_CARLA_STATUS_ROS_TIME_PATCH"
 steer_method_pattern = re.compile(
     r"    def first_order_steering\(self, steer_input\):\n.*?\n    def control_callback\(self, in_cmd\):",
     re.DOTALL,
@@ -216,6 +235,19 @@ patched_wheel_steer = '''        # PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH: some 
             out_steering_state.steering_tire_angle = -math.radians(
                 self.ego_actor.get_wheel_steer_angle(carla.VehicleWheelLocation.FL_Wheel)
             )'''
+status_stamp_target = '        out_vel_state.header = self.get_msg_header(frame_id="base_link")\n'
+patched_status_stamp = '''        out_vel_state.header = self.get_msg_header(frame_id="base_link")
+        # PIX_CARLA_STATUS_ROS_TIME_PATCH: Autoware component_state_monitor
+        # compares vehicle status stamps against the node clock. In the stable
+        # planning_simulation stack, CARLA elapsed-time stamps look stale.
+        if os.environ.get("PIX_CARLA_STATUS_USE_ROS_TIME", "1").strip().lower() not in {"0", "false", "no", "n", "off"}:
+            out_vel_state.header.stamp = self.ros2_node.get_clock().now().to_msg()
+'''
+actuation_status_stamp_target = '        out_actuation_status.header = self.get_msg_header(frame_id="base_link")\n'
+patched_actuation_status_stamp = '''        out_actuation_status.header = self.get_msg_header(frame_id="base_link")
+        if os.environ.get("PIX_CARLA_STATUS_USE_ROS_TIME", "1").strip().lower() not in {"0", "false", "no", "n", "off"}:
+            out_actuation_status.header.stamp = out_vel_state.header.stamp
+'''
 
 for path in targets:
     if not path.exists():
@@ -260,6 +292,15 @@ for path in targets:
         patched_text, wheel_patch_count = wheel_steer_pattern.subn(patched_wheel_steer, patched_text, count=1)
         if wheel_patch_count:
             patch_descriptions.append("guarded wheel steer status query")
+
+    if status_stamp_marker not in patched_text:
+        if status_stamp_target not in patched_text:
+            raise SystemExit(f"vehicle status stamp target block not found: {path}")
+        patched_text = patched_text.replace(status_stamp_target, patched_status_stamp, 1)
+        if actuation_status_stamp_target not in patched_text:
+            raise SystemExit(f"actuation status stamp target block not found: {path}")
+        patched_text = patched_text.replace(actuation_status_stamp_target, patched_actuation_status_stamp, 1)
+        patch_descriptions.append("stamped vehicle status with ROS node time")
 
     if not patch_descriptions:
         print(f"already patched: {path}")
@@ -720,3 +761,89 @@ for path in targets:
 PY
 
 echo "Launch patch operation completed."
+
+python3 - "$COMPONENT_TOPICS_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" \
+  "$SOURCE_COMPONENT_TOPICS_FILE" \
+  "$INSTALL_COMPONENT_TOPICS_FILE" \
+  "$PRIVATE_SOURCE_COMPONENT_TOPICS_FILE" \
+  "$PRIVATE_INSTALL_COMPONENT_TOPICS_FILE" <<'PY'
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+backup_suffix = sys.argv[1]
+rollback = sys.argv[2] == "1"
+dry_run = sys.argv[3] == "1"
+candidate_paths = [Path(arg) for arg in sys.argv[4:]]
+
+targets: list[Path] = []
+for path in candidate_paths:
+    if path.exists() and path not in targets:
+        targets.append(path)
+
+if not targets:
+    print("component topics patch skipped: autoware_launch component_state_monitor topics file not found")
+    raise SystemExit(0)
+
+vehicle_topic_block = re.compile(
+    r"(?P<block>- module: vehicle\n(?:(?!\n- module:).)*?topic: /vehicle/status/"
+    r"(?P<topic>velocity_status|steering_status)\n(?:(?!\n- module:).)*?)(?=\n- module:|\Z)",
+    re.DOTALL,
+)
+
+
+def replace_or_fail(block: str, key: str, value: str, *, path: Path, topic: str) -> str:
+    pattern = re.compile(rf"(?m)^(\s*{re.escape(key)}:\s*)[-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?\d+)?\s*$")
+    patched, count = pattern.subn(rf"\g<1>{value}", block, count=1)
+    if count != 1:
+        raise SystemExit(f"component topics {key} target not found for {topic}: {path}")
+    return patched
+
+
+for path in targets:
+    backup = Path(str(path) + backup_suffix)
+    if rollback:
+        if not backup.exists():
+            print(f"no component topics backup to restore: {backup}")
+            continue
+        if dry_run:
+            print(f"would restore component topics: {backup} -> {path}")
+            continue
+        path.write_text(backup.read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"restored component topics: {path}")
+        continue
+
+    text = path.read_text(encoding="utf-8")
+    patched_topics: set[str] = set()
+
+    def patch_block(match: re.Match[str]) -> str:
+        topic = match.group("topic")
+        block = match.group("block")
+        patched = replace_or_fail(block, "warn_rate", "0.0", path=path, topic=topic)
+        patched = replace_or_fail(patched, "error_rate", "0.0", path=path, topic=topic)
+        patched = replace_or_fail(patched, "timeout", "5.0", path=path, topic=topic)
+        patched_topics.add(topic)
+        return patched
+
+    patched_text = vehicle_topic_block.sub(patch_block, text)
+    if patched_topics != {"velocity_status", "steering_status"}:
+        raise SystemExit(f"vehicle component topics not found in component_state_monitor config: {path}")
+
+    if patched_text == text:
+        print(f"component topics already patched: {path}")
+        continue
+
+    if dry_run:
+        print(f"would patch component vehicle topic rates: {path}")
+        continue
+
+    if not backup.exists():
+        backup.write_text(text, encoding="utf-8")
+        print(f"component topics backup: {backup}")
+    path.write_text(patched_text, encoding="utf-8")
+    print(f"patched component vehicle topic rates: {path}")
+PY
+
+echo "Component topics patch operation completed."

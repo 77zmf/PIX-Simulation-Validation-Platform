@@ -1,0 +1,87 @@
+asset_id: planning_road_test_failcases_202605
+bundle_id: planning_road_test_failcases_202605
+site_id: roadtest_gy_qyhx_202605
+description: External Mac-local road-test failcase index for May 2026 planning/control scene authoring. Large MCAP, logs, videos, and maps remain outside Git.
+owner: planning-control
+data_root: /Users/cyber/Documents/zmf_test-data
+source:
+  type: external_mac_road_test_failcases
+  path: /Users/cyber/Documents/zmf_test-data
+  status: external_reference_only
+maps:
+  lanelet2:
+    path: unavailable://vector-map-not-extracted-from-82th-package
+  projector:
+    path: unavailable://projector-not-included
+  pointcloud_dir:
+    path: unavailable://pointcloud-not-included
+metadata:
+  mode: external_road_test_index
+  executable_status: replay_probe_ready_blocked_until_public_road_carla_route
+  owner: planning-control
+  tags:
+    - planning_control
+    - road_test
+    - replay
+    - failcase
+    - forced_lane_change
+    - scene_authoring
+git_policy:
+  commit_large_artifacts: false
+  committed_scope: manifest-only
+  reason: Raw MCAP/log/video/map artifacts are large and should be referenced by stable scenario manifests instead of stored in Git.
+reference_videos:
+  - path: /Users/cyber/Desktop/录屏2026-05-11 02.06.17.mov
+    role: user_reference_video_style
+    description: Short Bilibili page recording showing a CARLA multi-lane overtake scene with trajectory/control overlays.
+cases:
+  - case_id: planning_20260508143800_dangerous_forced_lane_change
+    vehicle: 82th
+    event_time_cst: "2026-05-08 14:37:30-14:39:29"
+    symptom: dangerous_forced_lane_change
+    local_evidence_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/82th_20260508_1438_dangerous_forced_lane_change
+    oss_pull: oss-failcase pull 82th planning_20260508143800@dangerous_forced_lane_change
+    event_mcap: event_20260508143730-120.mcap.zst
+    screen_recording: screen_recording_20260508_143750_143930_dangerous_forced_lane_change.mp4
+    overlay_mcap: event_20260508143730-120.with_planning_lane_change_steering_status_viz.mcap
+    map_archive: vector_map_lanelet2_main_20260508.tgz
+    simulation_target: left_forced_lane_change_static_obstacle_virtual_wall_takeover
+    key_observations:
+      - left lane-change reference nonempty 420/1200 from 14:37:30.028 to 14:39:14.428 CST
+      - left lane-change candidate nonempty once at 14:39:01.832 CST
+      - right lane-change candidate and reference are empty in the core window
+      - lane_change_left virtual wall reaches 1.429m with force lane change safety and no safe path text
+      - control mode changes to manual at 14:38:39.768 CST and nearest brake plus teleop takeover is at 14:39:17 CST
+      - path jumps include 157.154m and 58.215m on lane_change_left reference plus 205.943m on static_obstacle_avoidance candidate
+      - validator reports is_valid_trajectory_shift invalid near the end with peak lateral_shift 3.3269m
+    candidate_scenario: scenarios/l2/planning_control_roadtest_forced_lane_change_replay_draft.yaml
+    video_style_surrogate: scenarios/l2/planning_control_overtake_reference_scene.yaml
+    blockers:
+      - exact public-road CARLA route fixture is not available in Git
+      - recorded NPC/obstacle tracks must be extracted before this becomes a formal public-road regression
+      - current Town01 surrogate can verify multi-actor traffic response but not exact 82th road geometry
+  - case_id: planning_20260508111015_dangerous_forced_lane_change
+    vehicle: 82th
+    event_time_cst: "2026-05-08 11:09:45-11:11:14"
+    symptom: dangerous_forced_lane_change
+    local_evidence_root: /Users/cyber/Documents/zmf_test-data/mac_handoff/82th_20260508_1110_dangerous_forced_lane_change
+    oss_pull: oss-failcase pull 82th planning_20260508111015@dangerous_forced_lane_change
+    event_mcap: event_20260508110945-90.mcap.zst
+    screen_recording: screen_recording_20260508_111000_111100_dangerous_forced_lane_change.mp4
+    overlay_mcap: event_20260508110945-90.with_planning_lane_change_steering_status_viz.mcap
+    map_archive: vector_map_lanelet2_main_20260508.tgz
+    simulation_target: left_forced_lane_change_static_obstacle_virtual_wall_takeover
+    key_observations:
+      - left lane-change reference nonempty 432/901 from 11:10:08.506 to 11:10:51.601 CST
+      - left lane-change candidate nonempty 104/901 from 11:10:21.501 to 11:10:48.104 CST
+      - right lane-change candidate and reference are empty in the core window
+      - lane_change_left virtual wall closest distance is 1.645m with force lane change safety and no safe path text
+      - control mode changes to manual at 11:10:15.615 CST and operation mode disables Autoware control at 11:10:15.700 CST
+      - validator reports is_valid_trajectory_shift invalid from 11:10:59.927 to 11:11:02.621 CST with peak lateral_shift 3.35042m
+      - path jumps include 160.722m on static_obstacle_avoidance reference and 34.862m plus 22.906m on lane_change_left candidate/reference
+    candidate_scenario: scenarios/l2/planning_roadtest_selected_failcase_replay_draft.yaml
+    video_style_surrogate: scenarios/l2/planning_control_overtake_reference_scene.yaml
+    blockers:
+      - exact public-road CARLA route fixture is not available in Git
+      - recorded NPC/obstacle tracks must be extracted before this becomes a formal public-road regression
+      - current replay probe summarizes indexed evidence but does not replay raw MCAP payloads

@@ -72,6 +72,25 @@ class ProfileLoaderTests(unittest.TestCase):
         self.assertIn("registered_pointcloud", output.artifacts)
         self.assertIn("lanelet_update", output.artifacts)
 
+    def test_load_fast_lio_slam_pose_prior_adapter(self) -> None:
+        adapter = load_reconstruction_adapter("reconstruction_fast_lio_slam_pose_prior")
+        output = adapter.reconstruct(
+            AdapterContext(
+                run_id="run-1",
+                scenario_id="stable_l2_reconstruction_fast_lio_slam_pose_prior",
+                stack="stable",
+                sensor_profile="reconstruction_capture",
+                algorithm_profile="reconstruction_fast_lio_slam_pose_prior",
+                metadata={"run_dir": "runs/slam-pose-prior"},
+            )
+        )
+        self.assertEqual(output.source, "liorf_rgb_pointcloud_offline_slam")
+        self.assertEqual(output.family, "slam_pose_prior")
+        self.assertIn("slam_trajectory_tum", output.artifacts)
+        self.assertIn("pointcloud_tiles_manifest", output.artifacts)
+        self.assertIn("pose_prior_manifest", output.artifacts)
+        self.assertIn("boundary=not_real_time_control", output.notes)
+
 
 if __name__ == "__main__":
     unittest.main()

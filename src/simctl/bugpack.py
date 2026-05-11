@@ -32,6 +32,12 @@ PLANNING_CONTROL_METRICS = {
     "lateral_shift_m",
     "max_lateral_jerk_mps3",
     "planner_container_crash_count",
+    "kinematic_sanity_passed",
+    "min_ego_z_m",
+    "max_ego_z_m",
+    "max_abs_pitch_deg",
+    "max_abs_roll_deg",
+    "max_speed_mps",
 }
 
 METRIC_OWNERSHIP = {
@@ -57,6 +63,12 @@ METRIC_OWNERSHIP = {
     "lateral_shift_m": ("planning", "planning_validator"),
     "max_lateral_jerk_mps3": ("planning", "control"),
     "planner_container_crash_count": ("planning", "runtime"),
+    "kinematic_sanity_passed": ("closed_loop_vehicle_dynamics", "control"),
+    "min_ego_z_m": ("closed_loop_vehicle_dynamics", "map_or_collision"),
+    "max_ego_z_m": ("closed_loop_vehicle_dynamics", "map_or_collision"),
+    "max_abs_pitch_deg": ("closed_loop_vehicle_dynamics", "control"),
+    "max_abs_roll_deg": ("closed_loop_vehicle_dynamics", "control"),
+    "max_speed_mps": ("control", "planning"),
     "actor_count_observed": ("perception/actor_bridge", "scenario"),
     "sensor_topic_coverage": ("sensor_bridge", "runtime"),
     "sensor_sample_coverage": ("sensor_bridge", "runtime"),
@@ -64,6 +76,9 @@ METRIC_OWNERSHIP = {
     "sumo_actor_count": ("sumo_carla_cosim", "actor_bridge"),
     "autoware_object_stream_seen": ("perception/actor_bridge", "planning"),
 }
+
+KINEMATIC_ROLL_PITCH_WARN_DEG = 12.0
+KINEMATIC_Z_UPPER_WARN_M = 1.5
 
 
 def _slug(value: str) -> str:
@@ -140,12 +155,16 @@ def _has_runtime_service_call_failure(result: dict[str, Any]) -> bool:
     )
 
 
-def _severity(violations: list[dict[str, Any]], status: str) -> str:
+def _severity(violations: list[dict[str, Any]], status: str, result: dict[str, Any]) -> str:
     metrics = {str(item.get("metric")) for item in violations}
     if status == "launch_failed":
         return "P1"
     if "collision_count" in metrics:
         return "P0"
+    if _kinematic_sanity_failed(result):
+        return "P1"
+    if {"kinematic_sanity_passed", "max_abs_roll_deg", "max_abs_pitch_deg"} & metrics:
+        return "P1"
     if {"min_ttc_sec", "yield_response_count", "dynamic_actor_response"} & metrics:
         return "P1"
     if {"route_completion", "route_goal_lateral_error_m"} & metrics:
@@ -162,6 +181,47 @@ def _primary_modules(violations: list[dict[str, Any]]) -> list[str]:
         primary = METRIC_OWNERSHIP.get(metric, ("planning_control",))[0]
         if primary not in modules:
             modules.append(primary)
+    return modules or ["planning_control"]
+
+
+def _float_or_none(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _kpis(result: dict[str, Any]) -> dict[str, Any]:
+    kpis = result.get("kpis")
+    return kpis if isinstance(kpis, dict) else {}
+
+
+def _kinematic_sanity_failed(result: dict[str, Any]) -> bool:
+    kpis = _kpis(result)
+    sanity = _float_or_none(kpis.get("kinematic_sanity_passed"))
+    if sanity is not None and sanity <= 0.0:
+        return True
+    roll = _float_or_none(kpis.get("max_abs_roll_deg"))
+    if roll is not None and roll > KINEMATIC_ROLL_PITCH_WARN_DEG:
+        return True
+    pitch = _float_or_none(kpis.get("max_abs_pitch_deg"))
+    if pitch is not None and pitch > KINEMATIC_ROLL_PITCH_WARN_DEG:
+        return True
+    max_z = _float_or_none(kpis.get("max_ego_z_m"))
+    if max_z is not None and max_z > KINEMATIC_Z_UPPER_WARN_M:
+        return True
+    return False
+
+
+def _suspected_modules(result: dict[str, Any], violations: list[dict[str, Any]]) -> list[str]:
+    modules: list[str] = []
+    if _kinematic_sanity_failed(result):
+        modules.extend(["simulation_fidelity", "closed_loop_vehicle_dynamics", "autoware_carla_bridge", "control"])
+    for module in _primary_modules(violations):
+        if module not in modules:
+            modules.append(module)
     return modules or ["planning_control"]
 
 
@@ -203,9 +263,11 @@ def classify_run_result(result: dict[str, Any], run_result_path: Path) -> dict[s
         classification = "integration_blocker"
     elif not planning_control_scope:
         classification = "out_of_scope"
-    elif not violations:
+    elif not violations and not _kinematic_sanity_failed(result):
         classification = "needs_triage"
     elif any(str(item.get("metric")) in PLANNING_CONTROL_METRICS for item in violations):
+        classification = "planning_control_bug_candidate"
+    elif _kinematic_sanity_failed(result):
         classification = "planning_control_bug_candidate"
     else:
         classification = "integration_blocker"
@@ -222,8 +284,8 @@ def classify_run_result(result: dict[str, Any], run_result_path: Path) -> dict[s
         "runtime_health_passed": runtime_health_passed,
         "planning_control_scope": planning_control_scope,
         "violations": violations,
-        "severity": _severity(violations, status),
-        "suspected_modules": _primary_modules(violations),
+        "severity": _severity(violations, status, result),
+        "suspected_modules": _suspected_modules(result, violations),
         "symptom": _primary_symptom(result, violations),
     }
 
@@ -297,6 +359,28 @@ def _closed_loop_probe_diagnosis_lines(run_result_path: Path) -> list[str]:
         f"total_delta_m=`{summary.get('total_delta_m')}`, "
         f"stopped_before_goal=`{summary.get('stopped_before_goal')}`."
     ]
+    kinematic_values = {
+        "kinematic_sanity_passed": summary.get("kinematic_sanity_passed"),
+        "max_abs_roll_deg": summary.get("max_abs_roll_deg"),
+        "max_abs_pitch_deg": summary.get("max_abs_pitch_deg"),
+        "min_ego_z_m": summary.get("min_ego_z_m"),
+        "max_ego_z_m": summary.get("max_ego_z_m"),
+        "reached_near_goal": summary.get("reached_near_goal"),
+        "min_goal_distance_m": summary.get("min_goal_distance_m"),
+        "lateral_error_m": summary.get("lateral_error_m"),
+        "route_goal_lateral_error_m": summary.get("route_goal_lateral_error_m"),
+        "longitudinal_error_m": summary.get("longitudinal_error_m"),
+        "jerk_mps3": summary.get("jerk_mps3"),
+    }
+    if any(value is not None for value in kinematic_values.values()):
+        lines.append(
+            "- closed-loop kinematic sanity: "
+            + ", ".join(f"{key}=`{value}`" for key, value in kinematic_values.items())
+            + "."
+        )
+    final_pose = summary.get("final_pose") if isinstance(summary.get("final_pose"), dict) else {}
+    if final_pose:
+        lines.append(f"- closed-loop final pose: `{final_pose}`.")
 
     tail_stats = summary.get("ros_telemetry", {}).get("tail_stats", {}) if isinstance(summary, dict) else {}
     if isinstance(tail_stats, dict):
@@ -436,6 +520,25 @@ def _runtime_probe_diagnosis_lines(result: dict[str, Any], run_result_path: Path
     return lines
 
 
+def _simulation_interpretation_lines(result: dict[str, Any], triage: dict[str, Any]) -> list[str]:
+    modules = set(str(module) for module in triage.get("suspected_modules", []))
+    lines = [
+        "- This is a simulation validation finding, not proof of a real-vehicle Autoware planning/control defect.",
+        "- Compare against real-vehicle or bag evidence before filing a production planning/control regression.",
+    ]
+    if "simulation_fidelity" in modules or _kinematic_sanity_failed(result):
+        lines.append(
+            "- Because kinematic sanity or closed-loop vehicle dynamics are implicated, triage CARLA vehicle "
+            "physics, Autoware-CARLA bridge actuation/status mapping, spawn pose, and route/scenario geometry first."
+        )
+    else:
+        lines.append(
+            "- If the same stack passes on the real vehicle, triage simulator fidelity, bridge wiring, map/scenario "
+            "geometry, SUMO/actor traffic coupling, and validation thresholds before assigning an Autoware code bug."
+        )
+    return lines
+
+
 def _reproduction_lines(result: dict[str, Any], run_result_path: Path) -> list[str]:
     scenario_path = str(result.get("scenario_path") or "")
     run_root = str(run_result_path.parent.parent)
@@ -488,6 +591,9 @@ def render_issue_markdown(
     lines.extend(
         [
             "",
+            "## Simulation validation interpretation",
+            *_simulation_interpretation_lines(result, triage),
+            "",
             "## Runtime probe diagnosis",
             *_runtime_probe_diagnosis_lines(result, run_result_path),
             "",
@@ -518,15 +624,18 @@ def render_issue_markdown(
             "## Suspected module / ownership",
             f"- Primary owner: `{owner}`",
             f"- Suspected module(s): `{modules}`",
-            "- This is a test handoff. Do not patch the test harness unless reproduction evidence is wrong.",
+            "- This is a simulation-validation handoff. Do not treat it as a production planning/control "
+            "regression unless real-vehicle or bag evidence reproduces the same behavior.",
             "",
             "## Severity / impact",
             f"- Severity: `{severity}`",
             "- Impact: blocks stable planning/control regression acceptance for this scenario.",
             "",
             "## Recommended next action",
+            "- Compare against real-vehicle or bag evidence first.",
             "- Reproduce with the commands above on the company Ubuntu runtime host.",
-            "- Inspect the listed runtime evidence and KPI violations before changing planning/control code.",
+            "- If the vehicle/bag path passes, inspect simulator fidelity, bridge mapping, vehicle physics, route "
+            "setup, and scenario geometry before changing planning/control code.",
             "- After fixing, rerun the same scenario and close this issue only when the KPI gate passes.",
             "",
         ]

@@ -91,6 +91,37 @@ class SiteProxyReconstructionAdapter(_BasePlaceholderReconstructionAdapter):
         return output
 
 
+class FastLioSlamPosePriorAdapter(_BasePlaceholderReconstructionAdapter):
+    source = "liorf_rgb_pointcloud_offline_slam"
+    family = "slam_pose_prior"
+    stage = "offline_pose_prior"
+
+    def reconstruct(self, context: AdapterContext) -> ReconstructionOutput:
+        output = super().reconstruct(context)
+        run_dir = context.metadata.get("run_dir", "")
+        slam_root = f"{run_dir}/reconstruction/slam" if run_dir else "reconstruction/slam"
+        output.artifacts.update(
+            {
+                "slam_trajectory_tum": f"{slam_root}/liorf_trajectory.tum",
+                "slam_trajectory_csv": f"{slam_root}/liorf_trajectory.csv",
+                "registered_pointcloud": f"{slam_root}/GlobalMap.pcdrgb",
+                "pointcloud_tiles_manifest": f"{slam_root}/pointcloud_tiles_manifest.json",
+                "pose_prior_manifest": f"{slam_root}/pose_prior_manifest.json",
+                "alignment_diagnostics": f"{slam_root}/alignment_diagnostics.json",
+            }
+        )
+        output.notes.extend(
+            [
+                "producer=liorf_robobus_color_ros2",
+                "rgb_cache=color_pointscloud_orin",
+                "focus=offline_rgb_pointcloud_slam_pose_prior",
+                "handoff=map_refresh_static_gaussian_pose_prior",
+                "boundary=not_real_time_control",
+            ]
+        )
+        return output
+
+
 class StaticGaussianReconstructionAdapter(_BasePlaceholderReconstructionAdapter):
     family = "static_gaussians"
     stage = "geometry_base"
@@ -138,6 +169,8 @@ def load_reconstruction_adapter(profile_id: str) -> ReconstructionAdapter:
         return MapRefreshReconstructionAdapter()
     if profile_id == "reconstruction_site_proxy":
         return SiteProxyReconstructionAdapter()
+    if profile_id == "reconstruction_fast_lio_slam_pose_prior":
+        return FastLioSlamPosePriorAdapter()
     if profile_id == "reconstruction_static_public_road_gaussians":
         return StaticGaussianReconstructionAdapter()
     if profile_id == "reconstruction_dynamic_public_road_gaussians":

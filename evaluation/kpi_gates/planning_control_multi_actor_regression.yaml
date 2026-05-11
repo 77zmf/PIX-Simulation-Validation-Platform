@@ -3,6 +3,7 @@ description: Stable-line multi-actor planning-control regression gate for determ
 failure_labels:
   - route_completion_failure
   - collision_failure
+  - planning_control_gate_failure
   - multi_actor_perception_failure
   - actor_bridge_perception_failure
   - robobus_sensor_bridge_failure

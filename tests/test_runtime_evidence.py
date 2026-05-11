@@ -396,6 +396,71 @@ class RuntimeEvidenceTests(unittest.TestCase):
             self.assertEqual(summary["metrics"]["actor_count_observed"], 3.0)
             self.assertEqual(summary["metric_sources"]["dynamic_actor_response"], "runtime_dynamic_probe")
 
+    def test_multi_actor_static_obstacle_surrogate_accepts_multi_actor_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_l2_static_obstacle_surrogate"
+            probe_dir = (
+                run_dir
+                / "runtime_verification"
+                / "l2_multi_actor_cut_in_lead_brake_actor_bridge_20260509T012849"
+            )
+            probe_dir.mkdir(parents=True)
+            (probe_dir / "l2_multi_actor_cut_in_lead_brake_actor_bridge_20260509T012849.json").write_text(
+                json.dumps(
+                    {
+                        "classification": (
+                            "l2_multi_actor_cut_in_lead_brake_with_perception_pipeline:actor_bridge"
+                        ),
+                        "service_calls": [{"step": "set_route_points", "returncode": 0}],
+                        "summary": {
+                            "sample_count": 250,
+                            "moved": False,
+                            "collision_count": 0,
+                            "min_distance_m": 21.6,
+                            "min_ttc_sec": 293.6,
+                            "autoware_reacted": False,
+                            "target_in_lane": True,
+                            "total_delta_m": 0.05,
+                            "actor_count_spawned": 3,
+                            "actor_count_observed": 3,
+                            "object_pipeline_nonempty_duration_ratio": 0.95,
+                            "control_setup_passed": True,
+                            "failure_reasons": ["autoware_no_dynamic_response", "ego_not_moved"],
+                        },
+                        "object_pipeline": {
+                            "perception_source": "actor_bridge",
+                            "dummy_object_injected": False,
+                            "objects_topic_nonempty_after_injection": True,
+                        },
+                        "verdict": {
+                            "overall_passed": False,
+                            "safety_passed": True,
+                            "autoware_dynamic_actor_response_passed": False,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            run_result = {
+                "scenario_params": {
+                    "traffic_profile": {
+                        "mode": "forced_lane_change_static_obstacle_surrogate_actor_bridge",
+                        "vehicles": 3,
+                        "pedestrians": 0,
+                    }
+                }
+            }
+
+            summary = collect_runtime_evidence(run_dir, run_result)
+
+            self.assertEqual(summary["dynamic_probe_attempt_count"], 1)
+            self.assertEqual(summary["ignored_dynamic_probe_attempts"], [])
+            self.assertEqual(summary["metrics"]["route_completion"], 0.0)
+            self.assertEqual(summary["metrics"]["collision_count"], 0.0)
+            self.assertEqual(summary["metrics"]["actor_count_observed"], 3.0)
+            self.assertEqual(summary["metrics"]["dynamic_actor_response"], 0.0)
+            self.assertEqual(summary["metrics"]["yield_response_count"], 0.0)
+
     def test_dynamic_probe_with_adapi_success_false_is_service_call_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             run_dir = Path(tempdir) / "run_l2_merge"
@@ -454,11 +519,19 @@ class RuntimeEvidenceTests(unittest.TestCase):
 
             summary = collect_runtime_evidence(run_dir, run_result)
 
-            self.assertEqual(summary["dynamic_probe_attempt_count"], 0)
-            self.assertEqual(summary["ignored_dynamic_probe_attempts"][0]["reason"], "service_call_failed")
+            self.assertEqual(summary["dynamic_probe_attempt_count"], 1)
+            self.assertEqual(summary["ignored_dynamic_probe_attempts"], [])
+            self.assertEqual(summary["metrics"]["collision_count"], 0.0)
+            self.assertEqual(summary["metrics"]["min_ttc_sec"], 999.0)
+            self.assertEqual(summary["metrics"]["actor_count_observed"], 1.0)
+            self.assertEqual(summary["metrics"]["object_pipeline_nonempty_duration_ratio"], 1.0)
+            self.assertEqual(summary["metrics"]["dynamic_actor_response"], 0.0)
             self.assertEqual(
-                summary["ignored_dynamic_probe_attempts"][0]["invalid_steps"],
+                summary["dynamic_probe_attempts"][0]["invalid_steps"],
                 ["change_to_autonomous"],
+            )
+            self.assertTrue(
+                summary["dynamic_probe_attempts"][0]["retained_runtime_evidence_after_service_failure"]
             )
 
     def test_dynamic_probe_ignores_superseded_service_failures_after_retry_success(self) -> None:

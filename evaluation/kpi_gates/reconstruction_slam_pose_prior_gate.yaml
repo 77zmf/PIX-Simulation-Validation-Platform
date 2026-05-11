@@ -1,0 +1,32 @@
+gate_id: reconstruction_slam_pose_prior_gate
+description: Research gate for FAST-LIO SLAM pose-prior outputs used by reconstruction
+failure_labels:
+  - slam_pose_prior_missing
+  - lidar_imu_sync_failure
+  - map_alignment_failure
+  - reconstruction_handoff_failure
+metrics:
+  slam_trajectory_present:
+    op: ">="
+    value: 1.0
+  slam_map_present:
+    op: ">="
+    value: 1.0
+  lidar_imu_time_sync_error_ms:
+    op: "<="
+    value: 5.0
+  trajectory_continuity_ratio:
+    op: ">="
+    value: 0.98
+  localization_drift_m:
+    op: "<="
+    value: 0.35
+  lanelet_alignment_rmse_m:
+    op: "<="
+    value: 0.25
+  pointcloud_coverage_ratio:
+    op: ">="
+    value: 0.90
+  pose_prior_publish_latency_hr:
+    op: "<="
+    value: 48.0

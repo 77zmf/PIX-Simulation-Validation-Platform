@@ -3,6 +3,7 @@ description: Executable stable-line planning-control regression gate for CARLA a
 failure_labels:
   - route_completion_failure
   - collision_failure
+  - planning_control_gate_failure
   - actor_bridge_perception_failure
   - robobus_sensor_bridge_failure
 metrics:

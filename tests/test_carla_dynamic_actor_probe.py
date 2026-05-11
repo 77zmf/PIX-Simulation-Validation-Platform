@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 import time
 import unittest
@@ -18,6 +19,100 @@ spec.loader.exec_module(carla_dynamic_actor_probe)
 
 
 class CarlaDynamicActorProbeTests(unittest.TestCase):
+    def test_camera_video_close_does_not_drain_pending_frames_by_default(self) -> None:
+        class FakeStdin:
+            def __init__(self) -> None:
+                self.closed = False
+                self.write_calls = 0
+
+            def write(self, _frame: bytes) -> None:
+                self.write_calls += 1
+                raise AssertionError("close should not drain pending frames by default")
+
+            def close(self) -> None:
+                self.closed = True
+
+        class FakeProc:
+            def __init__(self) -> None:
+                self.stdin = FakeStdin()
+                self.wait_calls = 0
+
+            def wait(self, timeout: float | int | None = None) -> int:
+                self.wait_calls += 1
+                self.wait_timeout = timeout
+                return 0
+
+            def terminate(self) -> None:
+                raise AssertionError("terminate should not be called when wait succeeds")
+
+            def kill(self) -> None:
+                raise AssertionError("kill should not be called when wait succeeds")
+
+        recorder = carla_dynamic_actor_probe.CameraVideoRecorder(
+            output_path=Path("/tmp/fake.mp4"),
+            width=1280,
+            height=720,
+            fps=10,
+        )
+        fake_proc = FakeProc()
+        recorder._proc = fake_proc
+        recorder._queue.put_nowait(b"pending-frame")
+
+        recorder.close()
+
+        self.assertTrue(fake_proc.stdin.closed)
+        self.assertEqual(fake_proc.stdin.write_calls, 0)
+        self.assertEqual(fake_proc.wait_calls, 1)
+        self.assertEqual(recorder.frames_written, 0)
+
+    def test_camera_video_close_can_drain_when_explicitly_requested(self) -> None:
+        class FakeStdin:
+            def __init__(self) -> None:
+                self.closed = False
+                self.write_calls = 0
+
+            def write(self, _frame: bytes) -> None:
+                self.write_calls += 1
+
+            def close(self) -> None:
+                self.closed = True
+
+        class FakeProc:
+            def __init__(self) -> None:
+                self.stdin = FakeStdin()
+
+            def wait(self, timeout: float | int | None = None) -> int:
+                return 0
+
+            def terminate(self) -> None:
+                raise AssertionError("terminate should not be called when wait succeeds")
+
+            def kill(self) -> None:
+                raise AssertionError("kill should not be called when wait succeeds")
+
+        old_value = os.environ.get("PIX_CARLA_VIDEO_DRAIN_ON_CLOSE")
+        recorder = carla_dynamic_actor_probe.CameraVideoRecorder(
+            output_path=Path("/tmp/fake.mp4"),
+            width=1280,
+            height=720,
+            fps=10,
+        )
+        fake_proc = FakeProc()
+        recorder._proc = fake_proc
+        recorder._queue.put_nowait(b"pending-frame")
+        try:
+            os.environ["PIX_CARLA_VIDEO_DRAIN_ON_CLOSE"] = "1"
+            recorder.close()
+        finally:
+            if old_value is None:
+                os.environ.pop("PIX_CARLA_VIDEO_DRAIN_ON_CLOSE", None)
+            else:
+                os.environ["PIX_CARLA_VIDEO_DRAIN_ON_CLOSE"] = old_value
+
+        self.assertTrue(fake_proc.stdin.closed)
+        self.assertEqual(fake_proc.stdin.write_calls, 1)
+        self.assertEqual(recorder.frames_written, 1)
+
     def test_overview_spectator_centers_ego_and_targets(self) -> None:
         params = carla_dynamic_actor_probe.spectator_transform_params(
             "overview",
@@ -99,6 +194,21 @@ class CarlaDynamicActorProbeTests(unittest.TestCase):
         self.assertEqual(visible[0].name, "crosswalk_pedestrian")
         self.assertEqual(config.min_actor_observed_count, 1)
         self.assertEqual(config.safe_ttc_sec, 1.8)
+
+    def test_l2_overtake_reference_uses_multi_lane_vehicle_layout(self) -> None:
+        config = carla_dynamic_actor_probe.PROBES["l2_overtake_reference"]
+        names = {actor.name for actor in config.actors}
+        lane_offsets = {actor.start["y"] for actor in config.actors}
+
+        self.assertEqual(config.classification, "l2_overtake_reference_multi_lane_with_perception_pipeline")
+        self.assertGreaterEqual(len(config.actors), 4)
+        self.assertEqual(config.min_actor_observed_count, 3)
+        self.assertIn("slow_lead_vehicle", names)
+        self.assertIn("left_lane_overtake_target", names)
+        self.assertIn("right_lane_background_vehicle", names)
+        self.assertTrue(any(abs(y - carla_dynamic_actor_probe.START_CARLA["y"]) < 0.7 for y in lane_offsets))
+        self.assertTrue(any(y < carla_dynamic_actor_probe.START_CARLA["y"] - 3.0 for y in lane_offsets))
+        self.assertTrue(any(y > carla_dynamic_actor_probe.START_CARLA["y"] + 3.0 for y in lane_offsets))
 
     def test_run_cmd_with_retries_retries_timeout_then_success(self) -> None:
         calls: list[dict[str, object]] = []

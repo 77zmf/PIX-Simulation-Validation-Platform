@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import tempfile
 import textwrap
@@ -47,10 +48,14 @@ UPSTREAM_CARLA_ROS = textwrap.dedent(
             self.current_control = out_cmd
 
         def ego_status(self):
+            out_vel_state = VelocityReport()
             out_steering_state = SteeringReport()
+            out_actuation_status = ActuationStatusStamped()
+            out_vel_state.header = self.get_msg_header(frame_id="base_link")
             out_steering_state.steering_tire_angle = -math.radians(
                 self.ego_actor.get_wheel_steer_angle(carla.VehicleWheelLocation.FL_Wheel)
             )
+            out_actuation_status.header = self.get_msg_header(frame_id="base_link")
     """
 ).lstrip()
 
@@ -106,9 +111,13 @@ LEGACY_PATCHED_CARLA_ROS = textwrap.dedent(
             self.current_control = out_cmd
 
         def ego_status(self):
+            out_vel_state = VelocityReport()
             out_steering_state = SteeringReport()
+            out_actuation_status = ActuationStatusStamped()
+            out_vel_state.header = self.get_msg_header(frame_id="base_link")
             # PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH: existing legacy marker.
             out_steering_state.steering_tire_angle = 0.0
+            out_actuation_status.header = self.get_msg_header(frame_id="base_link")
     """
 ).lstrip()
 
@@ -176,8 +185,54 @@ UPSTREAM_CARLA_UTILS = textwrap.dedent(
     """
 ).lstrip()
 
+UPSTREAM_COMPONENT_TOPICS = textwrap.dedent(
+    """
+    - module: vehicle
+      mode: [online, logging_simulation, planning_simulation]
+      type: autonomous
+      args:
+        node_name_suffix: vehicle_status_velocity_status
+        topic: /vehicle/status/velocity_status
+        topic_type: autoware_vehicle_msgs/msg/VelocityReport
+        best_effort: false
+        transient_local: false
+        warn_rate: 5.0
+        error_rate: 1.0
+        timeout: 1.0
+
+    - module: vehicle
+      mode: [online, logging_simulation, planning_simulation]
+      type: autonomous
+      args:
+        node_name_suffix: vehicle_status_steering_status
+        topic: /vehicle/status/steering_status
+        topic_type: autoware_vehicle_msgs/msg/SteeringReport
+        best_effort: false
+        transient_local: false
+        warn_rate: 5.0
+        error_rate: 1.0
+        timeout: 1.0
+    """
+).lstrip()
+
 
 class PixCarlaInterfacePatchTests(unittest.TestCase):
+    def _write_private_component_topics(self, root: Path) -> Path:
+        private_component_topics = (
+            root
+            / "install"
+            / "autoware_launch"
+            / "share"
+            / "autoware_launch"
+            / "config"
+            / "system"
+            / "component_state_monitor"
+            / "topics.yaml"
+        )
+        private_component_topics.parent.mkdir(parents=True)
+        private_component_topics.write_text(UPSTREAM_COMPONENT_TOPICS, encoding="utf-8")
+        return private_component_topics
+
     def _write_workspace(self, root: Path) -> tuple[Path, Path]:
         source = (
             root
@@ -197,10 +252,34 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
         build_wrapper = build.parent / "modules" / "carla_wrapper.py"
         source_utils = source.parent / "modules" / "carla_utils.py"
         build_utils = build.parent / "modules" / "carla_utils.py"
+        source_component_topics = (
+            root
+            / "src"
+            / "launcher"
+            / "autoware_launch"
+            / "autoware_launch"
+            / "config"
+            / "system"
+            / "component_state_monitor"
+            / "topics.yaml"
+        )
+        install_component_topics = (
+            root
+            / "install"
+            / "autoware_launch"
+            / "share"
+            / "autoware_launch"
+            / "config"
+            / "system"
+            / "component_state_monitor"
+            / "topics.yaml"
+        )
         source.parent.mkdir(parents=True)
         build.parent.mkdir(parents=True)
         source_wrapper.parent.mkdir(parents=True)
         build_wrapper.parent.mkdir(parents=True)
+        source_component_topics.parent.mkdir(parents=True)
+        install_component_topics.parent.mkdir(parents=True)
         source.write_text(UPSTREAM_CARLA_ROS, encoding="utf-8")
         build.write_text(UPSTREAM_CARLA_ROS, encoding="utf-8")
         source_bridge_loop.write_text(UPSTREAM_CARLA_AUTOWARE, encoding="utf-8")
@@ -209,11 +288,17 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
         build_wrapper.write_text(UPSTREAM_CARLA_WRAPPER, encoding="utf-8")
         source_utils.write_text(UPSTREAM_CARLA_UTILS, encoding="utf-8")
         build_utils.write_text(UPSTREAM_CARLA_UTILS, encoding="utf-8")
+        source_component_topics.write_text(UPSTREAM_COMPONENT_TOPICS, encoding="utf-8")
+        install_component_topics.write_text(UPSTREAM_COMPONENT_TOPICS, encoding="utf-8")
         return source, build
 
     def test_patch_applies_pix_throttle_brake_and_steer_mapping(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             source, build = self._write_workspace(Path(tmp))
+            private_ws = Path(tmp) / "private_autoware"
+            private_component_topics = self._write_private_component_topics(private_ws)
+            env = os.environ.copy()
+            env["PRIVATE_AUTOWARE_WS"] = str(private_ws)
 
             proc = subprocess.run(
                 ["bash", str(SCRIPT), "--autoware-ws", tmp],
@@ -221,6 +306,7 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                env=env,
             )
 
             self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -229,6 +315,9 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
                 self.assertIn("PIX_CARLA_STEER_HOLD_PATCH", payload)
                 self.assertIn("PIX_CARLA_ACTUATION_MAP_PATCH", payload)
                 self.assertIn("PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH", payload)
+                self.assertIn("PIX_CARLA_STATUS_ROS_TIME_PATCH", payload)
+                self.assertIn("PIX_CARLA_STATUS_USE_ROS_TIME", payload)
+                self.assertIn("self.ros2_node.get_clock().now().to_msg()", payload)
                 self.assertIn("PIX_CARLA_THROTTLE_GAIN", payload)
                 self.assertIn("PIX_CARLA_BRAKE_DEADBAND", payload)
                 self.assertIn("PIX_CARLA_SPEED_GUARD_MAX_MPS", payload)
@@ -265,6 +354,36 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
                 self.assertIn("ego_action = self.ego_actor.get_control()", bridge_payload)
                 self.assertIn("import os", bridge_payload)
                 self.assertTrue(Path(str(bridge_loop) + ".pix_sensor_timeout_tolerance.bak").exists())
+            for component_topics in (
+                Path(tmp)
+                / "src"
+                / "launcher"
+                / "autoware_launch"
+                / "autoware_launch"
+                / "config"
+                / "system"
+                / "component_state_monitor"
+                / "topics.yaml",
+                Path(tmp)
+                / "install"
+                / "autoware_launch"
+                / "share"
+                / "autoware_launch"
+                / "config"
+                / "system"
+                / "component_state_monitor"
+                / "topics.yaml",
+            ):
+                payload = component_topics.read_text(encoding="utf-8")
+                self.assertEqual(payload.count("warn_rate: 0.0"), 2)
+                self.assertEqual(payload.count("error_rate: 0.0"), 2)
+                self.assertEqual(payload.count("timeout: 5.0"), 2)
+                self.assertTrue(Path(str(component_topics) + ".pix_vehicle_topic_rate.bak").exists())
+            private_payload = private_component_topics.read_text(encoding="utf-8")
+            self.assertEqual(private_payload.count("warn_rate: 0.0"), 2)
+            self.assertEqual(private_payload.count("error_rate: 0.0"), 2)
+            self.assertEqual(private_payload.count("timeout: 5.0"), 2)
+            self.assertTrue(Path(str(private_component_topics) + ".pix_vehicle_topic_rate.bak").exists())
 
     def test_patch_upgrades_legacy_actuation_patch_with_speed_guard(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -286,6 +405,7 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
                 payload = target.read_text(encoding="utf-8")
                 self.assertIn("PIX_CARLA_SPEED_GUARD_MAX_MPS", payload)
                 self.assertIn("overspeed_mps", payload)
+                self.assertIn("PIX_CARLA_STATUS_ROS_TIME_PATCH", payload)
 
             second = subprocess.run(
                 ["bash", str(SCRIPT), "--autoware-ws", tmp],
@@ -314,6 +434,18 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr)
             self.assertEqual(source.read_text(encoding="utf-8"), UPSTREAM_CARLA_ROS)
             self.assertEqual(build.read_text(encoding="utf-8"), UPSTREAM_CARLA_ROS)
+            component_topics = (
+                Path(tmp)
+                / "src"
+                / "launcher"
+                / "autoware_launch"
+                / "autoware_launch"
+                / "config"
+                / "system"
+                / "component_state_monitor"
+                / "topics.yaml"
+            )
+            self.assertEqual(component_topics.read_text(encoding="utf-8"), UPSTREAM_COMPONENT_TOPICS)
 
 
 if __name__ == "__main__":

@@ -58,6 +58,14 @@ PROFILE_FILTERS = {
         "lateral_shift",
         "slowdown_failure",
     ),
+    "forced_lane_change": (
+        "dangerous_forced_lane_change",
+        "forced_lane_change",
+        "force lane change safety",
+        "no safe path",
+        "lane_change_left",
+        "lane-change left",
+    ),
 }
 
 TEXT_FILE_NAMES = ("*report*.md", "rd_handoff.md", "manifest.txt")
@@ -208,6 +216,11 @@ def _sum_or_zero(values: Iterable[float]) -> float:
     return float(sum(values))
 
 
+def _min_or_zero(values: Iterable[float]) -> float:
+    filtered = list(values)
+    return min(filtered) if filtered else 0.0
+
+
 def _regex_numbers(text: str, patterns: Iterable[str]) -> list[float]:
     numbers: list[float] = []
     for pattern in patterns:
@@ -310,7 +323,11 @@ def _case_emergency_count(evidence: CaseEvidence) -> float:
 
 
 def _case_brake_takeover_count(evidence: CaseEvidence) -> float:
-    return 1.0 if _contains_any(evidence.combined_text, ("brake takeover", "brake plus teleop takeover")) else 0.0
+    return 1.0 if _contains_any(evidence.combined_text, ("brake_takeover", "brake takeover", "brake plus teleop takeover")) else 0.0
+
+
+def _case_teleop_takeover_count(evidence: CaseEvidence) -> float:
+    return 1.0 if _contains_any(evidence.combined_text, ("teleop_takeover", "teleop takeover")) else 0.0
 
 
 def _case_lateral_shift(evidence: CaseEvidence) -> float:
@@ -349,6 +366,111 @@ def _case_lateral_jerk(evidence: CaseEvidence) -> float:
     return _max_or_zero(values)
 
 
+def _path_count_values(evidence: CaseEvidence, topic: str, leaf_name: str) -> list[float]:
+    values: list[float] = []
+    for _, payload in evidence.json_payloads:
+        for section_name in ("lane_change", "path_counts"):
+            section = payload.get(section_name)
+            if not isinstance(section, dict):
+                continue
+            topic_payload = section.get(topic)
+            if not isinstance(topic_payload, dict):
+                continue
+            value = _as_float(topic_payload.get(leaf_name))
+            if value is not None:
+                values.append(value)
+    return values
+
+
+def _case_lane_change_left_reference_count(evidence: CaseEvidence) -> float:
+    return _max_or_zero(
+        _path_count_values(evidence, "/planning/path_reference/lane_change_left", "nonempty")
+    )
+
+
+def _case_lane_change_left_candidate_count(evidence: CaseEvidence) -> float:
+    return _max_or_zero(
+        _path_count_values(evidence, "/planning/path_candidate/lane_change_left", "nonempty")
+    )
+
+
+def _case_lane_change_right_reference_count(evidence: CaseEvidence) -> float:
+    return _max_or_zero(
+        _path_count_values(evidence, "/planning/path_reference/lane_change_right", "nonempty")
+    )
+
+
+def _case_lane_change_left_virtual_wall_min_distance(evidence: CaseEvidence) -> float:
+    values: list[float] = []
+    topic = "/planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/virtual_wall/lane_change_left"
+    for _, payload in evidence.json_payloads:
+        virtual_walls = payload.get("virtual_walls")
+        if not isinstance(virtual_walls, dict):
+            continue
+        wall_payload = virtual_walls.get(topic)
+        if not isinstance(wall_payload, dict):
+            continue
+        value = _as_float(wall_payload.get("min_distance_m"))
+        if value is not None:
+            values.append(value)
+    text_values = _regex_numbers(
+        evidence.combined_text,
+        (
+            r"\blane-change virtual wall[^.\n]{0,120}?\b(\d+(?:\.\d+)?)\s*m\b",
+            r"\blane_change_left[^.\n]{0,120}?\bmin_distance\s*`?(\d+(?:\.\d+)?)\b",
+            r"\bClosest distance to vehicle pose:\s*`?(\d+(?:\.\d+)?)\s*m\b",
+        ),
+    )
+    values.extend(text_values)
+    return _min_or_zero(values)
+
+
+def _case_lane_change_no_safe_path_wall_count(evidence: CaseEvidence) -> float:
+    count = 0.0
+    topic = "/planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner/virtual_wall/lane_change_left"
+    for _, payload in evidence.json_payloads:
+        virtual_walls = payload.get("virtual_walls")
+        if not isinstance(virtual_walls, dict):
+            continue
+        wall_payload = virtual_walls.get(topic)
+        if not isinstance(wall_payload, dict):
+            continue
+        texts = wall_payload.get("texts")
+        if not isinstance(texts, dict):
+            continue
+        for text, raw_value in texts.items():
+            if "no safe path" in str(text).lower():
+                count += _as_float(raw_value) or 1.0
+    if count:
+        return count
+    return 1.0 if _contains_any(evidence.combined_text, ("no safe path",)) else 0.0
+
+
+def _case_manual_takeover_count(evidence: CaseEvidence) -> float:
+    values: list[float] = []
+    for _, payload in evidence.json_payloads:
+        state = payload.get("state")
+        if not isinstance(state, dict):
+            continue
+        control_modes = state.get("control_modes")
+        if isinstance(control_modes, list):
+            values.append(float(sum(1 for item in control_modes if isinstance(item, dict) and item.get("mode") == 4)))
+        operation_modes = state.get("operation_modes")
+        if isinstance(operation_modes, list):
+            values.append(
+                float(
+                    sum(
+                        1
+                        for item in operation_modes
+                        if isinstance(item, dict) and item.get("is_autoware_control_enabled") is False
+                    )
+                )
+            )
+    if values:
+        return _max_or_zero(values)
+    return 1.0 if _contains_any(evidence.combined_text, ("control mode changes", "manual mode", "is_autoware_control_enabled=false")) else 0.0
+
+
 def _case_metrics(case: dict[str, Any], evidence: CaseEvidence) -> dict[str, float]:
     return {
         "planning_validator_invalid_count": _case_invalid_count(evidence),
@@ -360,6 +482,13 @@ def _case_metrics(case: dict[str, Any], evidence: CaseEvidence) -> dict[str, flo
         "lateral_shift_m": _case_lateral_shift(evidence),
         "max_lateral_jerk_mps3": _case_lateral_jerk(evidence),
         "planner_container_crash_count": _case_planner_crash_count(evidence),
+        "lane_change_left_reference_nonempty_count": _case_lane_change_left_reference_count(evidence),
+        "lane_change_left_candidate_nonempty_count": _case_lane_change_left_candidate_count(evidence),
+        "lane_change_right_reference_nonempty_count": _case_lane_change_right_reference_count(evidence),
+        "lane_change_left_virtual_wall_min_distance_m": _case_lane_change_left_virtual_wall_min_distance(evidence),
+        "lane_change_no_safe_path_wall_count": _case_lane_change_no_safe_path_wall_count(evidence),
+        "manual_takeover_count": _case_manual_takeover_count(evidence),
+        "teleop_takeover_count": _case_teleop_takeover_count(evidence),
     }
 
 
@@ -377,6 +506,25 @@ def _aggregate_metrics(per_case: list[dict[str, Any]]) -> dict[str, float]:
         "lateral_shift_m": _max_or_zero(metrics["lateral_shift_m"] for metrics in case_metrics),
         "max_lateral_jerk_mps3": _max_or_zero(metrics["max_lateral_jerk_mps3"] for metrics in case_metrics),
         "planner_container_crash_count": _sum_or_zero(metrics["planner_container_crash_count"] for metrics in case_metrics),
+        "lane_change_left_reference_nonempty_count": _sum_or_zero(
+            metrics["lane_change_left_reference_nonempty_count"] for metrics in case_metrics
+        ),
+        "lane_change_left_candidate_nonempty_count": _sum_or_zero(
+            metrics["lane_change_left_candidate_nonempty_count"] for metrics in case_metrics
+        ),
+        "lane_change_right_reference_nonempty_count": _sum_or_zero(
+            metrics["lane_change_right_reference_nonempty_count"] for metrics in case_metrics
+        ),
+        "lane_change_left_virtual_wall_min_distance_m": _min_or_zero(
+            metrics["lane_change_left_virtual_wall_min_distance_m"]
+            for metrics in case_metrics
+            if metrics["lane_change_left_virtual_wall_min_distance_m"] > 0.0
+        ),
+        "lane_change_no_safe_path_wall_count": _sum_or_zero(
+            metrics["lane_change_no_safe_path_wall_count"] for metrics in case_metrics
+        ),
+        "manual_takeover_count": _sum_or_zero(metrics["manual_takeover_count"] for metrics in case_metrics),
+        "teleop_takeover_count": _sum_or_zero(metrics["teleop_takeover_count"] for metrics in case_metrics),
         "roadtest_replay_case_count": float(len(case_metrics)),
     }
 
@@ -413,6 +561,13 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     metrics = _aggregate_metrics(per_case) if per_case else {
         **{name: 0.0 for name in GATE_MAX_THRESHOLDS},
         "planner_container_crash_count": 0.0,
+        "lane_change_left_reference_nonempty_count": 0.0,
+        "lane_change_left_candidate_nonempty_count": 0.0,
+        "lane_change_right_reference_nonempty_count": 0.0,
+        "lane_change_left_virtual_wall_min_distance_m": 0.0,
+        "lane_change_no_safe_path_wall_count": 0.0,
+        "manual_takeover_count": 0.0,
+        "teleop_takeover_count": 0.0,
         "roadtest_replay_case_count": 0.0,
     }
     failed = _failed_thresholds(metrics)

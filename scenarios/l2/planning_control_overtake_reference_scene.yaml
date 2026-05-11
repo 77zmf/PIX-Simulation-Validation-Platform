@@ -1,0 +1,135 @@
+scenario_id: stable_l2_planning_control_overtake_reference_scene
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 229.78167724609375
+    y: -2.0201120376586914
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 314.2434997558594
+    y: -1.982629656791687
+    z: 0.0
+    yaw_deg: -0.03045654296875
+traffic_profile:
+  mode: video_style_overtake_reference_actor_bridge
+  vehicles: 4
+  pedestrians: 0
+  scripted_agents:
+    - slow_lead_vehicle
+    - left_lane_overtake_target
+    - right_lane_background_vehicle
+    - far_lead_vehicle
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260511
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/planning_control_overtake_reference_scene
+  carla_recorder:
+    enabled: true
+    path: carla/planning_control_overtake_reference_scene.log
+kpi_gate: planning_control_multi_actor_regression
+labels:
+  - L2
+  - stable
+  - planning_control
+  - video_style_scene
+  - overtake
+  - forced_lane_change
+  - multi_actor
+  - actor_bridge
+metadata:
+  owner: planning-control
+  scene_objective: Video-style CARLA multi-lane overtake pressure scene based on the user reference recording and the 82th dangerous forced lane-change evidence.
+  source_assets:
+    - /Users/cyber/Desktop/录屏2026-05-11 02.06.17.mov
+    - assets/manifests/planning_road_test_failcases_202605.yaml
+    - scenarios/l2/planning_control_roadtest_forced_lane_change_replay_draft.yaml
+    - ops/runtime_probes/carla_dynamic_actor_probe.py
+    - ops/runtime_probes/carla_sensor_topic_probe.py
+    - stack/stable/carla_actor_object_bridge.py
+  validation_method: Run the stable stack with CARLA actor object bridge enabled, spawn a four-vehicle multi-lane overtake-pressure scene, capture overview video evidence, and gate on sensor samples, object stream, dynamic response, collision, and TTC.
+  validation_command: >
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th
+    --continue-on-failure
+    &&
+    python3 ops/runtime_probes/carla_dynamic_actor_probe.py
+    --run-dir <run_dir>
+    --kind l2_overtake_reference
+    --perception-source actor_bridge
+    --spectator-mode ego_chase
+    --camera-video-output <run_dir>/runtime_verification/planning_control_overtake_reference_scene.mp4
+    --camera-video-mode ego_chase
+    --reaction-speed-ratio 0.85
+    --no-rosbag
+  expected_observable: The recorded CARLA video should show ego, a slow lead vehicle, adjacent-lane vehicles, and a far lead vehicle in the same frame; Autoware object stream should observe at least three NPC actors and produce a speed/yield response without collision or unsafe TTC.
+  visual_style_contract:
+    camera: ego chase view, similar to the reference video
+    required_elements:
+      - ego robobus visible
+      - multiple NPC cars visible in adjacent lanes
+      - forward route motion visible
+      - Autoware object stream nonempty
+      - generated mp4 saved under runtime_verification
+  limitation: Town01 straight-road surrogate; it is executable on the stable host but does not yet reproduce the exact public-road lane geometry from the 82th case.
+  promotion_path:
+    - extract public-road route and actor tracks from the 82th MCAP package
+    - convert route section into a CARLA/OpenDRIVE or validated site-proxy fixture
+    - reuse this same validation_command pattern with the public-road asset bundle
+  rollback_impact: Remove this scenario from campaigns; existing follow-lane, merge, SUMO, and road-test replay scenarios remain unchanged.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    autoware_rviz_config: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/autoware_launch/share/autoware_launch/rviz/planning_bev.rviz
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_spawn_point: "229.7817,2.0201,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    carla_actor_object_bridge_enabled: "true"
+    carla_actor_object_bridge_poll_sec: "0.2"
+    carla_actor_object_bridge_include_walkers: "false"
+    carla_actor_object_bridge_delete_all_on_start: "true"
+    carla_actor_object_bridge_delete_all_on_stop: "true"
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/lidar/rear_top/pointcloud_before_sync
+      - /sensing/lidar/rear/pointcloud_before_sync
+      - /sensing/lidar/left/pointcloud_before_sync
+      - /sensing/lidar/right/pointcloud_before_sync
+      - /sensing/imu/tamagawa/imu_raw
+      - /sensing/gnss/pose_with_covariance
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info
+      - /localization/kinematic_state
+      - /localization/acceleration
+      - /vehicle/status/control_mode
+      - /vehicle/status/velocity_status
+      - /perception/object_recognition/objects

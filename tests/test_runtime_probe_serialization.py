@@ -38,6 +38,10 @@ perception_readiness_probe = _load_probe(
     "perception_readiness_probe",
     "ops/runtime_probes/perception_readiness_probe.py",
 )
+bevfusion_public_road_metrics_probe = _load_probe(
+    "bevfusion_public_road_metrics_probe",
+    "ops/runtime_probes/bevfusion_public_road_metrics_probe.py",
+)
 lidar_calibration_metric_probe = _load_probe(
     "lidar_calibration_metric_probe",
     "ops/runtime_probes/lidar_calibration_metric_probe.py",
@@ -554,6 +558,24 @@ class RuntimeProbeSerializationTests(unittest.TestCase):
         snapshot = setup_checks[0]["blocker_snapshot"]
         self.assertEqual(snapshot["topics"]["fail_safe_mrm_state"]["output_tail"], "state: emergency")
 
+    def test_closed_loop_route_operation_mode_blocker_snapshot_includes_component_states(self) -> None:
+        topic_by_key = {
+            key: topic for key, topic, _field in carla_closed_loop_route_probe.OPERATION_MODE_BLOCKER_TOPIC_SPECS
+        }
+
+        self.assertEqual(
+            topic_by_key["component_autonomous_planning"],
+            "/system/component_state_monitor/component/autonomous/planning",
+        )
+        self.assertEqual(
+            topic_by_key["component_autonomous_control"],
+            "/system/component_state_monitor/component/autonomous/control",
+        )
+        self.assertEqual(
+            topic_by_key["component_launch_vehicle"],
+            "/system/component_state_monitor/component/launch/vehicle",
+        )
+
     def test_closed_loop_route_waits_for_localization_and_trajectory_before_autonomous(self) -> None:
         recorded_steps: list[str] = []
         calls: list[dict[str, object]] = []
@@ -679,6 +701,41 @@ class RuntimeProbeSerializationTests(unittest.TestCase):
     def test_perception_tail_normalizes_timeout_bytes(self) -> None:
         self.assertEqual(perception_readiness_probe._tail(None), "")
         self.assertEqual(perception_readiness_probe._tail(b"abc", limit=2), "bc")
+
+    def test_perception_readiness_requires_bevfusion_specific_objects(self) -> None:
+        specs = perception_readiness_probe.PROFILES["bevfusion_public_road"]
+        by_topic = {spec.topic: spec for spec in specs}
+
+        bevfusion_objects = by_topic["/perception/object_recognition/detection/bevfusion/objects"]
+        self.assertEqual(bevfusion_objects.group, "bevfusion")
+        self.assertTrue(bevfusion_objects.required)
+        self.assertTrue(bevfusion_objects.sample_required)
+        self.assertTrue(by_topic["/perception/object_recognition/objects"].required)
+
+    def test_bevfusion_metrics_probe_fail_closes_missing_quality_source(self) -> None:
+        import argparse
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            args = argparse.Namespace(
+                run_dir=tempdir,
+                profile="bevfusion_public_road",
+                source_metrics=None,
+                output=bevfusion_public_road_metrics_probe.DEFAULT_OUTPUT,
+                fail_closed_if_missing=True,
+            )
+
+            payload, rc = bevfusion_public_road_metrics_probe.build_payload(args)
+            output = bevfusion_public_road_metrics_probe.write_payload(payload)
+
+            self.assertEqual(rc, 0)
+            self.assertTrue(output.exists())
+            self.assertTrue(payload["complete"])
+            self.assertFalse(payload["quality_ready"])
+            self.assertTrue(payload["fail_closed"])
+            self.assertEqual(payload["metrics"]["detection_recall"], 0.0)
+            self.assertEqual(payload["metrics"]["latency_ms"], 999.0)
+            self.assertIn("bevfusion_quality_metrics_not_ready", payload["blockers"])
 
     def test_lidar_calibration_probe_extracts_numeric_metrics(self) -> None:
         import argparse

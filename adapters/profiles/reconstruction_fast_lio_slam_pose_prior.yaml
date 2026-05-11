@@ -1,0 +1,71 @@
+profile_id: reconstruction_fast_lio_slam_pose_prior
+type: reconstruction
+description: Offline LIO-RF RGB pointcloud SLAM pose-prior producer for public-road reconstruction
+baseline: reconstruction_public_road_map_refresh
+research_focus:
+  - lidar_imu_odometry
+  - motion_undistorted_pointcloud
+  - pose_prior_for_static_gaussian
+  - lanelet_pointcloud_alignment
+inputs:
+  raw_capture: synchronized_rosbag2_with_lidar_imu_tf
+  sensor_profile: reconstruction_capture
+  rgb_pointcloud_cache:
+    implementation: color_pointscloud
+    repository: https://github.com/pixmoving-auto/color_pointscloud
+    branch: orin
+    role: orin_or_ipc_rgb_pointcloud_cache_to_ros2bag
+  slam_producer:
+    implementation: liorf
+    repository: https://github.com/pixmoving-auto/liorf
+    branch: robobus_color_ros2
+    local_checkout: external/liorf
+    package: liorf
+    launch: run_robobus_mapping.launch.py
+    output_map: GlobalMap.pcdrgb
+    config: config/lio_sam_robobus_ros2.yaml
+    role: offline_reconstruction_producer
+  required_topics:
+    lidar:
+      - /sensing/lidar/front_top/points
+      - /sensing/lidar/rear_top/points
+    imu:
+      - /sensing/imu/imu_data
+    pose_reference:
+      - /sensing/gnss/fix
+    rgb_camera:
+      - /electronic_rearview_mirror/front_3mm/camera_image_jpeg
+      - /electronic_rearview_mirror/rear_3mm/camera_image_jpeg
+    camera_info:
+      - /sensing/camera/front_3mm/camera_info
+      - /sensing/camera/rear_3mm/camera_info
+  calibration:
+    front_lidar_to_base_link: required_from_ros2_tf
+    rear_lidar_to_base_link: required_from_ros2_tf
+    lidar_imu_extrinsic: required_in_mapping_config
+    lidar_time_field: required
+    time_sync_policy: hardware_sync_preferred
+outputs:
+  slam_trajectory_tum: reconstruction/slam/liorf_trajectory.tum
+  slam_trajectory_csv: reconstruction/slam/liorf_trajectory.csv
+  registered_pointcloud: reconstruction/slam/GlobalMap.pcdrgb
+  pointcloud_tiles_manifest: reconstruction/slam/pointcloud_tiles_manifest.json
+  pose_prior_manifest: reconstruction/slam/pose_prior_manifest.json
+  alignment_diagnostics: reconstruction/slam/alignment_diagnostics.json
+  downstream_consumers:
+    - reconstruction_public_road_map_refresh
+    - reconstruction_static_public_road_gaussians
+    - reconstruction_dynamic_public_road_gaussians
+diagnostics:
+  - slam_trajectory_present
+  - slam_map_present
+  - lidar_imu_time_sync_error_ms
+  - trajectory_continuity_ratio
+  - localization_drift_m
+  - lanelet_alignment_rmse_m
+  - pointcloud_coverage_ratio
+boundaries:
+  execution_phase: offline_producer
+  stable_runtime_control_loop: excluded
+  carla0915_import_form: mesh_open_drive_collision_proxy
+acceptance_gate: reconstruction_slam_pose_prior_gate

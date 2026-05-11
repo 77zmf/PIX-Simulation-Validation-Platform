@@ -180,6 +180,87 @@ class PlanningRoadtestReplayProbeTests(unittest.TestCase):
         self.assertEqual(brake_payload["metrics"]["brake_takeover_count"], 1.0)
         self.assertFalse(brake_payload["overall_passed"])
 
+    def test_forced_lane_change_profile_extracts_scene_authoring_metrics(self) -> None:
+        probe = _load_probe()
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            forced_case = root / "forced_lane_change_case"
+            forced_case.mkdir()
+            lane_change_left_wall = (
+                "/planning/scenario_planning/lane_driving/behavior_planning/"
+                "behavior_path_planner/virtual_wall/lane_change_left"
+            )
+            (forced_case / "analysis_summary.json").write_text(
+                json.dumps(
+                    {
+                        "lane_change": {
+                            "/planning/path_reference/lane_change_left": {"nonempty": 420},
+                            "/planning/path_candidate/lane_change_left": {"nonempty": 1},
+                            "/planning/path_reference/lane_change_right": {"nonempty": 0},
+                        },
+                        "virtual_walls": {
+                            lane_change_left_wall: {
+                                "min_distance_m": 1.429,
+                                "texts": {
+                                    "lane_change_left \n(force lane change safety)": 147,
+                                    "lane_change_left \n(no safe path)": 1,
+                                },
+                            }
+                        },
+                        "state": {
+                            "control_modes": [{"mode": 1}, {"mode": 4}],
+                            "operation_modes": [{"is_autoware_control_enabled": False}],
+                        },
+                        "trajectory_jumps_top": [
+                            {"topic": "/planning/path_reference/lane_change_left", "jump_m": 157.154}
+                        ],
+                        "validator": {
+                            "invalid_messages": 14,
+                            "peaks": {"lateral_shift": {"value": 3.3269}},
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (forced_case / "rd_handoff.md").write_text(
+                "dangerous_forced_lane_change with brake_takeover and teleop_takeover around the lane_change_left no safe path wall.\n",
+                encoding="utf-8",
+            )
+            manifest = root / "manifest.yaml"
+            _write_manifest(
+                manifest,
+                [
+                    {
+                        "case_id": "planning_20260508143800_dangerous_forced_lane_change",
+                        "local_evidence_root": forced_case,
+                        "simulation_target": "left_forced_lane_change_static_obstacle_virtual_wall_takeover",
+                        "symptom": "dangerous_forced_lane_change",
+                    }
+                ],
+            )
+
+            payload = probe.run_probe(
+                Namespace(
+                    run_dir=str(root / "run"),
+                    manifest=str(manifest),
+                    profile="forced_lane_change",
+                    case_id=[],
+                )
+            )
+
+        self.assertEqual(payload["profile"], "forced_lane_change")
+        self.assertFalse(payload["overall_passed"])
+        self.assertEqual(payload["metrics"]["lane_change_left_reference_nonempty_count"], 420.0)
+        self.assertEqual(payload["metrics"]["lane_change_left_candidate_nonempty_count"], 1.0)
+        self.assertEqual(payload["metrics"]["lane_change_right_reference_nonempty_count"], 0.0)
+        self.assertAlmostEqual(payload["metrics"]["lane_change_left_virtual_wall_min_distance_m"], 1.429)
+        self.assertEqual(payload["metrics"]["lane_change_no_safe_path_wall_count"], 1.0)
+        self.assertEqual(payload["metrics"]["manual_takeover_count"], 1.0)
+        self.assertEqual(payload["metrics"]["brake_takeover_count"], 1.0)
+        self.assertEqual(payload["metrics"]["teleop_takeover_count"], 1.0)
+        self.assertEqual(payload["metrics"]["trajectory_jump_max_m"], 157.154)
+        self.assertEqual(payload["metrics"]["lateral_shift_m"], 3.3269)
+
     def test_lateral_shift_prefers_validator_peak_over_overlay_invalid_event_outliers(self) -> None:
         probe = _load_probe()
         evidence = probe.CaseEvidence(case_id="case", root=Path("/tmp/case"))

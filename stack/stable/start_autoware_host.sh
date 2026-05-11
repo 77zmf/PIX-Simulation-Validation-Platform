@@ -16,6 +16,9 @@ SENSOR_MODEL=""
 RVIZ=""
 RVIZ_CONFIG=""
 LIDAR_TYPE=""
+LAUNCH_FILE=""
+DATA_PATH=""
+LAUNCH_EXTRA_ARGS=""
 EXECUTE=0
 
 while [[ $# -gt 0 ]]; do
@@ -35,6 +38,9 @@ while [[ $# -gt 0 ]]; do
     --rviz) RVIZ="$2"; shift 2 ;;
     --rviz-config) RVIZ_CONFIG="$2"; shift 2 ;;
     --lidar-type) LIDAR_TYPE="$2"; shift 2 ;;
+    --launch-file) LAUNCH_FILE="$2"; shift 2 ;;
+    --data-path) DATA_PATH="$2"; shift 2 ;;
+    --launch-extra-args) LAUNCH_EXTRA_ARGS="$2"; shift 2 ;;
     -Execute|--execute) EXECUTE=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -51,6 +57,9 @@ SENSOR_MODEL="${SENSOR_MODEL:-${AUTOWARE_SENSOR_MODEL:-carla_sensor_kit}}"
 RVIZ="${RVIZ:-${AUTOWARE_RVIZ:-true}}"
 RVIZ_CONFIG="${RVIZ_CONFIG:-${AUTOWARE_RVIZ_CONFIG:-}}"
 LIDAR_TYPE="${LIDAR_TYPE:-${AUTOWARE_LIDAR_TYPE:-}}"
+LAUNCH_FILE="${LAUNCH_FILE:-${AUTOWARE_LAUNCH_FILE:-planning_simulator.launch.xml}}"
+DATA_PATH="${DATA_PATH:-${AUTOWARE_DATA_PATH:-}}"
+LAUNCH_EXTRA_ARGS="${LAUNCH_EXTRA_ARGS:-${AUTOWARE_LAUNCH_EXTRA_ARGS:-}}"
 LIDAR_EXPORT=""
 if [[ -n "$LIDAR_TYPE" ]]; then
   LIDAR_EXPORT="export LIDAR_TYPE='${LIDAR_TYPE}' && "
@@ -63,7 +72,15 @@ RVIZ_CONFIG_ARG=""
 if [[ -n "$RVIZ_CONFIG" ]]; then
   RVIZ_CONFIG_ARG=" rviz_config:='${RVIZ_CONFIG}'"
 fi
-CMD="cd ${AUTOWARE_WS} && source install/setup.bash && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && export ROS2CLI_DISABLE_DAEMON=1 && export PYTHONNOUSERSITE=1 && ${RMW_EXPORT}export ROS_NAMESPACE='${RUNTIME_NAMESPACE}' && ${LIDAR_EXPORT}ros2 launch autoware_launch planning_simulator.launch.xml map_path:='${MAP_PATH}' vehicle_model:='${VEHICLE_MODEL}' sensor_model:='${SENSOR_MODEL}' rviz:='${RVIZ}'${RVIZ_CONFIG_ARG}"
+DATA_PATH_ARG=""
+if [[ -n "$DATA_PATH" ]]; then
+  DATA_PATH_ARG=" data_path:='${DATA_PATH}'"
+fi
+EXTRA_ARGS_SUFFIX=""
+if [[ -n "$LAUNCH_EXTRA_ARGS" ]]; then
+  EXTRA_ARGS_SUFFIX=" ${LAUNCH_EXTRA_ARGS}"
+fi
+CMD="cd ${AUTOWARE_WS} && source install/setup.bash && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && export ROS2CLI_DISABLE_DAEMON=1 && export PYTHONNOUSERSITE=1 && ${RMW_EXPORT}export ROS_NAMESPACE='${RUNTIME_NAMESPACE}' && ${LIDAR_EXPORT}ros2 launch autoware_launch ${LAUNCH_FILE} map_path:='${MAP_PATH}' vehicle_model:='${VEHICLE_MODEL}' sensor_model:='${SENSOR_MODEL}' rviz:='${RVIZ}'${DATA_PATH_ARG}${RVIZ_CONFIG_ARG}${EXTRA_ARGS_SUFFIX}"
 echo "Scenario: ${SCENARIO}"
 echo "SlotId: ${SLOT_ID}"
 echo "RunDir: ${RUN_DIR}"
@@ -79,6 +96,9 @@ echo "SensorModel: ${SENSOR_MODEL}"
 echo "LidarType: ${LIDAR_TYPE}"
 echo "RVIZ: ${RVIZ}"
 echo "RVIZ config: ${RVIZ_CONFIG}"
+echo "Autoware launch file: ${LAUNCH_FILE}"
+echo "Autoware data path: ${DATA_PATH}"
+echo "Autoware launch extra args: ${LAUNCH_EXTRA_ARGS}"
 echo "Command: ${CMD}"
 
 if [[ "$EXECUTE" -eq 1 ]]; then

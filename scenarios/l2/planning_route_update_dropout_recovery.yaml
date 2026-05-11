@@ -1,0 +1,124 @@
+scenario_id: stable_l2_planning_route_update_dropout_recovery
+stack: stable
+map_id: Town01
+asset_bundle: carla_town01
+ego_init:
+  pose:
+    x: 229.78167724609375
+    y: -2.0201120376586914
+    z: 0.0
+    yaw_deg: 0.0
+goal:
+  pose:
+    x: 314.2434997558594
+    y: -1.982629656791687
+    z: 0.0
+    yaw_deg: -0.03045654296875
+route:
+  waypoints:
+    - pose:
+        x: 260.0
+        y: -2.0201120376586914
+        z: 0.0
+        yaw_deg: 0.0
+    - pose:
+        x: 292.0
+        y: -1.995
+        z: 0.0
+        yaw_deg: 0.0
+traffic_profile:
+  mode: empty_route_continuity_dropout_recovery_surrogate
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: ClearNoon
+sensor_profile: robobus_pixrover14_application_topology
+algorithm_profile: planning_control_baseline
+seed: 20260510
+recording:
+  rosbag2:
+    enabled: true
+    path: rosbags/planning_route_update_dropout_recovery
+  carla_recorder:
+    enabled: true
+    path: carla/planning_route_update_dropout_recovery.log
+kpi_gate: planning_control_follow_lane_regression
+labels:
+  - L2
+  - stable
+  - planning_control
+  - road_test_surrogate
+  - route_update
+  - trajectory_dropout
+  - route_recovery
+  - regression
+metadata:
+  owner: planning-control
+  surrogate_scope: Town01 route-continuity surrogate for no-trajectory, trajectory-disappeared, and route-empty road-test symptoms.
+  source_assets:
+    - assets/manifests/planning_road_test_failcases_202604.yaml
+    - scenarios/l2/planning_control_roadtest_trajectory_dropout_replay_draft.yaml
+    - scenarios/l1/regression_follow_lane.yaml
+    - ops/runtime_probes/carla_sensor_topic_probe.py
+    - ops/runtime_probes/carla_closed_loop_route_probe.py
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260421_1456_no_trajectory/rd_handoff.md
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260422_1103_trajectory_disappeared/rd_handoff.md
+    - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260422_1647_route_empty_no_trajectory/analysis_report.md
+  validation_method: Run a deterministic Town01 route with via points and strict goal modification disabled, then use route/control telemetry as the executable continuity check while the public-road route-empty fixture is still blocked on map topology reproduction.
+  validation_command: >
+    python3 ops/runtime_probes/carla_sensor_topic_probe.py
+    --run-dir <run_dir>
+    --profile robobus117th_l0_closed_loop
+    --continue-on-failure
+    &&
+    python3 ops/runtime_probes/carla_closed_loop_route_probe.py
+    --run-dir <run_dir>
+    --goal-tolerance-m 0.8
+    --min-duration-sec 20
+    --max-duration-sec 180
+    --sample-period 0.2
+    --disable-goal-modification
+    --stop-ego-after-goal
+    --camera-video-output <run_dir>/runtime_verification/planning_route_update_dropout_recovery.mp4
+    --camera-video-mode ego_chase
+  expected_observable: Autoware accepts a via-point route, continuously publishes trajectory/control, keeps bounded lane and goal error, and reaches the goal without a trajectory publication dropout during the probe window.
+  missing_inputs: This surrogate does not inject an Autoware restart or true route-empty lanelet topology yet; the exact public-road route-empty case still requires a converted lanelet/OpenDRIVE fixture.
+  rollback_impact: Remove this scenario from ops/test_campaigns/stable_planning_failcase_surrogates.yaml; the existing L1 follow-lane scenario remains the route-follow baseline.
+execution:
+  mode: external
+  stable_runtime:
+    autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    autoware_bridge_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    autoware_bridge_underlay_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware
+    ros_rmw_implementation: rmw_cyclonedds_cpp
+    autoware_map_path: /home/pixmoving/autoware_map/Town01
+    autoware_vehicle_model: robobus
+    autoware_sensor_model: robobus_sensor_kit
+    autoware_lidar_type: robosense
+    autoware_rviz: "false"
+    autoware_rviz_config: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/autoware_launch/share/autoware_launch/rviz/planning_bev.rviz
+    carla_root: /home/pixmoving/CARLA_0.9.15
+    carla_map: Town01
+    carla_vehicle_type: vehicle.pixmoving.robobus
+    carla_ego_vehicle_role_name: ego_vehicle
+    carla_actor_health_check: "true"
+    carla_spawn_point: "229.7817,2.0201,-0.5,0,0,0"
+    carla_sensor_kit_name: robobus_sensor_kit_description
+    carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
+    carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
+    carla_use_traffic_manager: "False"
+    carla_render_mode: offscreen
+    carla_quality_level: Low
+    ros_expected_topics:
+      - /clock
+      - /tf
+      - /planning/scenario_planning/trajectory
+      - /control/command/control_cmd
+      - /control/command/actuation_cmd
+      - /localization/kinematic_state
+      - /vehicle/status/control_mode
+      - /vehicle/status/velocity_status
+      - /sensing/lidar/top/pointcloud_before_sync
+      - /sensing/camera/CAM_FRONT/image_raw
+      - /sensing/camera/CAM_FRONT/camera_info

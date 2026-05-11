@@ -172,11 +172,13 @@ class ResearchConfigTests(unittest.TestCase):
     def test_planning_control_merge_scenario_uses_executable_actor_bridge_gate(self) -> None:
         scenario = load_scenario("scenarios/l2/planning_control_merge_regression.yaml", REPO_ROOT)
         payload = load_yaml(REPO_ROOT / "scenarios" / "l2" / "planning_control_merge_regression.yaml")
+        gate = load_kpi_gate("planning_control_actor_bridge_regression", REPO_ROOT)
         self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_application_topology")
         self.assertEqual(scenario.algorithm_profile, "planning_control_baseline")
         self.assertEqual(scenario.kpi_gate, "planning_control_actor_bridge_regression")
         self.assertIn("--kind l2_merge", payload["metadata"]["validation_command"])
         self.assertEqual(payload["execution"]["stable_runtime"]["carla_actor_object_bridge_enabled"], "true")
+        self.assertIn("planning_control_gate_failure", gate.failure_labels)
 
     def test_multi_actor_scenario_uses_actor_bridge_gate(self) -> None:
         scenario = load_scenario("scenarios/l2/planning_control_multi_actor_cut_in_lead_brake.yaml", REPO_ROOT)
@@ -193,6 +195,7 @@ class ResearchConfigTests(unittest.TestCase):
         self.assertEqual(stable_runtime["carla_spawn_point"], "229.7817,2.0201,-0.5,0,0,0")
         self.assertIn("actor_count_observed", gate.metrics)
         self.assertIn("yield_response_count", gate.metrics)
+        self.assertIn("planning_control_gate_failure", gate.failure_labels)
 
     def test_crosswalk_vru_yield_scenario_uses_executable_dummy_injection_gate(self) -> None:
         scenario = load_scenario("scenarios/l2/planning_control_crosswalk_vru_yield.yaml", REPO_ROOT)
@@ -262,6 +265,91 @@ class ResearchConfigTests(unittest.TestCase):
                 self.assertEqual(payload["execution"]["mode"], "external")
                 self.assertIn("road_test_replay", payload["labels"])
 
+    def test_roadtest_forced_lane_change_scene_authoring_entry_is_indexed(self) -> None:
+        manifest = load_yaml(REPO_ROOT / "assets" / "manifests" / "planning_road_test_failcases_202605.yaml")
+        replay_scenario = load_scenario(
+            "scenarios/l2/planning_control_roadtest_forced_lane_change_replay_draft.yaml",
+            REPO_ROOT,
+        )
+        replay_payload = load_yaml(
+            REPO_ROOT / "scenarios" / "l2" / "planning_control_roadtest_forced_lane_change_replay_draft.yaml"
+        )
+        video_scene = load_scenario("scenarios/l2/planning_control_overtake_reference_scene.yaml", REPO_ROOT)
+        video_payload = load_yaml(REPO_ROOT / "scenarios" / "l2" / "planning_control_overtake_reference_scene.yaml")
+        campaign = load_yaml(REPO_ROOT / "ops" / "test_campaigns" / "stable_planning_control_bughunt.yaml")
+
+        self.assertEqual(manifest["asset_id"], "planning_road_test_failcases_202605")
+        self.assertEqual(manifest["cases"][0]["case_id"], "planning_20260508143800_dangerous_forced_lane_change")
+        self.assertIn("录屏2026-05-11 02.06.17.mov", manifest["reference_videos"][0]["path"])
+        self.assertIn("left_forced_lane_change", manifest["cases"][0]["simulation_target"])
+        self.assertEqual(replay_scenario.kpi_gate, "planning_control_trajectory_stability_replay")
+        self.assertEqual(replay_payload["asset_bundle"], "planning_road_test_failcases_202605")
+        self.assertIn("--profile forced_lane_change", replay_payload["metadata"]["validation_command"])
+        self.assertIn("lane_change_left", replay_payload["labels"])
+        self.assertEqual(video_scene.kpi_gate, "planning_control_multi_actor_regression")
+        self.assertEqual(video_payload["traffic_profile"]["vehicles"], 4)
+        self.assertIn("--kind l2_overtake_reference", video_payload["metadata"]["validation_command"])
+        self.assertIn("--camera-video-output", video_payload["metadata"]["validation_command"])
+        self.assertIn("录屏2026-05-11 02.06.17.mov", video_payload["metadata"]["source_assets"][0])
+        self.assertIn(
+            "stable_l2_planning_control_overtake_reference_scene",
+            [item["id"] for item in campaign["scenarios"]],
+        )
+
+    def test_roadtest_planning_failcase_surrogates_join_executable_campaign(self) -> None:
+        campaign = load_yaml(REPO_ROOT / "ops" / "test_campaigns" / "stable_planning_failcase_surrogates.yaml")
+        campaign_ids = [item["id"] for item in campaign["scenarios"]]
+        cases = (
+            (
+                "scenarios/l2/planning_forced_lane_change_static_obstacle.yaml",
+                "stable_l2_planning_forced_lane_change_static_obstacle",
+                "planning_control_multi_actor_regression",
+                "l2_multi_actor_cut_in_lead_brake",
+                "planning_control_roadtest_trajectory_jump_replay_draft.yaml",
+            ),
+            (
+                "scenarios/l2/planning_route_update_dropout_recovery.yaml",
+                "stable_l2_planning_route_update_dropout_recovery",
+                "planning_control_follow_lane_regression",
+                "carla_closed_loop_route_probe.py",
+                "planning_control_roadtest_trajectory_dropout_replay_draft.yaml",
+            ),
+            (
+                "scenarios/l2/planning_out_of_lane_slowdown_takeover.yaml",
+                "stable_l2_planning_out_of_lane_slowdown_takeover",
+                "planning_control_actor_bridge_regression",
+                "l2_close_cut_in",
+                "planning_control_roadtest_out_of_lane_brake_takeover_replay_draft.yaml",
+            ),
+        )
+
+        self.assertEqual(campaign["default_slot"], "stable-slot-01")
+        self.assertTrue(campaign["bugpack"]["enabled"])
+
+        for path, scenario_id, gate_id, command_marker, draft_marker in cases:
+            with self.subTest(path=path):
+                scenario = load_scenario(path, REPO_ROOT)
+                payload = load_yaml(REPO_ROOT / path)
+                gate = load_kpi_gate(gate_id, REPO_ROOT)
+                validation_command = payload["metadata"]["validation_command"]
+
+                self.assertEqual(scenario.scenario_id, scenario_id)
+                self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_application_topology")
+                self.assertEqual(scenario.algorithm_profile, "planning_control_baseline")
+                self.assertEqual(scenario.kpi_gate, gate_id)
+                self.assertIn(scenario_id, campaign_ids)
+                self.assertIn("road_test_surrogate", payload["labels"])
+                self.assertIn("assets/manifests/planning_road_test_failcases_202604.yaml", payload["metadata"]["source_assets"])
+                self.assertTrue(
+                    any(draft_marker in source for source in payload["metadata"]["source_assets"])
+                )
+                self.assertIn(command_marker, validation_command)
+                if "route_update_dropout_recovery" in path:
+                    self.assertTrue(payload["traffic_profile"]["mode"].startswith("empty_"))
+                self.assertEqual(payload["execution"]["mode"], "external")
+                self.assertEqual(payload["execution"]["stable_runtime"]["carla_vehicle_type"], "vehicle.pixmoving.robobus")
+                self.assertIn("route_completion", gate.metrics)
+
     def test_l3_occluded_pedestrian_scenario_uses_executable_dummy_injection_gate(self) -> None:
         scenario = load_scenario("scenarios/l3/stress_occluded_pedestrian.yaml", REPO_ROOT)
         payload = load_yaml(REPO_ROOT / "scenarios" / "l3" / "stress_occluded_pedestrian.yaml")
@@ -311,10 +399,27 @@ class ResearchConfigTests(unittest.TestCase):
         self.assertEqual(scenario.sensor_profile, "robobus_pixrover14_application_topology")
         self.assertEqual(scenario.algorithm_profile, "perception_bevfusion_public_road")
         self.assertEqual(scenario.kpi_gate, "perception_bevfusion_public_road_gate")
+        self.assertIn("ops/runtime_probes/bevfusion_public_road_metrics_probe.py", payload["metadata"]["source_assets"])
+        self.assertIn("bevfusion_public_road_metrics_probe.py", payload["metadata"]["validation_command"])
+        self.assertIn("--fail-closed-if-missing", payload["metadata"]["validation_command"])
         self.assertIn("--require-metrics", payload["metadata"]["validation_command"])
         self.assertEqual(
             payload["metadata"]["metrics_artifact"],
             "runtime_verification/perception_metrics/bevfusion_public_road_metrics.json",
+        )
+        stable_runtime = payload["execution"]["stable_runtime"]
+        self.assertEqual(stable_runtime["carla_root"], "/home/pixmoving/CARLA_0.9.15")
+        self.assertEqual(stable_runtime["carla_vehicle_type"], "vehicle.pixmoving.robobus")
+        self.assertTrue(stable_runtime["carla_sensor_kit_calibration_file"].endswith("robobus117th_sensor_kit_calibration.yaml"))
+        self.assertEqual(stable_runtime["bevfusion_enabled"], "true")
+        self.assertTrue(stable_runtime["bevfusion_autoware_ws"].endswith("/autoware_universe/autoware"))
+        self.assertEqual(stable_runtime["bevfusion_data_path"], "/data/pix/autoware_data")
+        self.assertEqual(stable_runtime["bevfusion_model_name"], "bevfusion_lidar")
+        self.assertTrue(stable_runtime["bevfusion_model_param_path"].endswith("bevfusion_lidar.param.yaml"))
+        self.assertTrue(stable_runtime["bevfusion_common_param_path"].endswith("bevfusion_common.param.yaml"))
+        self.assertEqual(
+            stable_runtime["bevfusion_output_objects"],
+            "/perception/object_recognition/detection/bevfusion/objects",
         )
 
     def test_bevfusion_public_road_profile_freezes_shadow_contract(self) -> None:

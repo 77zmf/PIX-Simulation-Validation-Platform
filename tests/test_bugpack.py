@@ -99,6 +99,44 @@ def _roadtest_replay_result(run_dir: Path) -> dict[str, object]:
     return result
 
 
+def _route_recovery_kinematic_result(run_dir: Path) -> dict[str, object]:
+    result = _base_result(run_dir)
+    result["scenario_id"] = "stable_l2_planning_route_update_dropout_recovery"
+    result["scenario_path"] = "scenarios/l2/planning_route_update_dropout_recovery.yaml"
+    result["gate"] = {
+        "gate_id": "planning_route_update_dropout_recovery",
+        "passed": False,
+        "violations": [
+            {
+                "metric": "route_completion",
+                "reason": "threshold_violation",
+                "actual": 0.0,
+                "op": ">=",
+                "threshold": 0.98,
+            },
+            {
+                "metric": "lateral_error_m",
+                "reason": "threshold_violation",
+                "actual": 1.614568,
+                "op": "<=",
+                "threshold": 1.0,
+            },
+        ],
+    }
+    result["kpis"] = {
+        "route_completion": 0.0,
+        "lateral_error_m": 1.614568,
+        "route_goal_lateral_error_m": 1.6155948,
+        "longitudinal_error_m": 1.932556,
+        "jerk_mps3": 6.7516858,
+        "kinematic_sanity_passed": 0.0,
+        "max_abs_roll_deg": 46.50156,
+        "max_abs_pitch_deg": 12.270803,
+        "max_ego_z_m": 2.063667,
+    }
+    return result
+
+
 class BugpackTests(unittest.TestCase):
     def test_classifies_planning_control_kpi_failure_as_bug_candidate(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -122,6 +160,20 @@ class BugpackTests(unittest.TestCase):
 
             self.assertEqual(triage["classification"], "planning_control_bug_candidate")
             self.assertEqual(triage["runtime_health_passed"], None)
+            self.assertIn("planning", triage["suspected_modules"])
+
+    def test_kinematic_instability_is_owned_as_closed_loop_vehicle_dynamics(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_route_recovery_failed"
+            run_dir.mkdir()
+            result = _route_recovery_kinematic_result(run_dir)
+
+            triage = classify_run_result(result, run_dir / "run_result.json")
+
+            self.assertEqual(triage["classification"], "planning_control_bug_candidate")
+            self.assertEqual(triage["severity"], "P1")
+            self.assertIn("closed_loop_vehicle_dynamics", triage["suspected_modules"])
+            self.assertIn("control", triage["suspected_modules"])
             self.assertIn("planning", triage["suspected_modules"])
 
     def test_write_bugpack_creates_issue_for_roadtest_replay_without_include_infra(self) -> None:
@@ -183,6 +235,90 @@ class BugpackTests(unittest.TestCase):
             self.assertIn("planning-control", issue)
             self.assertTrue((root / "bugpack" / "index.md").exists())
             self.assertTrue((root / "bugpack" / "summary.json").exists())
+
+    def test_issue_markdown_includes_kinematic_probe_diagnosis(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_route_recovery_failed"
+            run_dir.mkdir(parents=True)
+            runtime_dir = run_dir / "runtime_verification"
+            runtime_dir.mkdir()
+            (runtime_dir / "closed_loop_route_sync_20260511T055747.json").write_text(
+                json.dumps(
+                    {
+                        "verdict": {"overall_passed": False, "movement_passed": True},
+                        "summary": {
+                            "route_service_calls_successful": True,
+                            "all_service_calls_successful": True,
+                            "max_speed_mps": 3.204,
+                            "total_delta_m": 21.4,
+                            "stopped_before_goal": False,
+                            "kinematic_sanity_passed": False,
+                            "max_abs_roll_deg": 46.50156,
+                            "max_abs_pitch_deg": 12.270803,
+                            "min_ego_z_m": 0.0999,
+                            "max_ego_z_m": 2.063667,
+                            "reached_near_goal": False,
+                            "min_goal_distance_m": 1.003,
+                            "lateral_error_m": 1.614568,
+                            "route_goal_lateral_error_m": 1.6155948,
+                            "longitudinal_error_m": 1.932556,
+                            "jerk_mps3": 6.7516858,
+                            "final_pose": {
+                                "x": 78.4,
+                                "y": 56.2,
+                                "z": 2.06,
+                                "yaw_deg": 91.2,
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(
+                json.dumps(_route_recovery_kinematic_result(run_dir)),
+                encoding="utf-8",
+            )
+
+            summary = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=root / "bugpack",
+                owner="planning-control",
+            )
+
+            issue = Path(summary["issues"][0]["issue_path"]).read_text(encoding="utf-8")
+            self.assertIn("closed-loop kinematic sanity", issue)
+            self.assertIn("kinematic_sanity_passed", issue)
+            self.assertIn("max_abs_roll_deg", issue)
+            self.assertIn("closed_loop_vehicle_dynamics", issue)
+            self.assertIn("closed-loop final pose", issue)
+
+    def test_issue_markdown_labels_sim_failure_as_validation_finding_not_vehicle_regression(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_route_recovery_failed"
+            run_dir.mkdir(parents=True)
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(
+                json.dumps(_route_recovery_kinematic_result(run_dir)),
+                encoding="utf-8",
+            )
+
+            summary = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=root / "bugpack",
+                owner="planning-control",
+            )
+
+            issue = Path(summary["issues"][0]["issue_path"]).read_text(encoding="utf-8")
+            self.assertIn("## Simulation validation interpretation", issue)
+            self.assertIn(
+                "not proof of a real-vehicle Autoware planning/control defect",
+                issue,
+            )
+            self.assertIn("simulation_fidelity", issue)
+            self.assertIn("Compare against real-vehicle or bag evidence", issue)
 
     def test_runtime_failure_is_blocked_by_default_not_planning_bug(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

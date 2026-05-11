@@ -63,6 +63,7 @@ def build_context(
 
     autoware_ws = runtime_option("autoware_ws")
     autoware_bridge_ws = runtime_option("autoware_bridge_ws", autoware_ws)
+    autoware_data_path = runtime_option("autoware_data_path")
     default_sumo_traci_port = ""
     if slot:
         default_sumo_traci_port = str(slot.traffic_manager_port + 1000)
@@ -102,6 +103,28 @@ def build_context(
         "autoware_lidar_type": runtime_option("autoware_lidar_type"),
         "autoware_rviz": runtime_option("autoware_rviz"),
         "autoware_rviz_config": runtime_option("autoware_rviz_config"),
+        "autoware_launch_file": runtime_option("autoware_launch_file", "planning_simulator.launch.xml"),
+        "autoware_data_path": autoware_data_path,
+        "autoware_launch_extra_args": runtime_option("autoware_launch_extra_args"),
+        "bevfusion_enabled": runtime_option("bevfusion_enabled", "false"),
+        "bevfusion_autoware_ws": runtime_option("bevfusion_autoware_ws", autoware_ws),
+        "bevfusion_extra_setup": runtime_option("bevfusion_extra_setup"),
+        "bevfusion_input_pointcloud": runtime_option(
+            "bevfusion_input_pointcloud",
+            "/sensing/lidar/top/pointcloud_before_sync",
+        ),
+        "bevfusion_output_objects": runtime_option(
+            "bevfusion_output_objects",
+            "/perception/object_recognition/detection/bevfusion/objects",
+        ),
+        "bevfusion_data_path": runtime_option("bevfusion_data_path", autoware_data_path),
+        "bevfusion_model_name": runtime_option("bevfusion_model_name", "bevfusion_lidar"),
+        "bevfusion_log_level": runtime_option("bevfusion_log_level", "info"),
+        "bevfusion_build_only": runtime_option("bevfusion_build_only", "false"),
+        "bevfusion_model_param_path": runtime_option("bevfusion_model_param_path"),
+        "bevfusion_ml_package_param_path": runtime_option("bevfusion_ml_package_param_path"),
+        "bevfusion_class_remapper_param_path": runtime_option("bevfusion_class_remapper_param_path"),
+        "bevfusion_common_param_path": runtime_option("bevfusion_common_param_path"),
         "carla_map": runtime_option("carla_map", map_id),
         "carla_server_map": runtime_option("carla_server_map", runtime_option("carla_map", map_id)),
         "carla_root": runtime_option("carla_root"),

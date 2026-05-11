@@ -37,23 +37,35 @@ metadata:
   source_assets:
     - assets/sensors/robobus_pixrover14_application_topology.yaml
     - ops/runtime_probes/carla_sensor_topic_probe.py
+    - ops/runtime_probes/bevfusion_public_road_metrics_probe.py
     - ops/runtime_probes/perception_readiness_probe.py
-  validation_method: Run the stable CARLA/Autoware sensor stack, verify Robobus117th sensor samples, then require a BEVFusion public-road metrics artifact before KPI evaluation.
+  validation_method: Run the stable PIX robobus CARLA/Autoware sensor stack, verify Robobus117th sensor samples, write or normalize the BEVFusion public-road metrics artifact, require BEVFusion-specific object samples, then require that metrics artifact before KPI evaluation.
   validation_command: >
     python3 ops/runtime_probes/carla_sensor_topic_probe.py
     --run-dir <run_dir>
     --profile robobus117th;
     sensor_rc=$?;
+    python3 ops/runtime_probes/bevfusion_public_road_metrics_probe.py
+    --run-dir <run_dir>
+    --profile bevfusion_public_road
+    --fail-closed-if-missing;
+    metrics_rc=$?;
     python3 ops/runtime_probes/perception_readiness_probe.py
     --run-dir <run_dir>
     --profile bevfusion_public_road
-    --require-metrics;
+    --require-metrics
+    --attempts 20
+    --retry-sec 6
+    --topic-timeout-sec 4
+    --discovery-timeout-sec 4;
     readiness_rc=$?;
     test "$sensor_rc" -eq 0
     &&
+    test "$metrics_rc" -eq 0
+    &&
     test "$readiness_rc" -eq 0
   metrics_artifact: runtime_verification/perception_metrics/bevfusion_public_road_metrics.json
-  expected_observable: CARLA publishes Robobus117th sensor samples, BEVFusion publishes object outputs, and the metrics artifact contains detection, tracking, occupancy, lane-topology, latency, and planner-interface scores.
+  expected_observable: CARLA publishes Robobus117th sensor samples, BEVFusion publishes /perception/object_recognition/detection/bevfusion/objects, planner-facing objects are available, and the metrics artifact contains detection, tracking, occupancy, lane-topology, latency, and planner-interface scores.
   blocked_on:
     - runtime_verification/perception_metrics/bevfusion_public_road_metrics.json
   rollback_impact: Exclude ops/test_campaigns/shadow_perception_readiness.yaml from automated runs until BEVFusion metrics generation is wired.
@@ -68,14 +80,26 @@ execution:
     autoware_vehicle_model: robobus
     autoware_sensor_model: robobus_sensor_kit
     autoware_lidar_type: robosense
+    bevfusion_enabled: "true"
+    bevfusion_autoware_ws: /home/pixmoving/zmf_ws/projects/autoware_universe/autoware
+    bevfusion_input_pointcloud: /sensing/lidar/top/pointcloud_before_sync
+    bevfusion_output_objects: /perception/object_recognition/detection/bevfusion/objects
+    bevfusion_data_path: /data/pix/autoware_data
+    bevfusion_model_name: bevfusion_lidar
+    bevfusion_log_level: info
+    bevfusion_model_param_path: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/autoware_launch/share/autoware_launch/config/perception/object_recognition/detection/lidar_model/bevfusion_lidar.param.yaml
+    bevfusion_ml_package_param_path: /data/pix/autoware_data/bevfusion/ml_package_bevfusion_lidar.param.yaml
+    bevfusion_class_remapper_param_path: /data/pix/autoware_data/bevfusion/detection_class_remapper.param.yaml
+    bevfusion_common_param_path: /home/pixmoving/zmf_ws/projects/autoware_universe/private_autoware/install/autoware_launch/share/autoware_launch/config/perception/object_recognition/detection/lidar_model/bevfusion_common.param.yaml
     autoware_rviz: "false"
+    carla_root: /home/pixmoving/CARLA_0.9.15
     carla_map: Town01
-    carla_vehicle_type: vehicle.toyota.prius
+    carla_vehicle_type: vehicle.pixmoving.robobus
     carla_ego_vehicle_role_name: ego_vehicle
     carla_spawn_point: ""
     carla_sensor_kit_name: robobus_sensor_kit_description
     carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
-    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_prius_fallback_sensor_kit_calibration.yaml
+    carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
     carla_objects_definition_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_objects.json
     carla_use_traffic_manager: "False"
     carla_render_mode: offscreen

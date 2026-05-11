@@ -38,7 +38,7 @@ blocked_followups:
     reason: traffic-light and stop-line rule violations are not yet KPI-gated in the stable campaign
     owner: planning-control
   - id: stable_l2_lane_change_overtake
-    reason: current merge/cut-in cases do not cover commanded lane-change or overtake behavior
+    reason: Town01 video-style overtake reference exists, but exact commanded public-road lane-change geometry and actor tracks are still missing
     owner: planning-control
   - id: stable_l3_adverse_weather_low_visibility
     reason: current scenarios run mostly clear weather/offscreen; low-visibility control stability is untested
@@ -168,6 +168,29 @@ scenarios:
       - sensor_sample_coverage=1.0
       - dynamic_actor_response=1.0
       - actor_count_observed>=2
+      - yield_response_count>=1
+      - collision_count=0
+      - min_ttc_sec>=1.8
+  - id: stable_l2_planning_control_overtake_reference_scene
+    path: scenarios/l2/planning_control_overtake_reference_scene.yaml
+    validation: true
+    finalize: true
+    execute: true
+    tags:
+      - stable
+      - robobus117th
+      - planning_control
+      - bughunt
+      - overtake
+      - forced_lane_change
+      - multi_actor
+      - actor_bridge
+      - video_style_scene
+    expected_observables:
+      - sensor_topic_coverage=1.0
+      - sensor_sample_coverage=1.0
+      - dynamic_actor_response=1.0
+      - actor_count_observed>=3
       - yield_response_count>=1
       - collision_count=0
       - min_ttc_sec>=1.8

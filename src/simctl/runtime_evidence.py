@@ -248,7 +248,15 @@ def _dynamic_probe_matches_scenario(attempt: dict[str, Any], traffic: dict[str, 
         return False
     if "cut_in" in mode and kind not in {"l2_cut_in", "l2_close_cut_in", "l2_multi_actor_cut_in_lead_brake"}:
         return False
-    if "static" in mode and kind != "l1_static":
+    single_static_mode = (
+        "static" in mode
+        and not multi_actor_mode
+        and "multi_actor" not in mode
+        and "cut_in" not in mode
+        and "merge" not in mode
+        and "close_cut_in" not in mode
+    )
+    if single_static_mode and kind != "l1_static":
         return False
     return True
 
@@ -334,6 +342,31 @@ def _dynamic_probe_execution_completed(attempt: dict[str, Any]) -> bool:
         and bool(attempt.get("control_setup_passed", True))
         and int(attempt.get("sample_count") or 0) > 0
         and bool(attempt.get("moved"))
+    )
+
+
+def _dynamic_probe_has_runtime_evidence(attempt: dict[str, Any]) -> bool:
+    """Whether a failed setup attempt still contains useful runtime evidence."""
+
+    if int(attempt.get("sample_count") or 0) <= 0:
+        return False
+    evidence_values = (
+        attempt.get("collision_count"),
+        attempt.get("min_ttc_sec"),
+        attempt.get("actor_count_spawned"),
+        attempt.get("actor_count_observed"),
+        attempt.get("object_pipeline_nonempty_duration_ratio"),
+    )
+    return any(not math.isnan(_as_float(value, math.nan)) for value in evidence_values)
+
+
+def _dynamic_probe_key(attempt: dict[str, Any]) -> str:
+    return ":".join(
+        [
+            str(attempt.get("kind") or "unknown"),
+            str(attempt.get("classification") or "default"),
+            str(attempt.get("perception_source") or "default"),
+        ]
     )
 
 
@@ -530,6 +563,7 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
     diagnostic_attempts: list[dict[str, Any]] = []
     ignored: list[dict[str, Any]] = []
     dynamic_attempts: list[dict[str, Any]] = []
+    fallback_dynamic_attempts: list[dict[str, Any]] = []
     ignored_dynamic: list[dict[str, Any]] = []
     sensor_attempts: list[dict[str, Any]] = []
     ignored_sensor: list[dict[str, Any]] = []
@@ -648,6 +682,9 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             continue
         if attempt["valid"]:
             dynamic_attempts.append(attempt)
+        elif _dynamic_probe_has_runtime_evidence(attempt):
+            attempt["retained_runtime_evidence_after_service_failure"] = True
+            fallback_dynamic_attempts.append(attempt)
         else:
             ignored_dynamic.append(
                 {"path": str(path), "reason": "service_call_failed", "invalid_steps": attempt["invalid_steps"]}
@@ -657,13 +694,7 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
         latest_by_probe: dict[str, dict[str, Any]] = {}
         superseded: list[dict[str, Any]] = []
         for attempt in sorted(dynamic_attempts, key=lambda item: str(item.get("path") or "")):
-            probe_key = ":".join(
-                [
-                    str(attempt.get("kind") or "unknown"),
-                    str(attempt.get("classification") or "default"),
-                    str(attempt.get("perception_source") or "default"),
-                ]
-            )
+            probe_key = _dynamic_probe_key(attempt)
             previous = latest_by_probe.get(probe_key)
             if previous is not None:
                 superseded.append(
@@ -676,6 +707,35 @@ def collect_runtime_evidence(run_dir: Path, run_result: dict[str, Any]) -> dict[
             latest_by_probe[probe_key] = attempt
         dynamic_attempts = list(latest_by_probe.values())
         ignored_dynamic.extend(superseded)
+
+    if fallback_dynamic_attempts:
+        fallback_by_probe: dict[str, dict[str, Any]] = {}
+        superseded_fallback: list[dict[str, Any]] = []
+        for attempt in sorted(fallback_dynamic_attempts, key=lambda item: str(item.get("path") or "")):
+            probe_key = _dynamic_probe_key(attempt)
+            previous = fallback_by_probe.get(probe_key)
+            if previous is not None:
+                superseded_fallback.append(
+                    {
+                        "path": previous["path"],
+                        "reason": "superseded_by_newer_dynamic_probe",
+                        "probe_key": probe_key,
+                    }
+                )
+            fallback_by_probe[probe_key] = attempt
+        valid_keys = {_dynamic_probe_key(attempt) for attempt in dynamic_attempts}
+        for probe_key, attempt in fallback_by_probe.items():
+            if probe_key in valid_keys:
+                ignored_dynamic.append(
+                    {
+                        "path": attempt["path"],
+                        "reason": "service_call_failed_superseded_by_valid_probe",
+                        "invalid_steps": attempt.get("invalid_steps", []),
+                    }
+                )
+                continue
+            dynamic_attempts.append(attempt)
+        ignored_dynamic.extend(superseded_fallback)
 
     for path in sensor_artifacts:
         payload = _load_json(path)
