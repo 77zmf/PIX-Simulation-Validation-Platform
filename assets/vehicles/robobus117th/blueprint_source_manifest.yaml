@@ -132,6 +132,36 @@ validation:
     speed_after_brake_mps: 0.010979
     runtime_binary_sha256: ab94d7fe1372fe6a322d2cd5ea6d8e94a5b35da1c9e4ab69334b953e6915d778
     runtime_binary_backup: /home/pixmoving/CARLA_0.9.15/CarlaUE4/Binaries/Linux/CarlaUE4-Linux-Shipping.zmf-bbox-bak-20260425T042812Z
+  wheel_blueprint_source_inspect:
+    date: "2026-05-11"
+    script: assets/vehicles/robobus117th/unreal/inspect_robobus_wheel_blueprints.py
+    log: /tmp/pix_inspect_robobus_wheels_capture_20260511T155254Z.log
+    status: passed
+    observed:
+      vehicle_movement_references_robobus_wheel_classes: true
+      shape_radius_cm: 32.3
+      shape_width_cm: 25.0
+      front_steer_angle_deg: 28.991
+      rear_steer_angle_deg: 0.0
+    api_boundary: CARLA 0.9.15 FWheelPhysicsControl/RPC WheelPhysicsControl does not carry wheel width, so runtime get_physics_control wheel width is not an acceptance metric.
+    decision: Continue 40km/h planning/control fidelity triage through movement tuning, center of mass, bridge actuation/status mapping, and route/map consistency.
+  runtime_blueprint_acceptance:
+    date: "2026-05-11"
+    scenario: scenarios/l0/robobus117th_vehicle_blueprint_acceptance.yaml
+    run_dir: /data/pix/sim_runs/robobus_blueprint_api_boundary_fix_20260511T160059Z/20260511T160059359468Z__robobus117th_vehicle_blueprint_acceptance
+    status: passed
+    gate: robobus117th_vehicle_blueprint_acceptance
+    observed:
+      bbox_extent_m:
+        x: 1.91
+        y: 0.955
+        z: 1.1045
+      wheelbase_cm: 302.011867
+      front_tread_cm: 161.185637
+      rear_tread_cm: 161.176231
+      attached_camera_count: 6
+      attached_lidar_count: 5
+    diagnostic: Runtime min_wheel_width_cm remains 0.0 because CARLA 0.9.15 APIs do not serialize wheel width.
 rollback:
   action: Keep or restore execution.stable_runtime.carla_vehicle_type to vehicle.toyota.prius.
   impact: Returns to the already verified placeholder ego actor without changing Autoware robobus parameters.

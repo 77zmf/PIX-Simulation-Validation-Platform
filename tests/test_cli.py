@@ -224,17 +224,28 @@ class CliTests(unittest.TestCase):
             preflight_command = plan["steps"][0]["command"]
             carla_command = plan["steps"][1]["command"]
             wait_command = plan["steps"][2]["command"]
-            bridge_command = plan["steps"][3]["command"]
-            autoware_command = plan["steps"][4]["command"]
-            localization_bridge_command = plan["steps"][5]["command"]
-            actor_object_bridge_command = plan["steps"][6]["command"]
-            screenshot_command = plan["steps"][7]["command"]
+            patch_command = next(
+                step["command"] for step in plan["steps"] if step["name"] == "apply-pix-carla-interface-patch"
+            )
+            bridge_command = next(step["command"] for step in plan["steps"] if step["name"] == "start-autoware-bridge")
+            autoware_command = next(step["command"] for step in plan["steps"] if step["name"] == "start-autoware-stack")
+            localization_bridge_command = next(
+                step["command"] for step in plan["steps"] if step["name"] == "start-carla-localization-bridge"
+            )
+            actor_object_bridge_command = next(
+                step["command"] for step in plan["steps"] if step["name"] == "start-carla-actor-object-bridge"
+            )
+            screenshot_command = next(
+                step["command"] for step in plan["steps"] if step["name"] == "capture-visual-screenshot"
+            )
             self.assertIn("stable_run_preflight.py", preflight_command)
             self.assertIn("--min-disk-free-gb '20'", preflight_command)
             self.assertIn("--carla-map 'Town01'", carla_command)
             self.assertIn("--render-mode 'offscreen'", carla_command)
             self.assertIn("wait_for_carla_rpc.py", wait_command)
             self.assertIn("--timeout-sec '90'", wait_command)
+            self.assertIn("apply_pix_carla_interface_patch_host.sh", patch_command)
+            self.assertIn("--dry-run", patch_command)
             self.assertIn(
                 "--autoware-ws '/home/pixmoving/zmf_ws/projects/autoware_universe/autoware'",
                 bridge_command,
@@ -406,8 +417,10 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
             carla_command = plan["steps"][1]["command"]
-            autoware_command = plan["steps"][4]["command"]
-            screenshot_command = plan["steps"][7]["command"]
+            autoware_command = next(step["command"] for step in plan["steps"] if step["name"] == "start-autoware-stack")
+            screenshot_command = next(
+                step["command"] for step in plan["steps"] if step["name"] == "capture-visual-screenshot"
+            )
             self.assertIn("--render-mode 'visual'", carla_command)
             self.assertIn("--display ':0'", carla_command)
             self.assertIn("--xauthority '/run/user/1000/gdm/Xauthority'", carla_command)
@@ -453,8 +466,12 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(rc, 0)
             plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
-            autoware_command = plan["steps"][5]["command"]
-            screenshot_command = plan["steps"][8]["command"]
+            autoware_command = next(step for step in plan["steps"] if step["name"] == "start-autoware-stack")[
+                "command"
+            ]
+            screenshot_command = next(step for step in plan["steps"] if step["name"] == "capture-visual-screenshot")[
+                "command"
+            ]
             self.assertIn("--rviz 'true'", autoware_command)
             self.assertIn(f"--rviz-config '{rviz_config}'", autoware_command)
             self.assertIn("--rviz 'true'", screenshot_command)
@@ -483,18 +500,28 @@ class CliTests(unittest.TestCase):
             plan = json.loads(Path(stream.getvalue().strip()).read_text(encoding="utf-8"))
             step_names = [step["name"] for step in plan["steps"]]
             self.assertEqual(
-                step_names[0:5],
-                ["stable-run-preflight", "start-carla-server", "wait-carla-rpc", "start-sumo-cosim", "start-autoware-bridge"],
+                step_names[0:6],
+                [
+                    "stable-run-preflight",
+                    "start-carla-server",
+                    "wait-carla-rpc",
+                    "start-sumo-cosim",
+                    "apply-pix-carla-interface-patch",
+                    "start-autoware-bridge",
+                ],
             )
             sumo_command = plan["steps"][3]["command"]
-            bridge_command = plan["steps"][4]["command"]
-            autoware_command = plan["steps"][5]["command"]
+            patch_command = plan["steps"][4]["command"]
+            bridge_command = plan["steps"][5]["command"]
+            autoware_command = plan["steps"][6]["command"]
             stop_plan_path = Path(tempdir) / "down_plan.json"
             self.assertIn("--sumo-enabled 'true'", plan["steps"][0]["command"])
             self.assertIn("start_sumo_cosim_host.sh", sumo_command)
             self.assertIn("--sumo-enabled 'true'", sumo_command)
             self.assertIn("--sumo-traci-port '9000'", sumo_command)
             self.assertIn("Town01.sumocfg", sumo_command)
+            self.assertIn("apply_pix_carla_interface_patch_host.sh", patch_command)
+            self.assertIn("--dry-run", patch_command)
             self.assertIn("--timeout '90'", bridge_command)
             self.assertIn("planning_bev.rviz", autoware_command)
             self.assertEqual(plan["steps"][3]["env"]["SIMCTL_SUMO_CARLA_CLIENT_TIMEOUT_SEC"], "60.0")
@@ -561,7 +588,10 @@ class CliTests(unittest.TestCase):
             preflight_command = plan["steps"][0]["command"]
             carla_step = plan["steps"][1]
             wait_step = plan["steps"][2]
-            bridge_command = plan["steps"][3]["command"]
+            bridge_command = next(step["command"] for step in plan["steps"] if step["name"] == "start-autoware-bridge")
+            autoware_command = next(
+                step["command"] for step in plan["steps"] if step["name"] == "start-autoware-stack"
+            )
             self.assertIn("stable_run_preflight.py", preflight_command)
             self.assertIn("--carla-root '/home/pixmoving/CARLA_0.9.15'", preflight_command)
             self.assertEqual(
@@ -576,6 +606,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("--vehicle-type 'vehicle.pixmoving.robobus'", bridge_command)
             self.assertIn("--spawn-point '229.7817,2.0201,-0.5,0,0,0'", bridge_command)
             self.assertIn("robobus117th_sensor_kit_calibration.yaml", bridge_command)
+            self.assertIn("--robobus-fidelity-profile '117th_4ws'", autoware_command)
 
     def test_up_passes_pix_carla_gains_for_qiyu_lincoln_surrogate(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -1903,6 +1934,80 @@ class CliTests(unittest.TestCase):
             self.assertEqual(payload["issue_count"], 1)
             self.assertTrue(Path(payload["issues"][0]["issue_path"]).exists())
             self.assertTrue((root / "bugpack" / "index.md").exists())
+
+    def test_bugpack_classifies_vehicle_blueprint_failures_as_simulation_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_vehicle_asset_failed"
+            run_dir.mkdir(parents=True)
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(
+                json.dumps(
+                    {
+                        "run_id": "run_vehicle_asset_failed",
+                        "scenario_id": "robobus117th_vehicle_blueprint_acceptance",
+                        "stack": "stable",
+                        "status": "failed",
+                        "scenario_path": "scenarios/l0/robobus117th_vehicle_blueprint_acceptance.yaml",
+                        "scenario_params": {
+                            "map_id": "Town01",
+                            "labels": ["L0", "vehicle_blueprint", "robobus117th"],
+                        },
+                        "software_versions": {"carla": "0.9.15", "ros2": "humble"},
+                        "resolved_profiles": {
+                            "sensor": {"profile_id": "robobus_pixrover14_application_topology"},
+                            "algorithm": {"profile_id": "planning_control_baseline"},
+                        },
+                        "runtime_health": {"passed": True},
+                        "gate": {
+                            "gate_id": "robobus117th_vehicle_blueprint_acceptance",
+                            "passed": False,
+                            "violations": [
+                                {
+                                    "metric": "robobus_bbox_plausible",
+                                    "reason": "threshold_violation",
+                                    "actual": 0.0,
+                                    "op": ">=",
+                                    "threshold": 1.0,
+                                }
+                            ],
+                            "failure_labels": ["robobus_physics_asset_failure"],
+                        },
+                        "kpis": {"robobus_bbox_plausible": 0.0, "robobus_bbox_extent_x_m": 0.0},
+                        "artifacts": {"run_result": str(result_path), "run_dir": str(run_dir)},
+                        "slot_id": "stable-slot-01",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stream = io.StringIO()
+            with redirect_stdout(stream):
+                rc = main(
+                    [
+                        "--repo-root",
+                        str(REPO_ROOT),
+                        "bugpack",
+                        "--run-root",
+                        str(root / "runs"),
+                        "--output-dir",
+                        str(root / "bugpack"),
+                        "--owner",
+                        "simulation-assets",
+                        "--include-infra",
+                    ]
+                )
+
+            self.assertEqual(rc, 0)
+            payload = json.loads(stream.getvalue())
+            self.assertEqual(payload["issue_count"], 1)
+            issue = payload["issues"][0]
+            self.assertEqual(issue["classification"], "integration_blocker")
+            self.assertIn("simulation_assets", issue["suspected_modules"])
+            self.assertIn("physics_asset", issue["suspected_modules"])
+            issue_text = Path(issue["issue_path"]).read_text(encoding="utf-8")
+            self.assertIn("[Simulation][VehicleAsset][P2]", issue_text)
+            self.assertNotIn("[Simulation][PlanningControl]", issue_text)
 
     def test_batch_validate_report_executes_scenario_validation_command(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

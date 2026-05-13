@@ -8,8 +8,8 @@ authoring_goal:
   first_acceptable_step: Direct CARLA actor vehicle.pixmoving.robobus with PIX visual mesh and stable carrier physics.
   full_driveable_step: Native CARLA vehicle blueprint with mesh, wheels, collision, physics asset, movement tuning, and cooked Linux assets.
 current_runtime_state:
-  date: "2026-04-19"
-  status: direct_actor_drive_validated
+  date: "2026-05-11"
+  status: direct_actor_drive_validated_and_source_wheel_blueprints_width_verified
   method: single_carla_actor_with_pix_visual_child_and_stable_carrier_physics
   runtime: /home/pixmoving/CARLA_0.9.15
   source_toolchain: /home/pixmoving/zmf_ws/source_toolchain/carla-0.9.15
@@ -53,6 +53,46 @@ current_runtime_state:
       - Direct runtime control, braking, wheel geometry, and CARLA wheel steer API are validated.
       - Strict CARLA bbox/collision acceptance is not validated; the observed bbox x/z extents are too small for the Robobus physical footprint.
       - Visible PIX tire animation is not accepted by this gate; it requires native UE4 VehicleMesh/AnimBP/PhysicsAsset authoring.
+  latest_wheel_blueprint_source_inspect:
+    date: "2026-05-11"
+    script: assets/vehicles/robobus117th/unreal/inspect_robobus_wheel_blueprints.py
+    log: /tmp/pix_inspect_robobus_wheels_capture_20260511T155254Z.log
+    status: passed
+    observed:
+      wheel_classes_referenced_by_vehicle_movement: true
+      front_shape_radius_cm: 32.3
+      rear_shape_radius_cm: 32.3
+      front_shape_width_cm: 25.0
+      rear_shape_width_cm: 25.0
+      front_steer_angle_deg: 28.991
+      rear_steer_angle_deg: 0.0
+    decision:
+      - CARLA 0.9.15 runtime physics API does not expose wheel width, so runtime width=0 is not a valid asset failure.
+      - Continue 40km/h route-follow drift triage through movement tuning, center of mass, actuation bridge, steering feedback, and route/map consistency.
+  latest_runtime_blueprint_gate:
+    date: "2026-05-11"
+    run_dir: /data/pix/sim_runs/robobus_blueprint_api_boundary_fix_20260511T160059Z/20260511T160059359468Z__robobus117th_vehicle_blueprint_acceptance
+    status: passed
+    gate: robobus117th_vehicle_blueprint_acceptance
+    observed:
+      blueprint_found: true
+      ego_actor_seen: true
+      bbox_extent_m:
+        x: 1.91
+        y: 0.955
+        z: 1.1045
+      wheel_count: 4
+      wheel_radius_match: true
+      wheelbase_cm: 302.011867
+      front_tread_cm: 161.185637
+      rear_tread_cm: 161.176231
+      front_steer_limit_match: true
+      rear_steer_limit_match: true
+      attached_camera_count: 6
+      attached_lidar_count: 5
+    diagnostic:
+      min_wheel_width_cm: 0.0
+      note: CARLA 0.9.15 runtime API does not expose wheel width; source inspect owns that check.
   native_vehicle_mesh_experiment:
     date: "2026-04-19"
     status: blocked_and_rolled_back
@@ -186,14 +226,14 @@ validation_gates:
   runtime_vehicle_blueprint_acceptance_gate:
     command: simctl run --scenario scenarios/l0/robobus117th_vehicle_blueprint_acceptance.yaml --run-root runs/robobus117th_vehicle_blueprint --slot stable-slot-01 --execute && simctl validate --run-dir <run_dir> --execute --finalize
     expected: The non-destructive metric probe reports a live vehicle.pixmoving.robobus ego actor with plausible bbox/collision extents, matching wheel geometry, and all 13 production sensor actors attached.
-    current_status: expected_to_fail_until_ue4_bbox_collision_proxy_is_fixed
+    current_status: excludes_wheel_width_because_carla_0_9_15_runtime_api_does_not_expose_it
   direct_actor_drive_gate:
     command: python3 assets/vehicles/robobus117th/scripts/validate_carla_direct_pix_actor.py --host 127.0.0.1 --port 2000 --run-dir runs/robobus_direct_actor_validation --actor-id vehicle.pixmoving.robobus --record-video
     expected: vehicle.pixmoving.robobus spawns as one CARLA actor, drives more than 5 m, reaches more than 1.5 m/s, stays below 12 deg pitch/roll, and writes screenshots/video plus direct_pix_actor_summary.json.
   strict_direct_actor_acceptance_gate:
     command: python3 assets/vehicles/robobus117th/scripts/validate_carla_vehicle_acceptance.py --host 127.0.0.1 --port 2000 --run-dir runs/robobus_vehicle_acceptance --actor-id vehicle.pixmoving.robobus --strict-bbox
     expected: In an isolated CARLA session, throttle, brake, steering, wheel geometry, stability, and bbox/collision plausibility all pass.
-    current_status: expected_to_fail_until_ue4_bbox_collision_proxy_is_fixed
+    current_status: wheel_width_must_be_verified_from_ue4_source_not_carla_runtime_api
   closed_loop_gate:
     command: simctl run --scenario scenarios/l0/robobus117th_town01_closed_loop.yaml --run-root runs/robobus117th_bridge --slot stable-slot-01 --execute
     expected: planning_control_smoke passes with the robobus blueprint selected.

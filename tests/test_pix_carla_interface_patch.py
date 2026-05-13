@@ -18,6 +18,11 @@ UPSTREAM_CARLA_ROS = textwrap.dedent(
     import threading
 
     class carla_ros2_interface(object):
+        def __init__(self):
+            self.sub_control = self.ros2_node.create_subscription(
+                ActuationCommandStamped, "/control/command/actuation_cmd", self.control_callback, 1
+            )
+
         def first_order_steering(self, steer_input):
             '''First order steering model.'''
             steer_output = 0.0
@@ -52,10 +57,15 @@ UPSTREAM_CARLA_ROS = textwrap.dedent(
             out_steering_state = SteeringReport()
             out_actuation_status = ActuationStatusStamped()
             out_vel_state.header = self.get_msg_header(frame_id="base_link")
+            out_vel_state.heading_rate = (
+                self.ego_actor.get_transform().transform_vector(self.ego_actor.get_angular_velocity()).z
+            )
             out_steering_state.steering_tire_angle = -math.radians(
                 self.ego_actor.get_wheel_steer_angle(carla.VehicleWheelLocation.FL_Wheel)
             )
             out_actuation_status.header = self.get_msg_header(frame_id="base_link")
+            control = self.ego_actor.get_control()
+            out_actuation_status.status.steer_status = -control.steer
     """
 ).lstrip()
 
@@ -140,6 +150,11 @@ UPSTREAM_CARLA_AUTOWARE = textwrap.dedent(
             client.load_world(self.carla_map)
             self.world = client.get_world()
             settings = self.world.get_settings()
+            self.ego_actor = CarlaDataProvider.request_new_actor(
+                self.vehicle_type, spawn_point, self.agent_role_name, random_location=randomize
+            )
+            self.interface.ego_actor = self.ego_actor  # TODO improve design
+            self.interface.physics_control = self.ego_actor.get_physics_control()
     """
 ).lstrip()
 
@@ -233,6 +248,31 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
         private_component_topics.write_text(UPSTREAM_COMPONENT_TOPICS, encoding="utf-8")
         return private_component_topics
 
+    def _write_private_install_interface(self, root: Path) -> dict[str, Path]:
+        package_root = (
+            root
+            / "install"
+            / "autoware_carla_interface"
+            / "lib"
+            / "python3.10"
+            / "site-packages"
+            / "autoware_carla_interface"
+        )
+        package_root.mkdir(parents=True)
+        modules_root = package_root / "modules"
+        modules_root.mkdir()
+        paths = {
+            "carla_ros": package_root / "carla_ros.py",
+            "carla_autoware": package_root / "carla_autoware.py",
+            "carla_wrapper": modules_root / "carla_wrapper.py",
+            "carla_utils": modules_root / "carla_utils.py",
+        }
+        paths["carla_ros"].write_text(UPSTREAM_CARLA_ROS, encoding="utf-8")
+        paths["carla_autoware"].write_text(UPSTREAM_CARLA_AUTOWARE, encoding="utf-8")
+        paths["carla_wrapper"].write_text(UPSTREAM_CARLA_WRAPPER, encoding="utf-8")
+        paths["carla_utils"].write_text(UPSTREAM_CARLA_UTILS, encoding="utf-8")
+        return paths
+
     def _write_workspace(self, root: Path) -> tuple[Path, Path]:
         source = (
             root
@@ -297,6 +337,7 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
             source, build = self._write_workspace(Path(tmp))
             private_ws = Path(tmp) / "private_autoware"
             private_component_topics = self._write_private_component_topics(private_ws)
+            private_interface = self._write_private_install_interface(private_ws)
             env = os.environ.copy()
             env["PRIVATE_AUTOWARE_WS"] = str(private_ws)
 
@@ -318,12 +359,30 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
                 self.assertIn("PIX_CARLA_STATUS_ROS_TIME_PATCH", payload)
                 self.assertIn("PIX_CARLA_STATUS_USE_ROS_TIME", payload)
                 self.assertIn("self.ros2_node.get_clock().now().to_msg()", payload)
+                self.assertIn("PIX_CARLA_ANGULAR_VELOCITY_RAD_PATCH", payload)
+                self.assertIn("out_vel_state.heading_rate = math.radians(", payload)
+                self.assertIn("from autoware_control_msgs.msg import Control", payload)
+                self.assertIn("/control/command/control_cmd", payload)
+                self.assertIn("def control_cmd_callback", payload)
+                self.assertIn("self.latest_control_cmd = in_cmd", payload)
                 self.assertIn("PIX_CARLA_THROTTLE_GAIN", payload)
                 self.assertIn("PIX_CARLA_BRAKE_DEADBAND", payload)
+                self.assertIn("PIX_CARLA_BRAKE_CREEP_PATCH", payload)
+                self.assertIn("PIX_CARLA_BRAKE_CREEP_THROTTLE", payload)
+                self.assertIn("PIX_CARLA_BRAKE_CREEP_MAX_BRAKE_CMD", payload)
+                self.assertIn("PIX_CARLA_SUPPRESS_BRAKE_BELOW_TARGET", payload)
+                self.assertIn("requested_brake = raw_brake", payload)
+                self.assertIn("target_velocity_mps > ego_speed_mps", payload)
                 self.assertIn("PIX_CARLA_SPEED_GUARD_MAX_MPS", payload)
                 self.assertIn("speed_guard_start_mps", payload)
                 self.assertIn("speed_guard_brake_gain", payload)
                 self.assertIn("PIX_CARLA_STEER_GAIN", payload)
+                self.assertIn("PIX_CARLA_STEER_ABS_LIMIT", payload)
+                self.assertIn("raw_steer_output", payload)
+                self.assertIn("PIX_CARLA_STEER_TAU", payload)
+                self.assertIn("steer_tau = max(float(steer_tau), 0.0)", payload)
+                self.assertIn("PIX_CARLA_STEERING_REPORT_SIGN", payload)
+                self.assertIn("PIX_CARLA_ACTUATION_STEER_STATUS_SIGN", payload)
                 self.assertIn("out_steering_state.steering_tire_angle = 0.0", payload)
                 self.assertIn("steer_output = self.prev_steer_output", payload)
                 self.assertIn("out_cmd.throttle = throttle", payload)
@@ -350,6 +409,10 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
                 self.assertIn("carla.OpendriveGenerationParameters", bridge_payload)
                 self.assertIn("generation_params.enable_mesh_visibility = True", bridge_payload)
                 self.assertIn("generation_params.enable_pedestrian_navigation = False", bridge_payload)
+                self.assertIn("PIX_CARLA_RUNTIME_PHYSICS_PATCH", bridge_payload)
+                self.assertIn("PIX_CARLA_PHYSICS_CENTER_OF_MASS_Z_M", bridge_payload)
+                self.assertIn("apply_physics_control(physics)", bridge_payload)
+                self.assertIn("physics.use_sweep_wheel_collision = sweep_collision", bridge_payload)
                 self.assertIn("PIX_CARLA_SENSOR_TIMEOUT_TOLERANCE_PATCH", bridge_payload)
                 self.assertIn("ego_action = self.ego_actor.get_control()", bridge_payload)
                 self.assertIn("import os", bridge_payload)
@@ -384,6 +447,15 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
             self.assertEqual(private_payload.count("error_rate: 0.0"), 2)
             self.assertEqual(private_payload.count("timeout: 5.0"), 2)
             self.assertTrue(Path(str(private_component_topics) + ".pix_vehicle_topic_rate.bak").exists())
+            private_carla_ros_payload = private_interface["carla_ros"].read_text(encoding="utf-8")
+            self.assertIn("PIX_CARLA_STEER_ABS_LIMIT", private_carla_ros_payload)
+            self.assertIn("raw_steer_output", private_carla_ros_payload)
+            private_bridge_loop_payload = private_interface["carla_autoware"].read_text(encoding="utf-8")
+            self.assertIn("PIX_CARLA_RUNTIME_PHYSICS_PATCH", private_bridge_loop_payload)
+            private_wrapper_payload = private_interface["carla_wrapper"].read_text(encoding="utf-8")
+            self.assertIn("PIX_CARLA_SENSOR_QUEUE_TIMEOUT_PATCH", private_wrapper_payload)
+            private_utils_payload = private_interface["carla_utils"].read_text(encoding="utf-8")
+            self.assertIn("PIX_CARLA_ROS_Y_SIGN_PATCH", private_utils_payload)
 
     def test_patch_upgrades_legacy_actuation_patch_with_speed_guard(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -404,7 +476,11 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
             for target in (source, build):
                 payload = target.read_text(encoding="utf-8")
                 self.assertIn("PIX_CARLA_SPEED_GUARD_MAX_MPS", payload)
+                self.assertIn("PIX_CARLA_BRAKE_CREEP_PATCH", payload)
+                self.assertIn("PIX_CARLA_CONTROL_CMD_CONTEXT_PATCH", payload)
                 self.assertIn("overspeed_mps", payload)
+                self.assertIn("PIX_CARLA_STEER_ABS_LIMIT", payload)
+                self.assertIn("PIX_CARLA_STEER_TAU", payload)
                 self.assertIn("PIX_CARLA_STATUS_ROS_TIME_PATCH", payload)
 
             second = subprocess.run(
@@ -417,6 +493,31 @@ class PixCarlaInterfacePatchTests(unittest.TestCase):
 
             self.assertEqual(second.returncode, 0, second.stderr)
             self.assertIn("already patched", second.stdout)
+
+    def test_patch_repairs_stale_control_cmd_subscription_without_callback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source, build = self._write_workspace(Path(tmp))
+            subprocess.run(["bash", str(SCRIPT), "--autoware-ws", tmp], check=True)
+            for target in (source, build):
+                payload = target.read_text(encoding="utf-8")
+                start = payload.index("    def control_cmd_callback(self, in_cmd):")
+                end = payload.index("    def control_callback(self, in_cmd):", start)
+                target.write_text(payload[:start] + payload[end:], encoding="utf-8")
+
+            proc = subprocess.run(
+                ["bash", str(SCRIPT), "--autoware-ws", tmp],
+                check=False,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            for target in (source, build):
+                payload = target.read_text(encoding="utf-8")
+                self.assertIn("def control_cmd_callback(self, in_cmd):", payload)
+                self.assertIn("self.latest_control_cmd = in_cmd", payload)
+                self.assertEqual(payload.count("def control_cmd_callback"), 1)
 
     def test_patch_can_rollback_to_original_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

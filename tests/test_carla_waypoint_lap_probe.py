@@ -21,6 +21,74 @@ def _load_probe():
 
 
 class CarlaWaypointLapProbeTests(unittest.TestCase):
+    def test_spawn_ego_at_route_start_sets_role_and_uses_first_successful_z_offset(self) -> None:
+        probe = _load_probe()
+
+        class Blueprint:
+            def __init__(self) -> None:
+                self.attributes: dict[str, str] = {}
+
+            def has_attribute(self, name: str) -> bool:
+                return name == "role_name"
+
+            def set_attribute(self, name: str, value: str) -> None:
+                self.attributes[name] = value
+
+        class Actor:
+            type_id = "vehicle.pixmoving.robobus"
+
+            def __init__(self) -> None:
+                self.attributes = {"role_name": "ego_vehicle"}
+                self.controls: list[object] = []
+
+            def set_target_velocity(self, _value: object) -> None:
+                pass
+
+            def set_target_angular_velocity(self, _value: object) -> None:
+                pass
+
+            def apply_control(self, control: object) -> None:
+                self.controls.append(control)
+
+        class World:
+            def __init__(self) -> None:
+                self.blueprint = Blueprint()
+                self.transforms: list[object] = []
+                self.actor = Actor()
+
+            def get_blueprint_library(self) -> object:
+                return SimpleNamespace(find=lambda _actor_id: self.blueprint)
+
+            def try_spawn_actor(self, _blueprint: object, transform: object) -> Actor | None:
+                self.transforms.append(transform)
+                return None if len(self.transforms) == 1 else self.actor
+
+        carla = SimpleNamespace(
+            Location=lambda **kwargs: SimpleNamespace(**kwargs),
+            Rotation=lambda **kwargs: SimpleNamespace(**kwargs),
+            Transform=lambda location, rotation: SimpleNamespace(location=location, rotation=rotation),
+            Vector3D=lambda *args, **kwargs: SimpleNamespace(args=args, **kwargs),
+            VehicleControl=lambda **kwargs: SimpleNamespace(**kwargs),
+        )
+        world = World()
+        first = probe.RoutePoint(120.0, 133.465, 0.5, 0.0, 0.0)
+
+        actor, source = probe.spawn_ego_at_route_start(
+            carla,
+            world,
+            actor_id="vehicle.pixmoving.robobus",
+            ego_role_name="ego_vehicle",
+            first=first,
+            spawn_z_offsets=[0.0, 0.5],
+        )
+
+        self.assertIs(actor, world.actor)
+        self.assertEqual(world.blueprint.attributes["role_name"], "ego_vehicle")
+        self.assertEqual(source["source"], "spawned")
+        self.assertEqual(source["spawn_z_offset_m"], 0.5)
+        self.assertAlmostEqual(world.transforms[1].location.z, 1.0)
+        self.assertEqual(actor.controls[-1].brake, 1.0)
+
     def test_forward_lookahead_chooses_ahead_target_over_s_only_target(self) -> None:
         probe = _load_probe()
         route = [

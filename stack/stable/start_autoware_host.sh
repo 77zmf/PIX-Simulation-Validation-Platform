@@ -19,6 +19,8 @@ LIDAR_TYPE=""
 LAUNCH_FILE=""
 DATA_PATH=""
 LAUNCH_EXTRA_ARGS=""
+ROBOBUS_FIDELITY_PROFILE=""
+PLANNING_MODULE_PRESET=""
 EXECUTE=0
 
 while [[ $# -gt 0 ]]; do
@@ -41,6 +43,8 @@ while [[ $# -gt 0 ]]; do
     --launch-file) LAUNCH_FILE="$2"; shift 2 ;;
     --data-path) DATA_PATH="$2"; shift 2 ;;
     --launch-extra-args) LAUNCH_EXTRA_ARGS="$2"; shift 2 ;;
+    --robobus-fidelity-profile) ROBOBUS_FIDELITY_PROFILE="$2"; shift 2 ;;
+    --planning-module-preset) PLANNING_MODULE_PRESET="$2"; shift 2 ;;
     -Execute|--execute) EXECUTE=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -60,6 +64,18 @@ LIDAR_TYPE="${LIDAR_TYPE:-${AUTOWARE_LIDAR_TYPE:-}}"
 LAUNCH_FILE="${LAUNCH_FILE:-${AUTOWARE_LAUNCH_FILE:-planning_simulator.launch.xml}}"
 DATA_PATH="${DATA_PATH:-${AUTOWARE_DATA_PATH:-}}"
 LAUNCH_EXTRA_ARGS="${LAUNCH_EXTRA_ARGS:-${AUTOWARE_LAUNCH_EXTRA_ARGS:-}}"
+ROBOBUS_FIDELITY_PROFILE="${ROBOBUS_FIDELITY_PROFILE:-${SIMCTL_ROBOBUS_FIDELITY_PROFILE:-}}"
+PLANNING_MODULE_PRESET="${PLANNING_MODULE_PRESET:-${SIMCTL_AUTOWARE_PLANNING_MODULE_PRESET:-}}"
+ROBOBUS_FIDELITY_CMD=""
+if [[ "${VEHICLE_MODEL}" == "robobus" && -n "${ROBOBUS_FIDELITY_PROFILE}" && "${ROBOBUS_FIDELITY_PROFILE}" != "preserve" ]]; then
+  ROBOBUS_FIDELITY_SNAPSHOT="${RUN_DIR}/runtime_verification/robobus_fidelity_profile.json"
+  ROBOBUS_FIDELITY_CMD="bash '${REPO_ROOT}/stack/stable/apply_robobus_2ws_autoware_params_host.sh' --autoware-ws '${AUTOWARE_WS}' --profile '${ROBOBUS_FIDELITY_PROFILE}' --snapshot-out '${ROBOBUS_FIDELITY_SNAPSHOT}' && "
+fi
+PLANNING_PRESET_CMD=""
+if [[ -n "${PLANNING_MODULE_PRESET}" && "${PLANNING_MODULE_PRESET}" != "default" ]]; then
+  PLANNING_PRESET_SNAPSHOT="${RUN_DIR}/runtime_verification/autoware_planning_preset.json"
+  PLANNING_PRESET_CMD="bash '${REPO_ROOT}/stack/stable/apply_autoware_planning_preset_host.sh' --autoware-ws '${AUTOWARE_WS}' --preset-name '${PLANNING_MODULE_PRESET}' --mode 'route_follow_only' --snapshot-out '${PLANNING_PRESET_SNAPSHOT}' && "
+fi
 LIDAR_EXPORT=""
 if [[ -n "$LIDAR_TYPE" ]]; then
   LIDAR_EXPORT="export LIDAR_TYPE='${LIDAR_TYPE}' && "
@@ -76,11 +92,15 @@ DATA_PATH_ARG=""
 if [[ -n "$DATA_PATH" ]]; then
   DATA_PATH_ARG=" data_path:='${DATA_PATH}'"
 fi
+PLANNING_MODULE_PRESET_ARG=""
+if [[ -n "$PLANNING_MODULE_PRESET" ]]; then
+  PLANNING_MODULE_PRESET_ARG=" planning_module_preset:='${PLANNING_MODULE_PRESET}'"
+fi
 EXTRA_ARGS_SUFFIX=""
 if [[ -n "$LAUNCH_EXTRA_ARGS" ]]; then
   EXTRA_ARGS_SUFFIX=" ${LAUNCH_EXTRA_ARGS}"
 fi
-CMD="cd ${AUTOWARE_WS} && source install/setup.bash && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && export ROS2CLI_DISABLE_DAEMON=1 && export PYTHONNOUSERSITE=1 && ${RMW_EXPORT}export ROS_NAMESPACE='${RUNTIME_NAMESPACE}' && ${LIDAR_EXPORT}ros2 launch autoware_launch ${LAUNCH_FILE} map_path:='${MAP_PATH}' vehicle_model:='${VEHICLE_MODEL}' sensor_model:='${SENSOR_MODEL}' rviz:='${RVIZ}'${DATA_PATH_ARG}${RVIZ_CONFIG_ARG}${EXTRA_ARGS_SUFFIX}"
+CMD="${ROBOBUS_FIDELITY_CMD}${PLANNING_PRESET_CMD}cd ${AUTOWARE_WS} && source install/setup.bash && export ROS_DOMAIN_ID=${ROS_DOMAIN_ID} && export ROS2CLI_DISABLE_DAEMON=1 && export PYTHONNOUSERSITE=1 && ${RMW_EXPORT}export ROS_NAMESPACE='${RUNTIME_NAMESPACE}' && ${LIDAR_EXPORT}ros2 launch autoware_launch ${LAUNCH_FILE} map_path:='${MAP_PATH}' vehicle_model:='${VEHICLE_MODEL}' sensor_model:='${SENSOR_MODEL}' rviz:='${RVIZ}'${DATA_PATH_ARG}${RVIZ_CONFIG_ARG}${PLANNING_MODULE_PRESET_ARG}${EXTRA_ARGS_SUFFIX}"
 echo "Scenario: ${SCENARIO}"
 echo "SlotId: ${SLOT_ID}"
 echo "RunDir: ${RUN_DIR}"
@@ -99,6 +119,12 @@ echo "RVIZ config: ${RVIZ_CONFIG}"
 echo "Autoware launch file: ${LAUNCH_FILE}"
 echo "Autoware data path: ${DATA_PATH}"
 echo "Autoware launch extra args: ${LAUNCH_EXTRA_ARGS}"
+echo "Robobus fidelity profile: ${ROBOBUS_FIDELITY_PROFILE}"
+echo "Robobus fidelity command: ${ROBOBUS_FIDELITY_CMD}"
+echo "Robobus fidelity snapshot: ${ROBOBUS_FIDELITY_SNAPSHOT:-}"
+echo "Autoware planning module preset: ${PLANNING_MODULE_PRESET}"
+echo "Autoware planning preset command: ${PLANNING_PRESET_CMD}"
+echo "Autoware planning preset snapshot: ${PLANNING_PRESET_SNAPSHOT:-}"
 echo "Command: ${CMD}"
 
 if [[ "$EXECUTE" -eq 1 ]]; then

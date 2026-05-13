@@ -1040,7 +1040,12 @@ def ego_sample_to_map_xy(sample: dict[str, Any], y_sign: float = -1.0) -> tuple[
     return (float(sample["x"]), float(y_sign) * float(sample["y"]))
 
 
-def abs_jerk_samples_mps3(samples: list[dict[str, Any]]) -> list[float]:
+def abs_jerk_samples_mps3(
+    samples: list[dict[str, Any]],
+    *,
+    min_speed_mps: float = 0.0,
+    phase: str | None = None,
+) -> list[float]:
     acceleration_samples: list[tuple[float, float]] = []
     for previous, current in zip(samples, samples[1:]):
         previous_t = float(previous.get("t", 0.0))
@@ -1050,6 +1055,10 @@ def abs_jerk_samples_mps3(samples: list[dict[str, Any]]) -> list[float]:
             continue
         previous_speed = float(previous["ego"].get("speed_mps", 0.0))
         current_speed = float(current["ego"].get("speed_mps", 0.0))
+        if phase is not None and current.get("phase") != phase:
+            continue
+        if current_speed < min_speed_mps:
+            continue
         acceleration_samples.append((current_t, (current_speed - previous_speed) / dt))
 
     jerk_samples: list[float] = []
@@ -1075,10 +1084,18 @@ def max_abs_jerk_mps3(samples: list[dict[str, Any]]) -> float:
     return max(jerk_samples) if jerk_samples else 0.0
 
 
-def robust_abs_jerk_mps3(samples: list[dict[str, Any]]) -> float:
+def robust_abs_jerk_mps3(
+    samples: list[dict[str, Any]],
+    *,
+    min_speed_mps: float = 0.0,
+    phase: str | None = None,
+) -> float:
     # CARLA actor speed has occasional one-sample quantization spikes; p90 keeps
     # the comfort gate deterministic without allowing sustained harsh motion.
-    return percentile_value(abs_jerk_samples_mps3(samples), 0.90)
+    return percentile_value(
+        abs_jerk_samples_mps3(samples, min_speed_mps=min_speed_mps, phase=phase),
+        0.90,
+    )
 
 
 def nested_value(payload: dict[str, Any], path: tuple[str, ...]) -> float | None:
@@ -1628,7 +1645,15 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             "lateral_error_m": lateral_error_m,
             "route_goal_lateral_error_m": route_goal_lateral_error_m,
             "longitudinal_error_m": longitudinal_error_m,
-            "jerk_mps3": robust_abs_jerk_mps3(samples),
+            "jerk_mps3": robust_abs_jerk_mps3(
+                samples,
+                min_speed_mps=args.min_speed_mps,
+                phase="route_tracking",
+            ),
+            "jerk_mps3_sample_filter": {
+                "phase": "route_tracking",
+                "min_speed_mps": args.min_speed_mps,
+            },
             "max_jerk_mps3": max_jerk_mps3,
             "stopped_before_goal": bool(
                 last_location is not None

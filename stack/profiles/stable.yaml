@@ -36,6 +36,11 @@ start:
       CARLA_0915_ROOT: "{carla_root}"
       SIMCTL_SUMO_CARLA_CLIENT_TIMEOUT_SEC: "{sumo_carla_client_timeout_sec}"
     command: "bash '{repo_root}/stack/stable/start_sumo_cosim_host.sh' --run-dir '{run_dir}' --carla-root '{carla_root}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --sumo-enabled '{sumo_enabled}' --sumo-home '{sumo_home}' --sumo-config-file '{sumo_config_file}' --sumo-net-file '{sumo_net_file}' --sumo-route-file '{sumo_route_file}' --sumo-host '{sumo_host}' --sumo-traci-port '{sumo_traci_port}' --sumo-binary '{sumo_binary}' --sumo-gui '{sumo_gui}' --sumo-step-length '{sumo_step_length}' --sumo-sync-vehicle-lights '{sumo_sync_vehicle_lights}' --sumo-sync-vehicle-color '{sumo_sync_vehicle_color}' --sumo-tls-manager '{sumo_tls_manager}' --sumo-additional-args '{sumo_additional_args}' --sumo-cosim-script '{sumo_cosim_script}' --cpu-affinity '{cpu_affinity}' {execute_flag}"
+  - name: apply-pix-carla-interface-patch
+    runner: bash
+    background: false
+    when: autoware_enabled
+    command: "bash '{repo_root}/stack/stable/apply_pix_carla_interface_patch_host.sh' --autoware-ws '{autoware_bridge_ws}' --private-autoware-ws '{autoware_bridge_underlay_ws}' {dry_run_flag}"
   - name: start-autoware-bridge
     runner: bash
     background: true
@@ -44,6 +49,8 @@ start:
       CARLA_0915_ROOT: "{carla_root}"
       PIX_CARLA_SKIP_WHEEL_STEER_ANGLE: "{pix_carla_skip_wheel_steer_angle}"
       PIX_CARLA_STEER_GAIN: "{pix_carla_steer_gain}"
+      PIX_CARLA_STEER_ABS_LIMIT: "{pix_carla_steer_abs_limit}"
+      PIX_CARLA_STEER_TAU: "{pix_carla_steer_tau}"
       PIX_CARLA_THROTTLE_GAIN: "{pix_carla_throttle_gain}"
       PIX_CARLA_MIN_THROTTLE: "{pix_carla_min_throttle}"
       PIX_CARLA_MAX_THROTTLE: "{pix_carla_max_throttle}"
@@ -52,17 +59,36 @@ start:
       PIX_CARLA_BRAKE_GAIN: "{pix_carla_brake_gain}"
       PIX_CARLA_MAX_BRAKE: "{pix_carla_max_brake}"
       PIX_CARLA_BRAKE_DEADBAND: "{pix_carla_brake_deadband}"
+      PIX_CARLA_BRAKE_CREEP_THROTTLE: "{pix_carla_brake_creep_throttle}"
+      PIX_CARLA_BRAKE_CREEP_MAX_BRAKE_CMD: "{pix_carla_brake_creep_max_brake_cmd}"
+      PIX_CARLA_BRAKE_CREEP_SPEED_THRESHOLD_MPS: "{pix_carla_brake_creep_speed_threshold_mps}"
+      PIX_CARLA_BRAKE_CREEP_MIN_TARGET_VELOCITY_MPS: "{pix_carla_brake_creep_min_target_velocity_mps}"
+      PIX_CARLA_SUPPRESS_BRAKE_BELOW_TARGET: "{pix_carla_suppress_brake_below_target}"
+      PIX_CARLA_BRAKE_TARGET_SPEED_MARGIN_MPS: "{pix_carla_brake_target_speed_margin_mps}"
+      PIX_CARLA_TARGET_SPEED_BRAKE_MAX_CMD: "{pix_carla_target_speed_brake_max_cmd}"
       PIX_CARLA_SPEED_GUARD_MAX_MPS: "{pix_carla_speed_guard_max_mps}"
       PIX_CARLA_SPEED_GUARD_BAND_MPS: "{pix_carla_speed_guard_band_mps}"
       PIX_CARLA_SPEED_GUARD_BRAKE_GAIN: "{pix_carla_speed_guard_brake_gain}"
+      PIX_CARLA_STEERING_REPORT_SIGN: "{pix_carla_steering_report_sign}"
+      PIX_CARLA_ACTUATION_STEER_STATUS_SIGN: "{pix_carla_actuation_steer_status_sign}"
       PIX_CARLA_ROS_Y_SIGN: "{pix_carla_ros_y_sign}"
       PIX_CARLA_SENSOR_QUEUE_TIMEOUT_SEC: "{pix_carla_sensor_queue_timeout_sec}"
+      PIX_CARLA_PHYSICS_MASS_KG: "{pix_carla_physics_mass_kg}"
+      PIX_CARLA_PHYSICS_DRAG_COEFFICIENT: "{pix_carla_physics_drag_coefficient}"
+      PIX_CARLA_PHYSICS_CENTER_OF_MASS_X_M: "{pix_carla_physics_center_of_mass_x_m}"
+      PIX_CARLA_PHYSICS_CENTER_OF_MASS_Y_M: "{pix_carla_physics_center_of_mass_y_m}"
+      PIX_CARLA_PHYSICS_CENTER_OF_MASS_Z_M: "{pix_carla_physics_center_of_mass_z_m}"
+      PIX_CARLA_PHYSICS_TIRE_FRICTION: "{pix_carla_physics_tire_friction}"
+      PIX_CARLA_PHYSICS_WHEEL_DAMPING_RATE: "{pix_carla_physics_wheel_damping_rate}"
+      PIX_CARLA_PHYSICS_FRONT_MAX_STEER_ANGLE_DEG: "{pix_carla_physics_front_max_steer_angle_deg}"
+      PIX_CARLA_PHYSICS_REAR_MAX_STEER_ANGLE_DEG: "{pix_carla_physics_rear_max_steer_angle_deg}"
+      PIX_CARLA_PHYSICS_USE_SWEEP_WHEEL_COLLISION: "{pix_carla_physics_use_sweep_wheel_collision}"
     command: "bash '{repo_root}/stack/stable/start_bridge_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --carla-port '{carla_rpc_port}' --traffic-manager-port '{traffic_manager_port}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_bridge_ws}' --autoware-underlay-ws '{autoware_bridge_underlay_ws}' --vehicle-type '{carla_vehicle_type}' --carla-map '{carla_map}' --spawn-point '{carla_spawn_point}' --ego-vehicle-role-name '{carla_ego_vehicle_role_name}' --sensor-kit-name '{carla_sensor_kit_name}' --sensor-mapping-file '{carla_sensor_mapping_file}' --sensor-kit-calibration-file '{carla_sensor_kit_calibration_file}' --objects-definition-file '{carla_objects_definition_file}' --use-traffic-manager '{carla_use_traffic_manager}' --timeout '{carla_bridge_timeout}' --sync-mode '{carla_bridge_sync_mode}' {execute_flag}"
   - name: start-autoware-stack
     runner: bash
     background: true
     when: autoware_enabled
-    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_ws}' --map-path '{autoware_map_path}' --vehicle-model '{autoware_vehicle_model}' --sensor-model '{autoware_sensor_model}' --lidar-type '{autoware_lidar_type}' --rviz '{autoware_rviz}' --rviz-config '{autoware_rviz_config}' --launch-file '{autoware_launch_file}' --data-path '{autoware_data_path}' --launch-extra-args '{autoware_launch_extra_args}' {execute_flag}"
+    command: "bash '{repo_root}/stack/stable/start_autoware_host.sh' --scenario '{scenario_path}' --run-dir '{run_dir}' --asset-bundle '{asset_bundle_id}' --slot-id '{slot_id}' --ros-domain-id '{ros_domain_id}' --rmw-implementation '{ros_rmw_implementation}' --runtime-namespace '{runtime_namespace}' --cpu-affinity '{cpu_affinity}' --autoware-ws '{autoware_ws}' --map-path '{autoware_map_path}' --vehicle-model '{autoware_vehicle_model}' --sensor-model '{autoware_sensor_model}' --lidar-type '{autoware_lidar_type}' --rviz '{autoware_rviz}' --rviz-config '{autoware_rviz_config}' --launch-file '{autoware_launch_file}' --data-path '{autoware_data_path}' --launch-extra-args '{autoware_launch_extra_args}' --robobus-fidelity-profile '{robobus_fidelity_profile}' --planning-module-preset '{autoware_planning_module_preset}' {execute_flag}"
   - name: start-bevfusion-perception
     runner: bash
     background: true

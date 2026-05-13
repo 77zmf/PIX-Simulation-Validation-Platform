@@ -59,8 +59,8 @@ metadata:
     --min-attached-sensors 13
     --min-attached-cameras 6
     --min-attached-lidars 5
-  expected_observable: CARLA blueprint library contains vehicle.pixmoving.robobus; one ego actor with role_name ego_vehicle is live; bbox extents are plausible for a driveable vehicle; wheelbase/tread/steer limits match 117th metadata; 6 cameras, 5 lidars, IMU, and GNSS are attached to the ego actor.
-  known_current_gap: As of 2026-04-25 the live vehicle can spawn and drive, but strict bbox/collision acceptance is expected to fail until the UE4 PhysicsAsset/collision proxy is fixed.
+  expected_observable: CARLA blueprint library contains vehicle.pixmoving.robobus; one ego actor with role_name ego_vehicle is live; bbox extents are plausible for a driveable vehicle; wheel radius/wheelbase/tread/steer limits match 117th metadata; 6 cameras, 5 lidars, IMU, and GNSS are attached to the ego actor.
+  known_current_gap: As of 2026-05-11 the live vehicle spawns and direct throttle passes. CARLA 0.9.15 runtime physics APIs do not expose wheel width, so wheel width must be verified in UE4 source via assets/vehicles/robobus117th/unreal/inspect_robobus_wheel_blueprints.py instead of this runtime gate.
   rollback_impact: Remove this scenario from required campaigns or temporarily use the non-strict direct actor drive gate; existing planning/control scenarios remain unchanged.
 execution:
   mode: external

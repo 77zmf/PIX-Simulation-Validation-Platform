@@ -38,13 +38,14 @@ labels:
   - speed40
   - route_follow
   - regression
+  - simulation_fidelity
 metadata:
   owner: zmf
   source_assets:
     - scenarios/l1/regression_follow_lane.yaml
     - ops/runtime_probes/carla_closed_loop_route_probe.py
     - evaluation/kpi_gates/planning_control_speed40_probe.yaml
-  validation_method: Run the stable stack with the PIX robobus on the valid long Town01 lanelet 1071 straight segment, publish a 40km/h velocity target through the closed-loop route probe evidence path, and require both route closure and target-speed evidence.
+  validation_method: Run the stable stack with the PIX robobus on the valid long Town01 lanelet 1071 straight segment, use the route-follow-only planning preset to isolate vehicle/control fidelity from traffic-rule stops, publish a 40km/h velocity target through the closed-loop route probe evidence path, and require both route closure and target-speed evidence.
   validation_command: >
     python3 ops/runtime_probes/carla_closed_loop_route_probe.py
     --run-dir <run_dir>
@@ -56,8 +57,8 @@ metadata:
     --camera-video-output <run_dir>/runtime_verification/speed40_route_sync.mp4
     --camera-video-mode ego_chase
     --disable-goal-modification
-  expected_observable: The PIX robobus accepts the valid Town01 lanelet 1071 route, reaches at least 10.6m/s during the run, stays within lane envelope, and closes the route with stable control.
-  known_current_gap: As of 2026-05-01 runtime evidence showed the previous x=205.0 to x=324.5 road-1 route was too short for stable 40km/h evidence and stopped near the endpoint with vehicle_cmd_gate emergency after an out-of-lane warning. This route now uses the longer 120.0m to 315.0m Town01 lanelet 1071 straight segment.
+  expected_observable: The PIX robobus accepts the valid Town01 lanelet 1071 route, reaches at least 10.6m/s during the run, stays within lane envelope, and closes the route with stable control without default traffic-rule modules stopping the vehicle before the fidelity target.
+  known_current_gap: "As of 2026-05-12, steering status sign alignment and CARLA angular-velocity unit conversion are fixed and verified in bridge evidence. The best pre-physics-tuning runtime trial reached 39.95km/h with max roll about 2.0deg and x≈265m, but still stopped about 49m before the goal with lateral error about 1.05m. A narrower steering response trial with pix_carla_steer_tau=0.05 reached 40.20km/h but regressed to lateral error about 1.84m and max roll about 5.1deg, so the scenario keeps default steering tau. After the angular-rate fix, the vehicle still rolled/drifted lane-out. The first runtime physics trial reached 39.71km/h and improved lateral error to about 0.765m, but triggered a collision-like transient near x≈205m with max roll about 22.7deg and yaw about 51deg; backing off sweep wheel collision reduced max roll to about 11.8deg but exposed a control-to-CARLA steer direction issue. A direct positive steer gain of 0.25 was unsafe, causing max roll about 94deg, while gain 0.08 stayed kinematically sane and reached target speed but stopped about 45.6m before goal with lateral error about 1.94m. This revision keeps conservative physics and uses bounded steering output for the next fidelity validation. The remaining blocker should stay classified as simulation fidelity / bridge dynamics until the vehicle model response matches the real-car planning behavior."
   rollback_impact: Keep scenarios/l1/regression_follow_lane.yaml as the required route-follow gate and leave this scenario as a non-blocking speed regression until it passes repeatedly.
 execution:
   mode: external
@@ -85,6 +86,25 @@ execution:
     carla_use_traffic_manager: "False"
     carla_render_mode: offscreen
     carla_quality_level: Low
+    autoware_planning_module_preset: simctl_route_follow_only
+    robobus_fidelity_profile: 117th_4ws
+    pix_carla_physics_mass_kg: "1800"
+    pix_carla_physics_drag_coefficient: "0.35"
+    pix_carla_physics_center_of_mass_z_m: "-0.30"
+    pix_carla_physics_wheel_damping_rate: "0.35"
+    pix_carla_steer_gain: "0.16"
+    pix_carla_steer_abs_limit: "0.018"
+    pix_carla_steering_report_sign: "1.0"
+    pix_carla_actuation_steer_status_sign: "1.0"
+    pix_carla_creep_throttle: "0.95"
+    pix_carla_creep_speed_threshold_mps: "0.50"
+    pix_carla_suppress_brake_below_target: "1"
+    pix_carla_brake_target_speed_margin_mps: "0.2"
+    pix_carla_target_speed_brake_max_cmd: "0.25"
+    pix_carla_brake_creep_throttle: "0.10"
+    pix_carla_brake_creep_max_brake_cmd: "0.25"
+    pix_carla_brake_creep_speed_threshold_mps: "0.30"
+    pix_carla_brake_creep_min_target_velocity_mps: "0.05"
     ros_expected_topics:
       - /clock
       - /tf

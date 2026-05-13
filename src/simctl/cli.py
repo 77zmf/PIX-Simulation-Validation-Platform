@@ -310,6 +310,7 @@ def _artifact_paths(run_dir: Path, recording: dict[str, Any]) -> dict[str, str]:
         "health_report": str(run_dir / "health.json"),
         "run_result": str(run_dir / "run_result.json"),
         "report_dir": str(run_dir / "report"),
+        "robobus_fidelity_profile": str(run_dir / "runtime_verification" / "robobus_fidelity_profile.json"),
     }
     rosbag_cfg = recording.get("rosbag2", {})
     if rosbag_cfg.get("enabled", False):

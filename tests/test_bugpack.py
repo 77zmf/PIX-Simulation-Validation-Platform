@@ -137,6 +137,83 @@ def _route_recovery_kinematic_result(run_dir: Path) -> dict[str, object]:
     return result
 
 
+def _route_goal_geometry_result(run_dir: Path) -> dict[str, object]:
+    result = _base_result(run_dir)
+    result["scenario_id"] = "stable_l1_robobus117th_town01_speed40_probe"
+    result["scenario_path"] = "scenarios/l1/robobus117th_town01_speed40_probe.yaml"
+    result["gate"] = {
+        "gate_id": "planning_control_speed40_probe",
+        "passed": False,
+        "violations": [
+            {
+                "metric": "route_completion",
+                "reason": "threshold_violation",
+                "actual": 0.0,
+                "op": ">=",
+                "threshold": 0.98,
+            },
+            {
+                "metric": "route_goal_lateral_error_m",
+                "reason": "threshold_violation",
+                "actual": 4.227222,
+                "op": "<=",
+                "threshold": 0.8,
+            },
+        ],
+    }
+    result["kpis"] = {
+        "route_completion": 0.0,
+        "max_speed_kph": 40.012,
+        "lateral_error_m": 0.245,
+        "route_goal_lateral_error_m": 4.227222,
+        "longitudinal_error_m": 60.854,
+        "jerk_mps3": 2.42,
+        "max_abs_roll_deg": 2.67,
+        "kinematic_sanity_passed": 1.0,
+    }
+    return result
+
+
+def _speed40_simulation_fidelity_result(run_dir: Path) -> dict[str, object]:
+    result = _base_result(run_dir)
+    result["scenario_id"] = "stable_l1_robobus117th_town01_speed40_probe"
+    result["scenario_path"] = "scenarios/l1/robobus117th_town01_speed40_probe.yaml"
+    result["scenario_params"] = {
+        "map_id": "Town01",
+        "labels": ["stable", "planning_control", "simulation_fidelity", "robobus117th"],
+    }
+    result["gate"] = {
+        "gate_id": "planning_control_speed40_probe",
+        "passed": False,
+        "violations": [
+            {
+                "metric": "route_completion",
+                "reason": "threshold_violation",
+                "actual": 0.0,
+                "op": ">=",
+                "threshold": 0.98,
+            },
+            {
+                "metric": "lateral_error_m",
+                "reason": "threshold_violation",
+                "actual": 1.05,
+                "op": "<=",
+                "threshold": 0.75,
+            },
+        ],
+    }
+    result["kpis"] = {
+        "route_completion": 0.0,
+        "max_speed_kph": 39.95,
+        "lateral_error_m": 1.05,
+        "route_goal_lateral_error_m": 1.03,
+        "longitudinal_error_m": 49.37,
+        "max_abs_roll_deg": 2.02,
+        "kinematic_sanity_passed": 1.0,
+    }
+    return result
+
+
 class BugpackTests(unittest.TestCase):
     def test_classifies_planning_control_kpi_failure_as_bug_candidate(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -175,6 +252,33 @@ class BugpackTests(unittest.TestCase):
             self.assertIn("closed_loop_vehicle_dynamics", triage["suspected_modules"])
             self.assertIn("control", triage["suspected_modules"])
             self.assertIn("planning", triage["suspected_modules"])
+
+    def test_route_goal_mismatch_with_good_lane_error_is_owned_as_simulation_fidelity(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_speed40_route_geometry_failed"
+            run_dir.mkdir()
+            result = _route_goal_geometry_result(run_dir)
+
+            triage = classify_run_result(result, run_dir / "run_result.json")
+
+            self.assertEqual(triage["classification"], "planning_control_bug_candidate")
+            self.assertIn("simulation_fidelity", triage["suspected_modules"])
+            self.assertIn("scenario_route_geometry", triage["suspected_modules"])
+            self.assertIn("autoware_carla_bridge", triage["suspected_modules"])
+            self.assertIn("planning", triage["suspected_modules"])
+
+    def test_speed40_fidelity_scope_keeps_bridge_dynamics_in_suspected_modules(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            run_dir = Path(tempdir) / "run_speed40_fidelity_failed"
+            run_dir.mkdir()
+            result = _speed40_simulation_fidelity_result(run_dir)
+
+            triage = classify_run_result(result, run_dir / "run_result.json")
+
+            self.assertEqual(triage["classification"], "planning_control_bug_candidate")
+            self.assertIn("simulation_fidelity", triage["suspected_modules"])
+            self.assertIn("closed_loop_vehicle_dynamics", triage["suspected_modules"])
+            self.assertIn("autoware_carla_bridge", triage["suspected_modules"])
 
     def test_write_bugpack_creates_issue_for_roadtest_replay_without_include_infra(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -319,6 +423,71 @@ class BugpackTests(unittest.TestCase):
             )
             self.assertIn("simulation_fidelity", issue)
             self.assertIn("Compare against real-vehicle or bag evidence", issue)
+
+    def test_issue_markdown_labels_route_goal_mismatch_as_simulation_fidelity(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            run_dir = root / "runs" / "run_speed40_route_geometry_failed"
+            run_dir.mkdir(parents=True)
+            runtime_dir = run_dir / "runtime_verification"
+            runtime_dir.mkdir()
+            (runtime_dir / "closed_loop_route_sync_20260511T162733.json").write_text(
+                json.dumps(
+                    {
+                        "verdict": {"overall_passed": False, "movement_passed": True},
+                        "summary": {
+                            "route_service_calls_successful": True,
+                            "all_service_calls_successful": True,
+                            "max_speed_mps": 11.11,
+                            "total_delta_m": 134.1,
+                            "stopped_before_goal": True,
+                            "kinematic_sanity_passed": True,
+                            "max_abs_roll_deg": 2.67,
+                            "max_abs_pitch_deg": 7.86,
+                            "min_ego_z_m": 0.14,
+                            "max_ego_z_m": 0.27,
+                            "reached_near_goal": False,
+                            "min_goal_distance_m": 60.99,
+                            "lateral_error_m": 0.245,
+                            "route_goal_lateral_error_m": 4.227222,
+                            "longitudinal_error_m": 60.854,
+                            "jerk_mps3": 2.42,
+                            "final_map_location": {
+                                "x": 254.145,
+                                "y": -129.238,
+                                "z": 0.168,
+                                "yaw": -0.948,
+                            },
+                            "final_carla_waypoint": {
+                                "road_id": 4,
+                                "lane_id": 1,
+                                "s": 152.724,
+                                "center_map": {"x": 254.145, "y": -129.483},
+                                "carla_lateral_error_m": 0.245,
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result_path = run_dir / "run_result.json"
+            result_path.write_text(
+                json.dumps(_route_goal_geometry_result(run_dir)),
+                encoding="utf-8",
+            )
+
+            summary = write_bugpack(
+                run_result_paths=[result_path],
+                output_dir=root / "bugpack",
+                owner="planning-control",
+            )
+
+            issue = Path(summary["issues"][0]["issue_path"]).read_text(encoding="utf-8")
+            self.assertIn("[Simulation][SimulationFidelity][P1]", issue)
+            self.assertIn("scenario_route_geometry", issue)
+            self.assertIn("closed-loop final map location", issue)
+            self.assertIn("closed-loop final CARLA waypoint", issue)
+            self.assertIn("lane selection", issue)
 
     def test_runtime_failure_is_blocked_by_default_not_planning_bug(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:

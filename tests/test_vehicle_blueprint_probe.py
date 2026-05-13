@@ -47,7 +47,12 @@ class VehicleBlueprintProbeTests(unittest.TestCase):
                 "front_tread_cm": 161.007822,
                 "rear_tread_cm": 160.998667,
             },
-            "wheels": [{}, {}, {}, {}],
+            "wheels": [
+                {"width_cm": 25.0, "tire_friction": 3.5},
+                {"width_cm": 25.0, "tire_friction": 3.5},
+                {"width_cm": 25.0, "tire_friction": 3.5},
+                {"width_cm": 25.0, "tire_friction": 3.5},
+            ],
             "attached_sensor_count": 13,
             "attached_camera_count": 6,
             "attached_lidar_count": 5,
@@ -59,6 +64,7 @@ class VehicleBlueprintProbeTests(unittest.TestCase):
         self.assertEqual(metrics["robobus_bbox_plausible"], 0.0)
         self.assertEqual(metrics["robobus_bbox_extent_x_m"], 0.0)
         self.assertEqual(metrics["robobus_bbox_extent_z_m"], 0.099537)
+        self.assertEqual(metrics["robobus_min_wheel_width_cm"], 25.0)
         self.assertFalse(payload["overall_passed"])
         self.assertIn("bbox_plausible", payload["blocked_reason"])
 
@@ -88,7 +94,12 @@ class VehicleBlueprintProbeTests(unittest.TestCase):
                 "front_tread_cm": 161.0,
                 "rear_tread_cm": 161.0,
             },
-            "wheels": [{}, {}, {}, {}],
+            "wheels": [
+                {"width_cm": 25.0, "tire_friction": 3.5},
+                {"width_cm": 25.0, "tire_friction": 3.5},
+                {"width_cm": 25.0, "tire_friction": 3.5},
+                {"width_cm": 25.0, "tire_friction": 3.5},
+            ],
             "attached_sensor_count": 13,
             "attached_camera_count": 6,
             "attached_lidar_count": 5,
@@ -100,6 +111,49 @@ class VehicleBlueprintProbeTests(unittest.TestCase):
         self.assertIsNone(payload["blocked_reason"])
         self.assertEqual(payload["metrics"]["robobus_bbox_plausible"], 1.0)
         self.assertEqual(payload["metrics"]["robobus_attached_lidar_count"], 5.0)
+
+    def test_zero_width_wheels_are_diagnostic_because_carla_0_9_15_does_not_expose_width(self) -> None:
+        probe = _load_probe()
+        summary = {
+            "checks": {
+                "blueprint_found": True,
+                "ego_actor_seen": True,
+                "actor_type_match": True,
+                "pose_height_plausible": True,
+                "bbox_plausible": True,
+                "wheel_count": True,
+                "wheel_radius_match": True,
+                "wheelbase_match": True,
+                "front_tread_match": True,
+                "rear_tread_match": True,
+                "front_steer_limit_match": True,
+                "rear_steer_limit_match": True,
+                "attached_sensor_count": True,
+                "attached_camera_count": True,
+                "attached_lidar_count": True,
+            },
+            "actor": {"bbox_extent_m": {"x": 1.91, "y": 0.955, "z": 1.1045}},
+            "wheel_geometry": {
+                "wheelbase_cm": 302.0,
+                "front_tread_cm": 161.0,
+                "rear_tread_cm": 161.0,
+            },
+            "wheels": [
+                {"width_cm": 0.0, "tire_friction": 0.0},
+                {"width_cm": 0.0, "tire_friction": 0.0},
+                {"width_cm": 0.0, "tire_friction": 0.0},
+                {"width_cm": 0.0, "tire_friction": 0.0},
+            ],
+            "attached_sensor_count": 13,
+            "attached_camera_count": 6,
+            "attached_lidar_count": 5,
+        }
+
+        payload = probe._payload_from_summary(SimpleNamespace(profile="robobus117th_vehicle_blueprint"), summary)
+
+        self.assertTrue(payload["overall_passed"])
+        self.assertIsNone(payload["blocked_reason"])
+        self.assertEqual(payload["metrics"]["robobus_min_wheel_width_cm"], 0.0)
 
     def test_write_artifacts_uses_metric_probe_contract(self) -> None:
         probe = _load_probe()

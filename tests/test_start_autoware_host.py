@@ -93,6 +93,80 @@ class StartAutowareHostTests(unittest.TestCase):
         self.assertIn("data_path:='/data/pix/autoware_data'", proc.stdout)
         self.assertIn("launch_detection:=true use_deeplearning_model:=true", proc.stdout)
 
+    def test_renders_robobus_fidelity_profile_before_launch(self) -> None:
+        proc = subprocess.run(
+            [
+                "bash",
+                str(SCRIPT),
+                "--scenario",
+                "scenario.yaml",
+                "--run-dir",
+                "/tmp/run",
+                "--ros-domain-id",
+                "21",
+                "--autoware-ws",
+                "/opt/autoware",
+                "--map-path",
+                "/maps/Town01",
+                "--vehicle-model",
+                "robobus",
+                "--sensor-model",
+                "robobus_sensor_kit",
+                "--robobus-fidelity-profile",
+                "117th_4ws",
+            ],
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Robobus fidelity profile: 117th_4ws", proc.stdout)
+        self.assertIn("Robobus fidelity snapshot: /tmp/run/runtime_verification/robobus_fidelity_profile.json", proc.stdout)
+        self.assertIn("apply_robobus_2ws_autoware_params_host.sh", proc.stdout)
+        self.assertIn("--profile '117th_4ws' --snapshot-out '/tmp/run/runtime_verification/robobus_fidelity_profile.json' && cd /opt/autoware", proc.stdout)
+        self.assertIn("ros2 launch autoware_launch planning_simulator.launch.xml", proc.stdout)
+
+    def test_renders_route_follow_planning_preset_before_launch(self) -> None:
+        proc = subprocess.run(
+            [
+                "bash",
+                str(SCRIPT),
+                "--scenario",
+                "scenario.yaml",
+                "--run-dir",
+                "/tmp/run",
+                "--ros-domain-id",
+                "21",
+                "--autoware-ws",
+                "/opt/autoware",
+                "--map-path",
+                "/maps/Town01",
+                "--vehicle-model",
+                "robobus",
+                "--sensor-model",
+                "robobus_sensor_kit",
+                "--planning-module-preset",
+                "simctl_route_follow_only",
+            ],
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Autoware planning module preset: simctl_route_follow_only", proc.stdout)
+        self.assertIn(
+            "Autoware planning preset snapshot: /tmp/run/runtime_verification/autoware_planning_preset.json",
+            proc.stdout,
+        )
+        self.assertIn("apply_autoware_planning_preset_host.sh", proc.stdout)
+        self.assertIn("planning_module_preset:='simctl_route_follow_only'", proc.stdout)
+        self.assertNotIn("control_module_preset:='simctl_route_follow_only'", proc.stdout)
+        self.assertIn("&& cd /opt/autoware", proc.stdout)
+
     def test_renders_standalone_bevfusion_perception_launch(self) -> None:
         proc = subprocess.run(
             [

@@ -93,6 +93,7 @@ def build_context(
         "gpu_id": slot.gpu_id if slot else "",
         "cpu_affinity": slot.cpu_affinity or "" if slot else "",
         "execute_flag": "-Execute" if execute else "",
+        "dry_run_flag": "" if execute else "--dry-run",
         "autoware_ws": autoware_ws,
         "autoware_enabled": runtime_option("autoware_enabled", "true"),
         "autoware_bridge_ws": autoware_bridge_ws,
@@ -106,6 +107,8 @@ def build_context(
         "autoware_launch_file": runtime_option("autoware_launch_file", "planning_simulator.launch.xml"),
         "autoware_data_path": autoware_data_path,
         "autoware_launch_extra_args": runtime_option("autoware_launch_extra_args"),
+        "autoware_planning_module_preset": runtime_option("autoware_planning_module_preset", "default"),
+        "robobus_fidelity_profile": runtime_option("robobus_fidelity_profile", "117th_4ws"),
         "bevfusion_enabled": runtime_option("bevfusion_enabled", "false"),
         "bevfusion_autoware_ws": runtime_option("bevfusion_autoware_ws", autoware_ws),
         "bevfusion_extra_setup": runtime_option("bevfusion_extra_setup"),
@@ -148,6 +151,8 @@ def build_context(
         "carla_bridge_sync_mode": runtime_option("carla_bridge_sync_mode"),
         "pix_carla_skip_wheel_steer_angle": runtime_option("pix_carla_skip_wheel_steer_angle"),
         "pix_carla_steer_gain": runtime_option("pix_carla_steer_gain"),
+        "pix_carla_steer_abs_limit": runtime_option("pix_carla_steer_abs_limit"),
+        "pix_carla_steer_tau": runtime_option("pix_carla_steer_tau"),
         "pix_carla_throttle_gain": runtime_option("pix_carla_throttle_gain"),
         "pix_carla_min_throttle": runtime_option("pix_carla_min_throttle"),
         "pix_carla_max_throttle": runtime_option("pix_carla_max_throttle"),
@@ -156,11 +161,60 @@ def build_context(
         "pix_carla_brake_gain": runtime_option("pix_carla_brake_gain"),
         "pix_carla_max_brake": runtime_option("pix_carla_max_brake"),
         "pix_carla_brake_deadband": runtime_option("pix_carla_brake_deadband"),
+        "pix_carla_brake_creep_throttle": runtime_option("pix_carla_brake_creep_throttle"),
+        "pix_carla_brake_creep_max_brake_cmd": runtime_option(
+            "pix_carla_brake_creep_max_brake_cmd",
+        ),
+        "pix_carla_brake_creep_speed_threshold_mps": runtime_option(
+            "pix_carla_brake_creep_speed_threshold_mps",
+        ),
+        "pix_carla_brake_creep_min_target_velocity_mps": runtime_option(
+            "pix_carla_brake_creep_min_target_velocity_mps",
+        ),
+        "pix_carla_suppress_brake_below_target": runtime_option(
+            "pix_carla_suppress_brake_below_target",
+        ),
+        "pix_carla_brake_target_speed_margin_mps": runtime_option(
+            "pix_carla_brake_target_speed_margin_mps",
+        ),
+        "pix_carla_target_speed_brake_max_cmd": runtime_option(
+            "pix_carla_target_speed_brake_max_cmd",
+        ),
         "pix_carla_speed_guard_max_mps": runtime_option("pix_carla_speed_guard_max_mps"),
         "pix_carla_speed_guard_band_mps": runtime_option("pix_carla_speed_guard_band_mps"),
         "pix_carla_speed_guard_brake_gain": runtime_option("pix_carla_speed_guard_brake_gain"),
+        "pix_carla_steering_report_sign": runtime_option("pix_carla_steering_report_sign"),
+        "pix_carla_actuation_steer_status_sign": runtime_option(
+            "pix_carla_actuation_steer_status_sign"
+        ),
         "pix_carla_ros_y_sign": runtime_option("pix_carla_ros_y_sign"),
         "pix_carla_sensor_queue_timeout_sec": runtime_option("pix_carla_sensor_queue_timeout_sec"),
+        "pix_carla_physics_mass_kg": runtime_option("pix_carla_physics_mass_kg"),
+        "pix_carla_physics_drag_coefficient": runtime_option(
+            "pix_carla_physics_drag_coefficient"
+        ),
+        "pix_carla_physics_center_of_mass_x_m": runtime_option(
+            "pix_carla_physics_center_of_mass_x_m"
+        ),
+        "pix_carla_physics_center_of_mass_y_m": runtime_option(
+            "pix_carla_physics_center_of_mass_y_m"
+        ),
+        "pix_carla_physics_center_of_mass_z_m": runtime_option(
+            "pix_carla_physics_center_of_mass_z_m"
+        ),
+        "pix_carla_physics_tire_friction": runtime_option("pix_carla_physics_tire_friction"),
+        "pix_carla_physics_wheel_damping_rate": runtime_option(
+            "pix_carla_physics_wheel_damping_rate"
+        ),
+        "pix_carla_physics_front_max_steer_angle_deg": runtime_option(
+            "pix_carla_physics_front_max_steer_angle_deg"
+        ),
+        "pix_carla_physics_rear_max_steer_angle_deg": runtime_option(
+            "pix_carla_physics_rear_max_steer_angle_deg"
+        ),
+        "pix_carla_physics_use_sweep_wheel_collision": runtime_option(
+            "pix_carla_physics_use_sweep_wheel_collision"
+        ),
         "visual_screenshot_wait_sec": runtime_option("visual_screenshot_wait_sec", "8"),
         "stable_preflight_strict": runtime_option("stable_preflight_strict", "true"),
         "stable_preflight_min_disk_free_gb": runtime_option("stable_preflight_min_disk_free_gb", "20"),

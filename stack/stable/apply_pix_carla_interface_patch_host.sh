@@ -20,7 +20,9 @@ Why:
   them, including:
   - throttle gain/min/max/creep
   - brake gain/max/deadband
+  - optional target-speed-aware brake suppression using Autoware control_cmd context
   - steer radians-to-normalized conversion plus steer gain
+  - explicit low-speed brake-to-creep guard for CARLA-only final-approach deadlocks
   - first-order steering hold when ROS callbacks arrive faster than CARLA ticks
   - ROS-time vehicle status stamps so Autoware component_state_monitor does
     not treat CARLA elapsed-time vehicle reports as stale in planning_simulation
@@ -67,14 +69,32 @@ fi
 
 SOURCE_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/carla_ros.py"
 BUILD_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/carla_ros.py"
+INSTALL_FILE="${AUTOWARE_WS}/install/autoware_carla_interface/lib/python3.10/site-packages/autoware_carla_interface/carla_ros.py"
+PRIVATE_SOURCE_FILE="${PRIVATE_AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/carla_ros.py"
+PRIVATE_BUILD_FILE="${PRIVATE_AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/carla_ros.py"
+PRIVATE_INSTALL_FILE="${PRIVATE_AUTOWARE_WS}/install/autoware_carla_interface/lib/python3.10/site-packages/autoware_carla_interface/carla_ros.py"
 SOURCE_BRIDGE_LOOP_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/carla_autoware.py"
 BUILD_BRIDGE_LOOP_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/carla_autoware.py"
+INSTALL_BRIDGE_LOOP_FILE="${AUTOWARE_WS}/install/autoware_carla_interface/lib/python3.10/site-packages/autoware_carla_interface/carla_autoware.py"
+PRIVATE_SOURCE_BRIDGE_LOOP_FILE="${PRIVATE_AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/carla_autoware.py"
+PRIVATE_BUILD_BRIDGE_LOOP_FILE="${PRIVATE_AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/carla_autoware.py"
+PRIVATE_INSTALL_BRIDGE_LOOP_FILE="${PRIVATE_AUTOWARE_WS}/install/autoware_carla_interface/lib/python3.10/site-packages/autoware_carla_interface/carla_autoware.py"
 SOURCE_WRAPPER_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/modules/carla_wrapper.py"
 BUILD_WRAPPER_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/modules/carla_wrapper.py"
+INSTALL_WRAPPER_FILE="${AUTOWARE_WS}/install/autoware_carla_interface/lib/python3.10/site-packages/autoware_carla_interface/modules/carla_wrapper.py"
+PRIVATE_SOURCE_WRAPPER_FILE="${PRIVATE_AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/modules/carla_wrapper.py"
+PRIVATE_BUILD_WRAPPER_FILE="${PRIVATE_AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/modules/carla_wrapper.py"
+PRIVATE_INSTALL_WRAPPER_FILE="${PRIVATE_AUTOWARE_WS}/install/autoware_carla_interface/lib/python3.10/site-packages/autoware_carla_interface/modules/carla_wrapper.py"
 SOURCE_UTILS_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/modules/carla_utils.py"
 BUILD_UTILS_FILE="${AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/modules/carla_utils.py"
+INSTALL_UTILS_FILE="${AUTOWARE_WS}/install/autoware_carla_interface/lib/python3.10/site-packages/autoware_carla_interface/modules/carla_utils.py"
+PRIVATE_SOURCE_UTILS_FILE="${PRIVATE_AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/src/autoware_carla_interface/modules/carla_utils.py"
+PRIVATE_BUILD_UTILS_FILE="${PRIVATE_AUTOWARE_WS}/build/autoware_carla_interface/src/autoware_carla_interface/modules/carla_utils.py"
+PRIVATE_INSTALL_UTILS_FILE="${PRIVATE_AUTOWARE_WS}/install/autoware_carla_interface/lib/python3.10/site-packages/autoware_carla_interface/modules/carla_utils.py"
 SOURCE_LAUNCH_FILE="${AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/launch/autoware_carla_interface.launch.xml"
 INSTALL_LAUNCH_FILE="${AUTOWARE_WS}/install/autoware_carla_interface/share/autoware_carla_interface/autoware_carla_interface.launch.xml"
+PRIVATE_SOURCE_LAUNCH_FILE="${PRIVATE_AUTOWARE_WS}/src/universe/autoware_universe/simulator/autoware_carla_interface/launch/autoware_carla_interface.launch.xml"
+PRIVATE_INSTALL_LAUNCH_FILE="${PRIVATE_AUTOWARE_WS}/install/autoware_carla_interface/share/autoware_carla_interface/autoware_carla_interface.launch.xml"
 SOURCE_COMPONENT_TOPICS_FILE="${AUTOWARE_WS}/src/launcher/autoware_launch/autoware_launch/config/system/component_state_monitor/topics.yaml"
 INSTALL_COMPONENT_TOPICS_FILE="${AUTOWARE_WS}/install/autoware_launch/share/autoware_launch/config/system/component_state_monitor/topics.yaml"
 PRIVATE_SOURCE_COMPONENT_TOPICS_FILE="${PRIVATE_AUTOWARE_WS}/src/launcher/autoware_launch/autoware_launch/config/system/component_state_monitor/topics.yaml"
@@ -86,7 +106,13 @@ UTILS_BACKUP_SUFFIX=".pix_ros_y_sign.bak"
 LAUNCH_BACKUP_SUFFIX=".pix_static_tf_node_names.bak"
 COMPONENT_TOPICS_BACKUP_SUFFIX=".pix_vehicle_topic_rate.bak"
 
-python3 - "$SOURCE_FILE" "$BUILD_FILE" "$BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
+python3 - "$BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" \
+  "$SOURCE_FILE" \
+  "$BUILD_FILE" \
+  "$INSTALL_FILE" \
+  "$PRIVATE_SOURCE_FILE" \
+  "$PRIVATE_BUILD_FILE" \
+  "$PRIVATE_INSTALL_FILE" <<'PY'
 from __future__ import annotations
 
 import re
@@ -94,24 +120,31 @@ import py_compile
 import sys
 from pathlib import Path
 
-source_file = Path(sys.argv[1])
-build_file = Path(sys.argv[2])
-backup_suffix = sys.argv[3]
-rollback = sys.argv[4] == "1"
-dry_run = sys.argv[5] == "1"
-targets = [source_file]
-if build_file != source_file:
-    targets.append(build_file)
+backup_suffix = sys.argv[1]
+rollback = sys.argv[2] == "1"
+dry_run = sys.argv[3] == "1"
+candidate_paths = [Path(arg) for arg in sys.argv[4:]]
+targets: list[Path] = []
+for path in candidate_paths:
+    if path.exists() and path not in targets:
+        targets.append(path)
+
+if not targets:
+    print("actuation patch skipped: autoware_carla_interface carla_ros.py not found")
+    raise SystemExit(0)
 
 marker = "PIX_CARLA_ACTUATION_MAP_PATCH"
 steer_hold_marker = "PIX_CARLA_STEER_HOLD_PATCH"
 wheel_steer_marker = "PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH"
 status_stamp_marker = "PIX_CARLA_STATUS_ROS_TIME_PATCH"
+control_cmd_context_marker = "PIX_CARLA_CONTROL_CMD_CONTEXT_PATCH"
+angular_velocity_marker = "PIX_CARLA_ANGULAR_VELOCITY_RAD_PATCH"
 steer_method_pattern = re.compile(
     r"    def first_order_steering\(self, steer_input\):\n.*?\n    def control_callback\(self, in_cmd\):",
     re.DOTALL,
 )
 method_pattern = re.compile(
+    r"(?:    def control_cmd_callback\(self, in_cmd\):\n.*?\n\n)?"
     r"    def control_callback\(self, in_cmd\):\n.*?\n    def ego_status\(self\):",
     re.DOTALL,
 )
@@ -119,6 +152,21 @@ wheel_steer_pattern = re.compile(
     r"        out_steering_state\.steering_tire_angle = -math\.radians\(\n"
     r"            self\.ego_actor\.get_wheel_steer_angle\(carla\.VehicleWheelLocation\.FL_Wheel\)\n"
     r"        \)",
+)
+legacy_constant_wheel_steer_pattern = re.compile(
+    r"        # PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH:.*?\n"
+    r"        out_steering_state\.steering_tire_angle = 0\.0",
+    re.DOTALL,
+)
+control_subscription_pattern = re.compile(
+    r"        self\.sub_control = self\.ros2_node\.create_subscription\(\n"
+    r"            ActuationCommandStamped, \"/control/command/actuation_cmd\", self\.control_callback, 1\n"
+    r"        \)\n",
+)
+heading_rate_pattern = re.compile(
+    r"        out_vel_state\.heading_rate = \(\n"
+    r"            self\.ego_actor\.get_transform\(\)\.transform_vector\(self\.ego_actor\.get_angular_velocity\(\)\)\.z\n"
+    r"        \)"
 )
 patched_steer_method = '''    def first_order_steering(self, steer_input):
         """First order steering model."""
@@ -132,15 +180,27 @@ patched_steer_method = '''    def first_order_steering(self, steer_input):
 
         dt = self.timestamp - self.prev_timestamp
         if dt > 0.0:
+            try:
+                steer_tau = float(os.environ.get("PIX_CARLA_STEER_TAU", str(self.tau)) or str(self.tau))
+            except ValueError:
+                steer_tau = self.tau
+            steer_tau = max(float(steer_tau), 0.0)
             steer_output = self.prev_steer_output + (steer_input - self.prev_steer_output) * (
-                dt / (self.tau + dt)
+                dt / (steer_tau + dt)
             )
             self.prev_steer_output = steer_output
             self.prev_timestamp = self.timestamp
         return steer_output
 
     def control_callback(self, in_cmd):'''
-patched_method = '''    def control_callback(self, in_cmd):
+patched_method = '''    def control_cmd_callback(self, in_cmd):
+        """Cache Autoware control command context for CARLA actuation mapping."""
+        # PIX_CARLA_CONTROL_CMD_CONTEXT_PATCH: actuation_cmd alone cannot tell
+        # whether a small brake command is a true stop or a final-approach
+        # crawl while Autoware still publishes positive target velocity.
+        self.latest_control_cmd = in_cmd
+
+    def control_callback(self, in_cmd):
         """Convert and publish CARLA Ego Vehicle Control to AUTOWARE."""
         # PIX_CARLA_ACTUATION_MAP_PATCH: apply PIX robobus CARLA actuation calibration.
         def _env_float(name, default):
@@ -159,6 +219,16 @@ patched_method = '''    def control_callback(self, in_cmd):
 
         raw_throttle = max(float(in_cmd.actuation.accel_cmd), 0.0)
         raw_brake = max(float(in_cmd.actuation.brake_cmd), 0.0)
+        requested_brake = raw_brake
+        latest_control_cmd = getattr(self, "latest_control_cmd", None)
+        target_velocity_mps = None
+        if latest_control_cmd is not None:
+            longitudinal = getattr(latest_control_cmd, "longitudinal", None)
+            if longitudinal is not None:
+                try:
+                    target_velocity_mps = float(getattr(longitudinal, "velocity"))
+                except (TypeError, ValueError):
+                    target_velocity_mps = None
         throttle_gain = _env_float("PIX_CARLA_THROTTLE_GAIN", 1.0)
         min_throttle = _env_float("PIX_CARLA_MIN_THROTTLE", 0.0)
         max_throttle = _env_float("PIX_CARLA_MAX_THROTTLE", 1.0)
@@ -167,6 +237,19 @@ patched_method = '''    def control_callback(self, in_cmd):
         brake_gain = _env_float("PIX_CARLA_BRAKE_GAIN", 1.0)
         max_brake = _env_float("PIX_CARLA_MAX_BRAKE", 1.0)
         brake_deadband = _env_float("PIX_CARLA_BRAKE_DEADBAND", 0.0)
+        brake_creep_throttle = _env_float("PIX_CARLA_BRAKE_CREEP_THROTTLE", 0.0)
+        brake_creep_max_brake_cmd = _env_float("PIX_CARLA_BRAKE_CREEP_MAX_BRAKE_CMD", 0.0)
+        brake_creep_speed_threshold = _env_float(
+            "PIX_CARLA_BRAKE_CREEP_SPEED_THRESHOLD_MPS",
+            creep_speed_threshold,
+        )
+        brake_creep_min_target_velocity = _env_float(
+            "PIX_CARLA_BRAKE_CREEP_MIN_TARGET_VELOCITY_MPS",
+            0.05,
+        )
+        suppress_brake_below_target = _env_float("PIX_CARLA_SUPPRESS_BRAKE_BELOW_TARGET", 0.0)
+        brake_target_speed_margin = _env_float("PIX_CARLA_BRAKE_TARGET_SPEED_MARGIN_MPS", 0.2)
+        target_speed_brake_max_cmd = _env_float("PIX_CARLA_TARGET_SPEED_BRAKE_MAX_CMD", 0.25)
         speed_guard_max_mps = _env_float("PIX_CARLA_SPEED_GUARD_MAX_MPS", 0.0)
         speed_guard_band_mps = max(_env_float("PIX_CARLA_SPEED_GUARD_BAND_MPS", 1.0), 0.01)
         speed_guard_brake_gain = _env_float("PIX_CARLA_SPEED_GUARD_BRAKE_GAIN", 0.0)
@@ -178,8 +261,32 @@ patched_method = '''    def control_callback(self, in_cmd):
             throttle = max(throttle, creep_throttle)
         throttle = min(max(throttle, 0.0), max_throttle)
 
+        if (
+            suppress_brake_below_target > 0.0
+            and target_velocity_mps is not None
+            and target_velocity_mps > ego_speed_mps + brake_target_speed_margin
+            and 0.0 < requested_brake <= target_speed_brake_max_cmd
+        ):
+            raw_brake = 0.0
+
         brake = 0.0 if raw_brake < brake_deadband else raw_brake * brake_gain
         brake = min(max(brake, 0.0), max_brake)
+        if (
+            raw_throttle <= 0.0
+            and brake_creep_throttle > 0.0
+            and brake_creep_max_brake_cmd > 0.0
+            and 0.0 < requested_brake <= brake_creep_max_brake_cmd
+            and ego_speed_mps <= brake_creep_speed_threshold
+            and target_velocity_mps is not None
+            and target_velocity_mps >= brake_creep_min_target_velocity
+        ):
+            # PIX_CARLA_BRAKE_CREEP_PATCH: CARLA can stall at low speed when
+            # Autoware asks for a small final-approach brake while still
+            # publishing a positive crawl-speed trajectory. Keep this
+            # scenario-configured and default-off so real stop commands remain
+            # authoritative.
+            brake = 0.0
+            throttle = max(throttle, brake_creep_throttle)
         if speed_guard_max_mps > 0.0:
             speed_guard_start_mps = max(speed_guard_max_mps - speed_guard_band_mps, 0.0)
             if ego_speed_mps >= speed_guard_max_mps:
@@ -218,10 +325,9 @@ patched_method = '''    def control_callback(self, in_cmd):
         else:
             steer_input = -steer_cmd_rad
         steer_gain = _env_float("PIX_CARLA_STEER_GAIN", 1.0)
-        out_cmd.steer = min(
-            max(self.first_order_steering(steer_input * steer_gain) * max_steer_ratio, -1.0),
-            1.0,
-        )
+        steer_abs_limit = min(max(abs(_env_float("PIX_CARLA_STEER_ABS_LIMIT", 1.0)), 0.0), 1.0)
+        raw_steer_output = self.first_order_steering(steer_input * steer_gain) * max_steer_ratio
+        out_cmd.steer = min(max(raw_steer_output, -steer_abs_limit), steer_abs_limit)
         out_cmd.brake = brake
         self.current_control = out_cmd
 
@@ -232,7 +338,11 @@ patched_wheel_steer = '''        # PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH: some 
         if os.environ.get("PIX_CARLA_SKIP_WHEEL_STEER_ANGLE", "").strip().lower() in {"1", "true", "yes", "y", "on"}:
             out_steering_state.steering_tire_angle = 0.0
         else:
-            out_steering_state.steering_tire_angle = -math.radians(
+            try:
+                steering_report_sign = float(os.environ.get("PIX_CARLA_STEERING_REPORT_SIGN", "-1.0") or "-1.0")
+            except ValueError:
+                steering_report_sign = -1.0
+            out_steering_state.steering_tire_angle = steering_report_sign * math.radians(
                 self.ego_actor.get_wheel_steer_angle(carla.VehicleWheelLocation.FL_Wheel)
             )'''
 status_stamp_target = '        out_vel_state.header = self.get_msg_header(frame_id="base_link")\n'
@@ -248,6 +358,12 @@ patched_actuation_status_stamp = '''        out_actuation_status.header = self.g
         if os.environ.get("PIX_CARLA_STATUS_USE_ROS_TIME", "1").strip().lower() not in {"0", "false", "no", "n", "off"}:
             out_actuation_status.header.stamp = out_vel_state.header.stamp
 '''
+patched_heading_rate = '''        # PIX_CARLA_ANGULAR_VELOCITY_RAD_PATCH: CARLA exposes vehicle angular
+        # velocity in degrees/sec, while Autoware VelocityReport.heading_rate
+        # and nav_msgs/Odometry.twist.angular.z expect radians/sec.
+        out_vel_state.heading_rate = math.radians(
+            self.ego_actor.get_transform().transform_vector(self.ego_actor.get_angular_velocity()).z
+        )'''
 
 for path in targets:
     if not path.exists():
@@ -271,14 +387,27 @@ for path in targets:
     patched_text = text
     patch_descriptions = []
 
-    if steer_hold_marker not in patched_text:
+    if steer_hold_marker not in patched_text or "PIX_CARLA_STEER_TAU" not in patched_text:
         steer_match = steer_method_pattern.search(patched_text)
         if not steer_match:
             raise SystemExit(f"steering target block not found: {path}")
         patched_text = patched_text[: steer_match.start()] + patched_steer_method + patched_text[steer_match.end() :]
-        patch_descriptions.append("held steering output across same-tick callbacks")
+        if steer_hold_marker in text:
+            patch_descriptions.append("upgraded steering hold with configurable response tau")
+        else:
+            patch_descriptions.append("held steering output across same-tick callbacks")
 
-    if marker not in patched_text or "PIX_CARLA_SPEED_GUARD_MAX_MPS" not in patched_text:
+    if (
+        marker not in patched_text
+        or "PIX_CARLA_SPEED_GUARD_MAX_MPS" not in patched_text
+        or "PIX_CARLA_BRAKE_CREEP_PATCH" not in patched_text
+        or control_cmd_context_marker not in patched_text
+        or "PIX_CARLA_STEER_ABS_LIMIT" not in patched_text
+        or "def control_cmd_callback" not in patched_text
+        or "self.latest_control_cmd = in_cmd" not in patched_text
+        or "requested_brake = raw_brake" not in patched_text
+        or patched_text.count("def control_cmd_callback") > 1
+    ):
         match = method_pattern.search(patched_text)
         if not match:
             raise SystemExit(f"actuation target block not found: {path}")
@@ -288,8 +417,31 @@ for path in targets:
         else:
             patch_descriptions.append("calibrated throttle, brake, steer, and speed guard")
 
-    if wheel_steer_marker not in patched_text:
-        patched_text, wheel_patch_count = wheel_steer_pattern.subn(patched_wheel_steer, patched_text, count=1)
+    if wheel_steer_marker not in patched_text or "PIX_CARLA_STEERING_REPORT_SIGN" not in patched_text:
+        wheel_patch_count = 0
+        if wheel_steer_marker in patched_text and "PIX_CARLA_STEERING_REPORT_SIGN" not in patched_text:
+            old_wheel_steer = '''        # PIX_CARLA_SKIP_WHEEL_STEER_ANGLE_PATCH: some PIX CARLA builds block on
+        # get_wheel_steer_angle after custom-map sensor spawning. Allow the
+        # stable launcher to publish a neutral steering report instead.
+        if os.environ.get("PIX_CARLA_SKIP_WHEEL_STEER_ANGLE", "").strip().lower() in {"1", "true", "yes", "y", "on"}:
+            out_steering_state.steering_tire_angle = 0.0
+        else:
+            out_steering_state.steering_tire_angle = -math.radians(
+                self.ego_actor.get_wheel_steer_angle(carla.VehicleWheelLocation.FL_Wheel)
+            )'''
+            if old_wheel_steer in patched_text:
+                patched_text = patched_text.replace(old_wheel_steer, patched_wheel_steer, 1)
+                wheel_patch_count = 1
+            else:
+                patched_text, wheel_patch_count = legacy_constant_wheel_steer_pattern.subn(
+                    patched_wheel_steer,
+                    patched_text,
+                    count=1,
+                )
+            if not wheel_patch_count:
+                raise SystemExit(f"wheel steer status upgrade block not found: {path}")
+        else:
+            patched_text, wheel_patch_count = wheel_steer_pattern.subn(patched_wheel_steer, patched_text, count=1)
         if wheel_patch_count:
             patch_descriptions.append("guarded wheel steer status query")
 
@@ -302,6 +454,34 @@ for path in targets:
         patched_text = patched_text.replace(actuation_status_stamp_target, patched_actuation_status_stamp, 1)
         patch_descriptions.append("stamped vehicle status with ROS node time")
 
+    if angular_velocity_marker not in patched_text and "out_vel_state.heading_rate" in patched_text:
+        heading_rate_match = heading_rate_pattern.search(patched_text)
+        if not heading_rate_match:
+            raise SystemExit(f"heading rate target block not found: {path}")
+        patched_text = (
+            patched_text[: heading_rate_match.start()]
+            + patched_heading_rate
+            + patched_text[heading_rate_match.end() :]
+        )
+        patch_descriptions.append("converted CARLA angular velocity degrees/sec to ROS radians/sec")
+
+    if "PIX_CARLA_ACTUATION_STEER_STATUS_SIGN" not in patched_text:
+        old_status = "        out_actuation_status.status.steer_status = -control.steer\n"
+        new_status = '''        try:
+            actuation_steer_status_sign = float(os.environ.get("PIX_CARLA_ACTUATION_STEER_STATUS_SIGN", "-1.0") or "-1.0")
+        except ValueError:
+            actuation_steer_status_sign = -1.0
+        out_actuation_status.status.steer_status = actuation_steer_status_sign * control.steer
+'''
+        if old_status not in patched_text:
+            if "out_actuation_status.status.steer_status" not in patched_text:
+                old_status = ""
+            else:
+                raise SystemExit(f"actuation steer status sign target block not found: {path}")
+        if old_status:
+            patched_text = patched_text.replace(old_status, new_status, 1)
+            patch_descriptions.append("made actuation steer status sign scenario-configurable")
+
     if not patch_descriptions:
         print(f"already patched: {path}")
         continue
@@ -310,6 +490,41 @@ for path in targets:
         if "import math\n" not in patched_text:
             raise SystemExit(f"cannot add os import: {path}")
         patched_text = patched_text.replace("import math\n", "import math\nimport os\n", 1)
+
+    if "from autoware_control_msgs.msg import Control\n" not in patched_text:
+        if "from tier4_vehicle_msgs.msg import ActuationCommandStamped\n" in patched_text:
+            patched_text = patched_text.replace(
+                "from tier4_vehicle_msgs.msg import ActuationCommandStamped\n",
+                "from autoware_control_msgs.msg import Control\n"
+                "from tier4_vehicle_msgs.msg import ActuationCommandStamped\n",
+                1,
+            )
+        elif "import os\n" in patched_text:
+            patched_text = patched_text.replace(
+                "import os\n",
+                "import os\nfrom autoware_control_msgs.msg import Control\n",
+                1,
+            )
+        else:
+            raise SystemExit(f"cannot add Control import: {path}")
+
+    if "self.sub_control_cmd = self.ros2_node.create_subscription(" not in patched_text:
+        match = control_subscription_pattern.search(patched_text)
+        if match:
+            subscription_target = match.group(0)
+            subscription_patch = (
+                subscription_target
+                + "        # PIX_CARLA_CONTROL_CMD_CONTEXT_PATCH: keep target-speed context\n"
+                + "        # next to actuation_cmd so CARLA brake mapping can avoid\n"
+                + "        # simulation-only deadlocks and speed-contradictory braking.\n"
+                + "        self.latest_control_cmd = None\n"
+                + "        self.sub_control_cmd = self.ros2_node.create_subscription(\n"
+                + "            Control, \"/control/command/control_cmd\", self.control_cmd_callback, 1\n"
+                + "        )\n"
+            )
+            patched_text = patched_text[: match.start()] + subscription_patch + patched_text[match.end() :]
+        elif "self.latest_control_cmd = None" not in patched_text:
+            print(f"warning: control command subscription target block not found: {path}")
 
     if dry_run:
         print(f"would patch ({'; '.join(patch_descriptions)}): {path}")
@@ -326,7 +541,13 @@ PY
 
 echo "Patch operation completed."
 
-python3 - "$SOURCE_WRAPPER_FILE" "$BUILD_WRAPPER_FILE" "$WRAPPER_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
+python3 - "$WRAPPER_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" \
+  "$SOURCE_WRAPPER_FILE" \
+  "$BUILD_WRAPPER_FILE" \
+  "$INSTALL_WRAPPER_FILE" \
+  "$PRIVATE_SOURCE_WRAPPER_FILE" \
+  "$PRIVATE_BUILD_WRAPPER_FILE" \
+  "$PRIVATE_INSTALL_WRAPPER_FILE" <<'PY'
 from __future__ import annotations
 
 import py_compile
@@ -334,14 +555,18 @@ import re
 import sys
 from pathlib import Path
 
-source_file = Path(sys.argv[1])
-build_file = Path(sys.argv[2])
-backup_suffix = sys.argv[3]
-rollback = sys.argv[4] == "1"
-dry_run = sys.argv[5] == "1"
-targets = [source_file]
-if build_file != source_file:
-    targets.append(build_file)
+backup_suffix = sys.argv[1]
+rollback = sys.argv[2] == "1"
+dry_run = sys.argv[3] == "1"
+candidate_paths = [Path(arg) for arg in sys.argv[4:]]
+targets: list[Path] = []
+for path in candidate_paths:
+    if path.exists() and path not in targets:
+        targets.append(path)
+
+if not targets:
+    print("wrapper patch skipped: autoware_carla_interface carla_wrapper.py not found")
+    raise SystemExit(0)
 
 marker = "PIX_CARLA_SENSOR_QUEUE_TIMEOUT_PATCH"
 timeout_pattern = re.compile(r"        self\._queue_timeout = 10\n")
@@ -404,7 +629,13 @@ PY
 
 echo "Wrapper patch operation completed."
 
-python3 - "$SOURCE_UTILS_FILE" "$BUILD_UTILS_FILE" "$UTILS_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
+python3 - "$UTILS_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" \
+  "$SOURCE_UTILS_FILE" \
+  "$BUILD_UTILS_FILE" \
+  "$INSTALL_UTILS_FILE" \
+  "$PRIVATE_SOURCE_UTILS_FILE" \
+  "$PRIVATE_BUILD_UTILS_FILE" \
+  "$PRIVATE_INSTALL_UTILS_FILE" <<'PY'
 from __future__ import annotations
 
 import py_compile
@@ -412,14 +643,18 @@ import re
 import sys
 from pathlib import Path
 
-source_file = Path(sys.argv[1])
-build_file = Path(sys.argv[2])
-backup_suffix = sys.argv[3]
-rollback = sys.argv[4] == "1"
-dry_run = sys.argv[5] == "1"
-targets = [source_file]
-if build_file != source_file:
-    targets.append(build_file)
+backup_suffix = sys.argv[1]
+rollback = sys.argv[2] == "1"
+dry_run = sys.argv[3] == "1"
+candidate_paths = [Path(arg) for arg in sys.argv[4:]]
+targets: list[Path] = []
+for path in candidate_paths:
+    if path.exists() and path not in targets:
+        targets.append(path)
+
+if not targets:
+    print("utils patch skipped: autoware_carla_interface carla_utils.py not found")
+    raise SystemExit(0)
 
 marker = "PIX_CARLA_ROS_Y_SIGN_PATCH"
 location_pattern = re.compile(
@@ -561,7 +796,13 @@ PY
 
 echo "Utils patch operation completed."
 
-python3 - "$SOURCE_BRIDGE_LOOP_FILE" "$BUILD_BRIDGE_LOOP_FILE" "$BRIDGE_LOOP_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
+python3 - "$BRIDGE_LOOP_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" \
+  "$SOURCE_BRIDGE_LOOP_FILE" \
+  "$BUILD_BRIDGE_LOOP_FILE" \
+  "$INSTALL_BRIDGE_LOOP_FILE" \
+  "$PRIVATE_SOURCE_BRIDGE_LOOP_FILE" \
+  "$PRIVATE_BUILD_BRIDGE_LOOP_FILE" \
+  "$PRIVATE_INSTALL_BRIDGE_LOOP_FILE" <<'PY'
 from __future__ import annotations
 
 import py_compile
@@ -569,17 +810,22 @@ import re
 import sys
 from pathlib import Path
 
-source_file = Path(sys.argv[1])
-build_file = Path(sys.argv[2])
-backup_suffix = sys.argv[3]
-rollback = sys.argv[4] == "1"
-dry_run = sys.argv[5] == "1"
-targets = [source_file]
-if build_file != source_file:
-    targets.append(build_file)
+backup_suffix = sys.argv[1]
+rollback = sys.argv[2] == "1"
+dry_run = sys.argv[3] == "1"
+candidate_paths = [Path(arg) for arg in sys.argv[4:]]
+targets: list[Path] = []
+for path in candidate_paths:
+    if path.exists() and path not in targets:
+        targets.append(path)
+
+if not targets:
+    print("bridge loop patch skipped: autoware_carla_interface carla_autoware.py not found")
+    raise SystemExit(0)
 
 timeout_marker = "PIX_CARLA_SENSOR_TIMEOUT_TOLERANCE_PATCH"
 opendrive_marker = "PIX_CARLA_OPENDRIVE_WORLD_PATCH"
+physics_marker = "PIX_CARLA_RUNTIME_PHYSICS_PATCH"
 raise_pattern = re.compile(
     r"(?P<indent>[ \t]+)except SensorReceivedNoData as e:\n"
     r"(?P=indent)    raise RuntimeError\(e\)\n"
@@ -589,6 +835,10 @@ load_world_pattern = re.compile(
     r"self\.world = client\.load_world\(self\.carla_map\)"
     r"|client\.load_world\(self\.carla_map\)\n(?P=indent)self\.world = client\.get_world\(\)"
     r")\n"
+)
+physics_assignment_pattern = re.compile(
+    r"(?P<line>(?P<indent>[ \t]+)self\.interface\.physics_control = "
+    r"self\.ego_actor\.get_physics_control\(\)\n)"
 )
 
 
@@ -601,6 +851,85 @@ def patched_except(match: re.Match[str]) -> str:
         f"{inner}# ticking through intermittent heavy-map sensor stalls.\n"
         f"{inner}print(f\"PIX_CARLA_SENSOR_TIMEOUT_TOLERANCE_PATCH: {{e}}\", flush=True)\n"
         f"{inner}ego_action = self.ego_actor.get_control()\n"
+    )
+
+
+def patched_physics_assignment(match: re.Match[str]) -> str:
+    indent = match.group("indent")
+    inner = indent + "    "
+    deeper = inner + "    "
+    return (
+        match.group("line")
+        + f"{indent}# PIX_CARLA_RUNTIME_PHYSICS_PATCH: apply scenario-scoped CARLA\n"
+        + f"{indent}# VehiclePhysicsControl overrides after the ego actor is spawned.\n"
+        + f"{indent}def _pix_env_float(name):\n"
+        + f"{inner}value = os.environ.get(name, \"\").strip()\n"
+        + f"{inner}if not value:\n"
+        + f"{deeper}return None\n"
+        + f"{inner}try:\n"
+        + f"{deeper}return float(value)\n"
+        + f"{inner}except ValueError:\n"
+        + f"{deeper}print(f\"PIX_CARLA_RUNTIME_PHYSICS_PATCH: ignoring invalid {{name}}={{value}}\", flush=True)\n"
+        + f"{deeper}return None\n"
+        + f"\n"
+        + f"{indent}def _pix_env_bool(name):\n"
+        + f"{inner}value = os.environ.get(name, \"\").strip().lower()\n"
+        + f"{inner}if not value:\n"
+        + f"{deeper}return None\n"
+        + f"{inner}if value in {{\"1\", \"true\", \"yes\", \"y\", \"on\"}}:\n"
+        + f"{deeper}return True\n"
+        + f"{inner}if value in {{\"0\", \"false\", \"no\", \"n\", \"off\"}}:\n"
+        + f"{deeper}return False\n"
+        + f"{inner}print(f\"PIX_CARLA_RUNTIME_PHYSICS_PATCH: ignoring invalid {{name}}={{value}}\", flush=True)\n"
+        + f"{inner}return None\n"
+        + f"\n"
+        + f"{indent}physics = self.interface.physics_control\n"
+        + f"{indent}physics_changed = False\n"
+        + f"{indent}mass_kg = _pix_env_float(\"PIX_CARLA_PHYSICS_MASS_KG\")\n"
+        + f"{indent}if mass_kg is not None:\n"
+        + f"{inner}physics.mass = mass_kg\n"
+        + f"{inner}physics_changed = True\n"
+        + f"{indent}drag = _pix_env_float(\"PIX_CARLA_PHYSICS_DRAG_COEFFICIENT\")\n"
+        + f"{indent}if drag is not None:\n"
+        + f"{inner}physics.drag_coefficient = drag\n"
+        + f"{inner}physics_changed = True\n"
+        + f"{indent}com_x = _pix_env_float(\"PIX_CARLA_PHYSICS_CENTER_OF_MASS_X_M\")\n"
+        + f"{indent}com_y = _pix_env_float(\"PIX_CARLA_PHYSICS_CENTER_OF_MASS_Y_M\")\n"
+        + f"{indent}com_z = _pix_env_float(\"PIX_CARLA_PHYSICS_CENTER_OF_MASS_Z_M\")\n"
+        + f"{indent}if any(value is not None for value in (com_x, com_y, com_z)):\n"
+        + f"{inner}current_com = getattr(physics, \"center_of_mass\", carla.Vector3D())\n"
+        + f"{inner}physics.center_of_mass = carla.Vector3D(\n"
+        + f"{deeper}current_com.x if com_x is None else com_x,\n"
+        + f"{deeper}current_com.y if com_y is None else com_y,\n"
+        + f"{deeper}current_com.z if com_z is None else com_z,\n"
+        + f"{inner})\n"
+        + f"{inner}physics_changed = True\n"
+        + f"{indent}tire_friction = _pix_env_float(\"PIX_CARLA_PHYSICS_TIRE_FRICTION\")\n"
+        + f"{indent}wheel_damping = _pix_env_float(\"PIX_CARLA_PHYSICS_WHEEL_DAMPING_RATE\")\n"
+        + f"{indent}front_max_steer = _pix_env_float(\"PIX_CARLA_PHYSICS_FRONT_MAX_STEER_ANGLE_DEG\")\n"
+        + f"{indent}rear_max_steer = _pix_env_float(\"PIX_CARLA_PHYSICS_REAR_MAX_STEER_ANGLE_DEG\")\n"
+        + f"{indent}if getattr(physics, \"wheels\", None):\n"
+        + f"{inner}for index, wheel in enumerate(physics.wheels):\n"
+        + f"{deeper}if tire_friction is not None:\n"
+        + f"{deeper}    wheel.tire_friction = tire_friction\n"
+        + f"{deeper}    physics_changed = True\n"
+        + f"{deeper}if wheel_damping is not None:\n"
+        + f"{deeper}    wheel.damping_rate = wheel_damping\n"
+        + f"{deeper}    physics_changed = True\n"
+        + f"{deeper}if front_max_steer is not None and index < 2:\n"
+        + f"{deeper}    wheel.max_steer_angle = front_max_steer\n"
+        + f"{deeper}    physics_changed = True\n"
+        + f"{deeper}if rear_max_steer is not None and index >= 2:\n"
+        + f"{deeper}    wheel.max_steer_angle = rear_max_steer\n"
+        + f"{deeper}    physics_changed = True\n"
+        + f"{indent}sweep_collision = _pix_env_bool(\"PIX_CARLA_PHYSICS_USE_SWEEP_WHEEL_COLLISION\")\n"
+        + f"{indent}if sweep_collision is not None:\n"
+        + f"{inner}physics.use_sweep_wheel_collision = sweep_collision\n"
+        + f"{inner}physics_changed = True\n"
+        + f"{indent}if physics_changed:\n"
+        + f"{inner}self.ego_actor.apply_physics_control(physics)\n"
+        + f"{inner}self.interface.physics_control = self.ego_actor.get_physics_control()\n"
+        + f"{inner}print(\"PIX_CARLA_RUNTIME_PHYSICS_PATCH: applied\", flush=True)\n"
     )
 
 for path in targets:
@@ -675,6 +1004,16 @@ for path in targets:
             raise SystemExit(f"sensor timeout target block not found: {path}")
         patch_descriptions.append("added sensor timeout tolerance")
 
+    if physics_marker not in patched_text:
+        patched_text, physics_patch_count = physics_assignment_pattern.subn(
+            patched_physics_assignment,
+            patched_text,
+            count=1,
+        )
+        if not physics_patch_count:
+            raise SystemExit(f"runtime physics target block not found: {path}")
+        patch_descriptions.append("added runtime vehicle physics tuning")
+
     if not patch_descriptions:
         print(f"bridge loop already patched: {path}")
         continue
@@ -700,20 +1039,22 @@ PY
 
 echo "Bridge loop patch operation completed."
 
-python3 - "$SOURCE_LAUNCH_FILE" "$INSTALL_LAUNCH_FILE" "$LAUNCH_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" <<'PY'
+python3 - "$LAUNCH_BACKUP_SUFFIX" "$ROLLBACK" "$DRY_RUN" \
+  "$SOURCE_LAUNCH_FILE" \
+  "$INSTALL_LAUNCH_FILE" \
+  "$PRIVATE_SOURCE_LAUNCH_FILE" \
+  "$PRIVATE_INSTALL_LAUNCH_FILE" <<'PY'
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-source_launch_file = Path(sys.argv[1])
-install_launch_file = Path(sys.argv[2])
-backup_suffix = sys.argv[3]
-rollback = sys.argv[4] == "1"
-dry_run = sys.argv[5] == "1"
+backup_suffix = sys.argv[1]
+rollback = sys.argv[2] == "1"
+dry_run = sys.argv[3] == "1"
 
 targets = []
-for path in (source_launch_file, install_launch_file):
+for path in [Path(arg) for arg in sys.argv[4:]]:
     if path.exists() and path not in targets:
         targets.append(path)
 

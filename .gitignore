@@ -20,3 +20,5 @@ automation_outputs/
 outputs/
 src.zip
 tmp/
+FAST_LIO_ROS2/
+external/

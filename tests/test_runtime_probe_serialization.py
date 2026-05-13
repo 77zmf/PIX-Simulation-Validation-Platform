@@ -399,6 +399,30 @@ class RuntimeProbeSerializationTests(unittest.TestCase):
         self.assertGreater(missed["target_speed_deficit_mps"], 2.0)
         self.assertIsNone(disabled["target_speed_reached"])
 
+    def test_closed_loop_route_robust_jerk_ignores_low_speed_goal_creep(self) -> None:
+        samples = [
+            {"t": 0.0, "phase": "route_tracking", "ego": {"speed_mps": 0.0}},
+            {"t": 1.0, "phase": "route_tracking", "ego": {"speed_mps": 1.2}},
+            {"t": 2.0, "phase": "route_tracking", "ego": {"speed_mps": 2.4}},
+            {"t": 3.0, "phase": "route_tracking", "ego": {"speed_mps": 3.6}},
+            {"t": 4.0, "phase": "route_tracking", "ego": {"speed_mps": 4.8}},
+            {"t": 5.0, "phase": "route_tracking", "ego": {"speed_mps": 0.2}},
+            {"t": 6.0, "phase": "route_tracking", "ego": {"speed_mps": 0.8}},
+            {"t": 7.0, "phase": "route_tracking", "ego": {"speed_mps": 0.1}},
+            {"t": 8.0, "phase": "route_tracking", "ego": {"speed_mps": 0.9}},
+            {"t": 9.0, "phase": "route_tracking", "ego": {"speed_mps": 0.0}},
+        ]
+
+        all_samples_jerk = carla_closed_loop_route_probe.robust_abs_jerk_mps3(samples)
+        moving_jerk = carla_closed_loop_route_probe.robust_abs_jerk_mps3(
+            samples,
+            min_speed_mps=1.0,
+            phase="route_tracking",
+        )
+
+        self.assertGreater(all_samples_jerk, 2.5)
+        self.assertLess(moving_jerk, 2.5)
+
     def test_closed_loop_route_ros_summary_preserves_diagnostics(self) -> None:
         diagnostics = {
             "status_count": 3,

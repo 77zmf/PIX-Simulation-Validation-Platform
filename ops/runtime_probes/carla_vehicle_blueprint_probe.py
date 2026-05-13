@@ -238,6 +238,7 @@ def _query_vehicle_summary(carla: Any, world: Any, args: argparse.Namespace, blu
             "index": index,
             "radius_cm": _round_float(getattr(wheel, "radius", 0.0)),
             "width_cm": _round_float(getattr(wheel, "width", 0.0)),
+            "tire_friction": _round_float(getattr(wheel, "tire_friction", 0.0)),
             "max_steer_angle_deg": _round_float(getattr(wheel, "max_steer_angle", 0.0)),
             "position_local_cm": wheel_positions[index],
         }
@@ -300,6 +301,17 @@ def build_metrics(summary: dict[str, Any]) -> dict[str, float]:
     actor = summary.get("actor") if isinstance(summary.get("actor"), dict) else {}
     bbox = actor.get("bbox_extent_m") if isinstance(actor.get("bbox_extent_m"), dict) else {}
     geometry = summary.get("wheel_geometry") if isinstance(summary.get("wheel_geometry"), dict) else {}
+    wheels = summary.get("wheels") if isinstance(summary.get("wheels"), list) else []
+    wheel_widths = [
+        float(wheel.get("width_cm") or 0.0)
+        for wheel in wheels
+        if isinstance(wheel, dict)
+    ]
+    wheel_tire_frictions = [
+        float(wheel.get("tire_friction") or 0.0)
+        for wheel in wheels
+        if isinstance(wheel, dict)
+    ]
     return {
         "robobus_blueprint_found": _bool_metric(bool(checks.get("blueprint_found"))),
         "robobus_ego_actor_seen": _bool_metric(bool(checks.get("ego_actor_seen"))),
@@ -309,8 +321,12 @@ def build_metrics(summary: dict[str, Any]) -> dict[str, float]:
         "robobus_bbox_extent_x_m": float(bbox.get("x") or 0.0),
         "robobus_bbox_extent_y_m": float(bbox.get("y") or 0.0),
         "robobus_bbox_extent_z_m": float(bbox.get("z") or 0.0),
-        "robobus_wheel_count": float(len(summary.get("wheels") or [])),
+        "robobus_wheel_count": float(len(wheels)),
         "robobus_wheel_radius_match": _bool_metric(bool(checks.get("wheel_radius_match"))),
+        # CARLA 0.9.15 FWheelPhysicsControl/RPC does not carry wheel width.
+        # Keep the raw value as diagnostic only; do not use it as acceptance.
+        "robobus_min_wheel_width_cm": min(wheel_widths) if wheel_widths else 0.0,
+        "robobus_min_tire_friction": min(wheel_tire_frictions) if wheel_tire_frictions else 0.0,
         "robobus_wheelbase_cm": float(geometry.get("wheelbase_cm") or 0.0),
         "robobus_wheelbase_match": _bool_metric(bool(checks.get("wheelbase_match"))),
         "robobus_front_tread_cm": float(geometry.get("front_tread_cm") or 0.0),

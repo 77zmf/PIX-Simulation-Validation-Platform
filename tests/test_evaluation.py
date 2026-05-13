@@ -145,6 +145,29 @@ class EvaluationTests(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertEqual(result["failure_labels"], ["kinematic_sanity_failure"])
 
+    def test_jerk_violation_maps_to_control_stability_label(self) -> None:
+        gate = KpiGate(
+            gate_id="planning_control_follow_lane_regression",
+            description="test gate",
+            metrics={
+                "route_completion": {"op": ">=", "value": 0.98},
+                "jerk_mps3": {"op": "<=", "value": 2.5},
+            },
+            failure_labels=[
+                "route_completion_failure",
+                "route_goal_closure_failure",
+                "lane_envelope_failure",
+                "control_stability_failure",
+            ],
+            gate_path=Path("evaluation/kpi_gates/planning_control_follow_lane_regression.yaml"),
+        )
+
+        result = evaluate_metrics({"route_completion": 1.0, "jerk_mps3": 3.53}, gate)
+
+        self.assertFalse(result["passed"])
+        self.assertEqual([item["metric"] for item in result["violations"]], ["jerk_mps3"])
+        self.assertEqual(result["failure_labels"], ["control_stability_failure"])
+
     def test_robobus_qiyu_spawn_metrics_map_to_physics_asset_label(self) -> None:
         gate = KpiGate(
             gate_id="robobus117th_qiyu_spawn_stability",

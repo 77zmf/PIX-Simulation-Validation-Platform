@@ -4,28 +4,16 @@ map_id: Town01
 asset_bundle: carla_town01
 ego_init:
   pose:
-    x: 229.78167724609375
-    y: -2.0201120376586914
+    x: 120.0
+    y: -133.465
     z: 0.0
     yaw_deg: 0.0
 goal:
   pose:
-    x: 314.2434997558594
-    y: -1.982629656791687
+    x: 315.0
+    y: -133.465
     z: 0.0
-    yaw_deg: -0.03045654296875
-route:
-  waypoints:
-    - pose:
-        x: 260.0
-        y: -2.0201120376586914
-        z: 0.0
-        yaw_deg: 0.0
-    - pose:
-        x: 292.0
-        y: -1.995
-        z: 0.0
-        yaw_deg: 0.0
+    yaw_deg: 0.0
 traffic_profile:
   mode: empty_route_continuity_dropout_recovery_surrogate
   vehicles: 0
@@ -64,7 +52,7 @@ metadata:
     - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260421_1456_no_trajectory/rd_handoff.md
     - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260422_1103_trajectory_disappeared/rd_handoff.md
     - /Users/cyber/Documents/zmf_test-data/mac_handoff/117th_20260422_1647_route_empty_no_trajectory/analysis_report.md
-  validation_method: Run a deterministic Town01 route with via points and strict goal modification disabled, then use route/control telemetry as the executable continuity check while the public-road route-empty fixture is still blocked on map topology reproduction.
+  validation_method: Run a deterministic Town01 lanelet 1071 long straight route with strict goal modification disabled, then use route/control telemetry as the executable continuity check while the public-road route-empty fixture is still blocked on map topology reproduction. Earlier via-point authoring generated a trajectory whose first trackable point was too far ahead of ego for Autoware's operation-mode transition manager, so this executable surrogate uses the same ego-to-goal routing shape that is already proven to engage on the stable stack. The longer route avoids conflating terminal parking/goal-stop behavior with straight-line route continuity fidelity.
   validation_command: >
     python3 ops/runtime_probes/carla_sensor_topic_probe.py
     --run-dir <run_dir>
@@ -81,7 +69,7 @@ metadata:
     --stop-ego-after-goal
     --camera-video-output <run_dir>/runtime_verification/planning_route_update_dropout_recovery.mp4
     --camera-video-mode ego_chase
-  expected_observable: Autoware accepts a via-point route, continuously publishes trajectory/control, keeps bounded lane and goal error, and reaches the goal without a trajectory publication dropout during the probe window.
+  expected_observable: Autoware accepts the valid long Town01 lane route, continuously publishes trajectory/control, keeps bounded lane and goal error, and reaches the goal without a trajectory publication dropout during the probe window.
   missing_inputs: This surrogate does not inject an Autoware restart or true route-empty lanelet topology yet; the exact public-road route-empty case still requires a converted lanelet/OpenDRIVE fixture.
   rollback_impact: Remove this scenario from ops/test_campaigns/stable_planning_failcase_surrogates.yaml; the existing L1 follow-lane scenario remains the route-follow baseline.
 execution:
@@ -102,7 +90,7 @@ execution:
     carla_vehicle_type: vehicle.pixmoving.robobus
     carla_ego_vehicle_role_name: ego_vehicle
     carla_actor_health_check: "true"
-    carla_spawn_point: "229.7817,2.0201,-0.5,0,0,0"
+    carla_spawn_point: "120.0000,133.4650,-0.5,0,0,0"
     carla_sensor_kit_name: robobus_sensor_kit_description
     carla_sensor_mapping_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_mapping.yaml
     carla_sensor_kit_calibration_file: /home/pixmoving/PIX-Simulation-Validation-Platform/assets/sensors/carla/robobus117th_sensor_kit_calibration.yaml
@@ -110,6 +98,25 @@ execution:
     carla_use_traffic_manager: "False"
     carla_render_mode: offscreen
     carla_quality_level: Low
+    autoware_planning_module_preset: simctl_route_follow_only
+    robobus_fidelity_profile: 117th_4ws
+    pix_carla_physics_mass_kg: "1800"
+    pix_carla_physics_drag_coefficient: "0.35"
+    pix_carla_physics_center_of_mass_z_m: "-0.30"
+    pix_carla_physics_wheel_damping_rate: "0.35"
+    pix_carla_steer_gain: "0.16"
+    pix_carla_steer_abs_limit: "0.018"
+    pix_carla_steering_report_sign: "1.0"
+    pix_carla_actuation_steer_status_sign: "1.0"
+    pix_carla_creep_throttle: "0.95"
+    pix_carla_creep_speed_threshold_mps: "0.50"
+    pix_carla_suppress_brake_below_target: "1"
+    pix_carla_brake_target_speed_margin_mps: "0.2"
+    pix_carla_target_speed_brake_max_cmd: "0.25"
+    pix_carla_brake_creep_throttle: "0.10"
+    pix_carla_brake_creep_max_brake_cmd: "0.25"
+    pix_carla_brake_creep_speed_threshold_mps: "0.30"
+    pix_carla_brake_creep_min_target_velocity_mps: "0.05"
     ros_expected_topics:
       - /clock
       - /tf

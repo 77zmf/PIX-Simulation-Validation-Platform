@@ -40,6 +40,36 @@ PLANNING_CONTROL_METRICS = {
     "max_speed_mps",
 }
 
+VEHICLE_ASSET_METRICS = {
+    "robobus_blueprint_found",
+    "robobus_ego_actor_seen",
+    "robobus_actor_type_match",
+    "robobus_pose_height_plausible",
+    "robobus_bbox_plausible",
+    "robobus_bbox_extent_x_m",
+    "robobus_bbox_extent_y_m",
+    "robobus_bbox_extent_z_m",
+    "robobus_wheel_count",
+    "robobus_wheel_radius_match",
+    "robobus_wheel_width_match",
+    "robobus_min_wheel_width_cm",
+    "robobus_min_tire_friction",
+    "robobus_wheelbase_cm",
+    "robobus_wheelbase_match",
+    "robobus_front_tread_cm",
+    "robobus_front_tread_match",
+    "robobus_rear_tread_cm",
+    "robobus_rear_tread_match",
+    "robobus_front_steer_limit_match",
+    "robobus_rear_steer_limit_match",
+}
+
+VEHICLE_ASSET_FAILURE_LABELS = {
+    "robobus_wheel_geometry_failure",
+    "robobus_physics_asset_failure",
+    "vehicle_blueprint_failure",
+}
+
 METRIC_OWNERSHIP = {
     "route_completion": ("planning", "control"),
     "route_goal_lateral_error_m": ("planning", "control"),
@@ -75,10 +105,34 @@ METRIC_OWNERSHIP = {
     "sumo_cosim_alive": ("sumo_carla_cosim", "runtime"),
     "sumo_actor_count": ("sumo_carla_cosim", "actor_bridge"),
     "autoware_object_stream_seen": ("perception/actor_bridge", "planning"),
+    "robobus_blueprint_found": ("simulation_assets", "carla_vehicle_blueprint"),
+    "robobus_ego_actor_seen": ("simulation_assets", "carla_vehicle_blueprint"),
+    "robobus_actor_type_match": ("simulation_assets", "carla_vehicle_blueprint"),
+    "robobus_pose_height_plausible": ("simulation_assets", "carla_vehicle_blueprint"),
+    "robobus_bbox_plausible": ("simulation_assets", "carla_vehicle_blueprint"),
+    "robobus_bbox_extent_x_m": ("simulation_assets", "carla_vehicle_blueprint"),
+    "robobus_bbox_extent_y_m": ("simulation_assets", "carla_vehicle_blueprint"),
+    "robobus_bbox_extent_z_m": ("simulation_assets", "carla_vehicle_blueprint"),
+    "robobus_wheel_count": ("simulation_assets", "vehicle_physics"),
+    "robobus_wheel_radius_match": ("simulation_assets", "vehicle_physics"),
+    "robobus_wheel_width_match": ("simulation_assets", "vehicle_physics"),
+    "robobus_min_wheel_width_cm": ("simulation_assets", "vehicle_physics"),
+    "robobus_min_tire_friction": ("simulation_assets", "vehicle_physics"),
+    "robobus_wheelbase_cm": ("simulation_assets", "vehicle_physics"),
+    "robobus_wheelbase_match": ("simulation_assets", "vehicle_physics"),
+    "robobus_front_tread_cm": ("simulation_assets", "vehicle_physics"),
+    "robobus_front_tread_match": ("simulation_assets", "vehicle_physics"),
+    "robobus_rear_tread_cm": ("simulation_assets", "vehicle_physics"),
+    "robobus_rear_tread_match": ("simulation_assets", "vehicle_physics"),
+    "robobus_front_steer_limit_match": ("simulation_assets", "vehicle_physics"),
+    "robobus_rear_steer_limit_match": ("simulation_assets", "vehicle_physics"),
 }
 
 KINEMATIC_ROLL_PITCH_WARN_DEG = 12.0
 KINEMATIC_Z_UPPER_WARN_M = 1.5
+ROUTE_GOAL_GEOMETRY_LATERAL_WARN_M = 2.0
+ROUTE_GOAL_GEOMETRY_LONGITUDINAL_WARN_M = 10.0
+ROUTE_GOAL_GEOMETRY_LANE_OK_M = 0.75
 
 
 def _slug(value: str) -> str:
@@ -105,6 +159,14 @@ def _gate_id(result: dict[str, Any]) -> str:
     return str(gate.get("gate_id") or result.get("kpi_gate") or "")
 
 
+def _failure_labels(result: dict[str, Any]) -> set[str]:
+    gate = result.get("gate") if isinstance(result.get("gate"), dict) else {}
+    labels = gate.get("failure_labels", [])
+    if not isinstance(labels, list):
+        labels = []
+    return {str(item) for item in labels}
+
+
 def _is_planning_control_scope(result: dict[str, Any]) -> bool:
     labels = _scenario_labels(result)
     profile_id = _algorithm_profile_id(result)
@@ -113,6 +175,32 @@ def _is_planning_control_scope(result: dict[str, Any]) -> bool:
         "planning_control" in labels
         or "planning_control" in profile_id
         or "planning_control" in gate_id
+    )
+
+
+def _is_vehicle_asset_scope(result: dict[str, Any], violations: list[dict[str, Any]]) -> bool:
+    labels = _scenario_labels(result)
+    gate_id = _gate_id(result)
+    failure_labels = _failure_labels(result)
+    metrics = {str(item.get("metric") or "") for item in violations}
+    return (
+        "vehicle_blueprint" in labels
+        or "vehicle_blueprint" in gate_id
+        or bool(VEHICLE_ASSET_FAILURE_LABELS & failure_labels)
+        or bool(VEHICLE_ASSET_METRICS & metrics)
+    )
+
+
+def _is_simulation_fidelity_scope(result: dict[str, Any]) -> bool:
+    labels = _scenario_labels(result)
+    scenario_id = str(result.get("scenario_id") or "")
+    scenario_path = str(result.get("scenario_path") or "")
+    return (
+        "simulation_fidelity" in labels
+        or "vehicle_fidelity" in labels
+        or "robobus_fidelity" in labels
+        or "robobus117th_town01_speed40_probe" in scenario_id
+        or "robobus117th_town01_speed40_probe" in scenario_path
     )
 
 
@@ -215,10 +303,38 @@ def _kinematic_sanity_failed(result: dict[str, Any]) -> bool:
     return False
 
 
+def _route_goal_geometry_suspected(result: dict[str, Any]) -> bool:
+    kpis = _kpis(result)
+    route_completion = _float_or_none(kpis.get("route_completion"))
+    lateral_error = _float_or_none(kpis.get("lateral_error_m"))
+    route_goal_lateral = _float_or_none(kpis.get("route_goal_lateral_error_m"))
+    longitudinal_error = _float_or_none(kpis.get("longitudinal_error_m"))
+    if route_completion is None or route_completion >= 0.98:
+        return False
+    if lateral_error is None or route_goal_lateral is None or longitudinal_error is None:
+        return False
+    return (
+        lateral_error <= ROUTE_GOAL_GEOMETRY_LANE_OK_M
+        and route_goal_lateral >= ROUTE_GOAL_GEOMETRY_LATERAL_WARN_M
+        and longitudinal_error >= ROUTE_GOAL_GEOMETRY_LONGITUDINAL_WARN_M
+    )
+
+
 def _suspected_modules(result: dict[str, Any], violations: list[dict[str, Any]]) -> list[str]:
     modules: list[str] = []
+    if _is_vehicle_asset_scope(result, violations):
+        modules.extend(["simulation_assets", "carla_vehicle_blueprint"])
+        metrics = {str(item.get("metric") or "") for item in violations}
+        if any("wheel" in metric or "tire" in metric for metric in metrics):
+            modules.append("vehicle_physics")
+        if any("bbox" in metric or "pose_height" in metric for metric in metrics):
+            modules.append("physics_asset")
     if _kinematic_sanity_failed(result):
         modules.extend(["simulation_fidelity", "closed_loop_vehicle_dynamics", "autoware_carla_bridge", "control"])
+    if _route_goal_geometry_suspected(result):
+        modules.extend(["simulation_fidelity", "scenario_route_geometry", "autoware_carla_bridge"])
+    if _is_simulation_fidelity_scope(result):
+        modules.extend(["simulation_fidelity", "closed_loop_vehicle_dynamics", "autoware_carla_bridge"])
     for module in _primary_modules(violations):
         if module not in modules:
             modules.append(module)
@@ -259,6 +375,8 @@ def classify_run_result(result: dict[str, Any], run_result_path: Path) -> dict[s
         classification = "incomplete"
     elif status == "launch_failed" or runtime_health_passed is False:
         classification = "runtime_blocker"
+    elif _is_vehicle_asset_scope(result, violations):
+        classification = "integration_blocker"
     elif _has_runtime_service_call_failure(result):
         classification = "integration_blocker"
     elif not planning_control_scope:
@@ -379,8 +497,25 @@ def _closed_loop_probe_diagnosis_lines(run_result_path: Path) -> list[str]:
             + "."
         )
     final_pose = summary.get("final_pose") if isinstance(summary.get("final_pose"), dict) else {}
+    final_map_location = (
+        summary.get("final_map_location") if isinstance(summary.get("final_map_location"), dict) else {}
+    )
+    final_carla_waypoint = (
+        summary.get("final_carla_waypoint") if isinstance(summary.get("final_carla_waypoint"), dict) else {}
+    )
     if final_pose:
         lines.append(f"- closed-loop final pose: `{final_pose}`.")
+    if final_map_location:
+        lines.append(f"- closed-loop final map location: `{final_map_location}`.")
+    if final_carla_waypoint:
+        waypoint_brief = {
+            "road_id": final_carla_waypoint.get("road_id"),
+            "lane_id": final_carla_waypoint.get("lane_id"),
+            "s": final_carla_waypoint.get("s"),
+            "center_map": final_carla_waypoint.get("center_map"),
+            "carla_lateral_error_m": final_carla_waypoint.get("carla_lateral_error_m"),
+        }
+        lines.append(f"- closed-loop final CARLA waypoint: `{waypoint_brief}`.")
 
     tail_stats = summary.get("ros_telemetry", {}).get("tail_stats", {}) if isinstance(summary, dict) else {}
     if isinstance(tail_stats, dict):
@@ -526,7 +661,19 @@ def _simulation_interpretation_lines(result: dict[str, Any], triage: dict[str, A
         "- This is a simulation validation finding, not proof of a real-vehicle Autoware planning/control defect.",
         "- Compare against real-vehicle or bag evidence before filing a production planning/control regression.",
     ]
-    if "simulation_fidelity" in modules or _kinematic_sanity_failed(result):
+    if "simulation_assets" in modules:
+        lines.append(
+            "- Because vehicle blueprint or physics assets are implicated, fix CARLA/UE4 vehicle asset authoring, "
+            "cooked blueprint deployment, wheel geometry, PhysicsAsset, and movement tuning before assigning the "
+            "failure to Autoware planning/control."
+        )
+    elif "scenario_route_geometry" in modules:
+        lines.append(
+            "- Because lane-local tracking can be acceptable while route-goal closure is not, triage scenario route "
+            "geometry, lane selection, CARLA/ROS coordinate conversion, and bridge steering/status mapping before "
+            "assigning this to Autoware planning/control."
+        )
+    elif "simulation_fidelity" in modules or _kinematic_sanity_failed(result):
         lines.append(
             "- Because kinematic sanity or closed-loop vehicle dynamics are implicated, triage CARLA vehicle "
             "physics, Autoware-CARLA bridge actuation/status mapping, spawn pose, and route/scenario geometry first."
@@ -537,6 +684,21 @@ def _simulation_interpretation_lines(result: dict[str, Any], triage: dict[str, A
             "geometry, SUMO/actor traffic coupling, and validation thresholds before assigning an Autoware code bug."
         )
     return lines
+
+
+def _issue_domain_label(triage: dict[str, Any]) -> str:
+    modules = {str(module) for module in triage.get("suspected_modules", [])}
+    if "simulation_assets" in modules:
+        return "VehicleAsset"
+    if "sensor_bridge" in modules:
+        return "SensorBridge"
+    if "sumo_carla_cosim" in modules:
+        return "SUMOCoSim"
+    if "scenario_route_geometry" in modules or "simulation_fidelity" in modules:
+        return "SimulationFidelity"
+    if "runtime" in modules:
+        return "Runtime"
+    return "PlanningControl"
 
 
 def _reproduction_lines(result: dict[str, Any], run_result_path: Path) -> list[str]:
@@ -562,7 +724,8 @@ def render_issue_markdown(
     scenario_id = triage["scenario_id"]
     severity = triage["severity"]
     modules = ", ".join(triage["suspected_modules"])
-    title = f"[Simulation][PlanningControl][{severity}] {scenario_id}: {triage['symptom']}"
+    domain_label = _issue_domain_label(triage)
+    title = f"[Simulation][{domain_label}][{severity}] {scenario_id}: {triage['symptom']}"
     expected = result.get("scenario_params", {}).get("goal") if isinstance(result.get("scenario_params"), dict) else {}
     software_versions = result.get("software_versions") if isinstance(result.get("software_versions"), dict) else {}
     kpis = result.get("kpis") if isinstance(result.get("kpis"), dict) else {}
@@ -572,7 +735,7 @@ def render_issue_markdown(
         f"# {title}",
         "",
         "## Phenomenon / symptom",
-        f"- `{scenario_id}` failed the stable planning/control KPI gate.",
+        f"- `{scenario_id}` failed the stable validation KPI gate.",
         f"- Primary symptom: {triage['symptom']}.",
         "",
         "## Expected behavior",
@@ -629,11 +792,13 @@ def render_issue_markdown(
             "",
             "## Severity / impact",
             f"- Severity: `{severity}`",
-            "- Impact: blocks stable planning/control regression acceptance for this scenario.",
+            "- Impact: blocks stable validation acceptance for this scenario.",
             "",
             "## Recommended next action",
             "- Compare against real-vehicle or bag evidence first.",
             "- Reproduce with the commands above on the company Ubuntu runtime host.",
+            "- If vehicle asset metrics are violated, fix CARLA/UE4 blueprint authoring, cooked deployment, wheel "
+            "geometry, PhysicsAsset, and movement tuning before running planning/control acceptance.",
             "- If the vehicle/bag path passes, inspect simulator fidelity, bridge mapping, vehicle physics, route "
             "setup, and scenario geometry before changing planning/control code.",
             "- After fixing, rerun the same scenario and close this issue only when the KPI gate passes.",
@@ -645,7 +810,7 @@ def render_issue_markdown(
 
 def _write_index(output_dir: Path, summary: dict[str, Any]) -> Path:
     lines = [
-        "# PIX Planning/Control Bugpack",
+        "# PIX Validation Bugpack",
         "",
         f"- generated_at: `{summary['generated_at']}`",
         f"- scanned_runs: `{summary['scanned_count']}`",

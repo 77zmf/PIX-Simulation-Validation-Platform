@@ -57,6 +57,22 @@ class ResearchConfigTests(unittest.TestCase):
             payload["execution"]["stable_runtime"]["carla_spawn_point"].startswith("120.0000,133.4650,")
         )
         self.assertIn("--target-speed-mps 11.111111", payload["metadata"]["validation_command"])
+        stable_runtime = payload["execution"]["stable_runtime"]
+        self.assertEqual(stable_runtime["autoware_planning_module_preset"], "simctl_route_follow_only")
+        self.assertEqual(stable_runtime["robobus_fidelity_profile"], "117th_4ws")
+        self.assertEqual(stable_runtime["pix_carla_physics_mass_kg"], "1800")
+        self.assertEqual(stable_runtime["pix_carla_physics_drag_coefficient"], "0.35")
+        self.assertEqual(stable_runtime["pix_carla_physics_center_of_mass_z_m"], "-0.30")
+        self.assertEqual(stable_runtime["pix_carla_physics_wheel_damping_rate"], "0.35")
+        self.assertNotIn("pix_carla_physics_use_sweep_wheel_collision", stable_runtime)
+        self.assertEqual(stable_runtime["pix_carla_steer_gain"], "0.16")
+        self.assertEqual(stable_runtime["pix_carla_steer_abs_limit"], "0.018")
+        self.assertNotIn("pix_carla_steer_tau", stable_runtime)
+        self.assertEqual(stable_runtime["pix_carla_steering_report_sign"], "1.0")
+        self.assertEqual(stable_runtime["pix_carla_actuation_steer_status_sign"], "1.0")
+        self.assertEqual(stable_runtime["pix_carla_creep_throttle"], "0.95")
+        self.assertEqual(stable_runtime["pix_carla_creep_speed_threshold_mps"], "0.50")
+        self.assertEqual(stable_runtime["pix_carla_suppress_brake_below_target"], "1")
         self.assertIn("target_speed_reached", gate.metrics)
         self.assertIn("max_speed_mps", gate.metrics)
 
@@ -346,6 +362,31 @@ class ResearchConfigTests(unittest.TestCase):
                 self.assertIn(command_marker, validation_command)
                 if "route_update_dropout_recovery" in path:
                     self.assertTrue(payload["traffic_profile"]["mode"].startswith("empty_"))
+                    self.assertEqual(payload["ego_init"]["pose"]["x"], 120.0)
+                    self.assertEqual(payload["goal"]["pose"]["x"], 315.0)
+                    route_waypoints = payload.get("route", {}).get("waypoints", [])
+                    if route_waypoints:
+                        first_waypoint = route_waypoints[0]["pose"]
+                        self.assertLessEqual(
+                            abs(first_waypoint["x"] - payload["ego_init"]["pose"]["x"]),
+                            1.5,
+                        )
+                    stable_runtime = payload["execution"]["stable_runtime"]
+                    self.assertEqual(stable_runtime["autoware_planning_module_preset"], "simctl_route_follow_only")
+                    self.assertEqual(stable_runtime["robobus_fidelity_profile"], "117th_4ws")
+                    self.assertEqual(stable_runtime["carla_spawn_point"], "120.0000,133.4650,-0.5,0,0,0")
+                    self.assertEqual(stable_runtime["pix_carla_physics_mass_kg"], "1800")
+                    self.assertEqual(stable_runtime["pix_carla_physics_center_of_mass_z_m"], "-0.30")
+                    self.assertNotIn("pix_carla_physics_use_sweep_wheel_collision", stable_runtime)
+                    self.assertEqual(stable_runtime["pix_carla_steer_gain"], "0.16")
+                    self.assertEqual(stable_runtime["pix_carla_steer_abs_limit"], "0.018")
+                    self.assertNotIn("pix_carla_steer_tau", stable_runtime)
+                    self.assertEqual(stable_runtime["pix_carla_steering_report_sign"], "1.0")
+                    self.assertEqual(stable_runtime["pix_carla_actuation_steer_status_sign"], "1.0")
+                    self.assertEqual(stable_runtime["pix_carla_creep_throttle"], "0.95")
+                    self.assertEqual(stable_runtime["pix_carla_creep_speed_threshold_mps"], "0.50")
+                    self.assertEqual(stable_runtime["pix_carla_suppress_brake_below_target"], "1")
+                    self.assertEqual(stable_runtime["pix_carla_brake_creep_throttle"], "0.10")
                 self.assertEqual(payload["execution"]["mode"], "external")
                 self.assertEqual(payload["execution"]["stable_runtime"]["carla_vehicle_type"], "vehicle.pixmoving.robobus")
                 self.assertIn("route_completion", gate.metrics)

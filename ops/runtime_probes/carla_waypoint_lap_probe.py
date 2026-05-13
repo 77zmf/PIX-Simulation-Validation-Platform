@@ -90,6 +90,13 @@ def parse_triplet(raw: str, *, name: str) -> tuple[float, float, float]:
     return values[0], values[1], values[2]
 
 
+def parse_float_list(raw: str, *, name: str) -> list[float]:
+    values = [float(item.strip()) for item in raw.split(",") if item.strip()]
+    if not values:
+        raise SystemExit(f"{name} must contain at least one numeric value")
+    return values
+
+
 @dataclass(frozen=True)
 class RoutePoint:
     x: float
@@ -180,6 +187,94 @@ def find_ego(world: Any, actor_id: str, ego_role_name: str, timeout_sec: float) 
         if time.time() >= deadline:
             raise SystemExit(f"ego actor not found: role={ego_role_name}, type={actor_id}, vehicles={len(vehicles)}")
         time.sleep(0.5)
+
+
+def destroy_matching_vehicles(world: Any, actor_id: str, ego_role_name: str) -> None:
+    for actor in list(world.get_actors().filter("vehicle.*")):
+        role_name = actor_role(actor)
+        if str(getattr(actor, "type_id", "")) == actor_id or role_name == ego_role_name:
+            try:
+                actor.destroy()
+            except Exception:
+                pass
+
+
+def spawn_ego_at_route_start(
+    carla: Any,
+    world: Any,
+    *,
+    actor_id: str,
+    ego_role_name: str,
+    first: RoutePoint,
+    spawn_z_offsets: list[float],
+) -> tuple[Any, dict[str, Any]]:
+    try:
+        blueprint = world.get_blueprint_library().find(actor_id)
+    except Exception as exc:
+        raise SystemExit(f"ego blueprint not found: actor_id={actor_id}, error={exc}") from exc
+    if getattr(blueprint, "has_attribute", lambda _name: False)("role_name"):
+        blueprint.set_attribute("role_name", ego_role_name)
+
+    for z_offset in spawn_z_offsets:
+        transform = carla.Transform(
+            carla.Location(x=first.x, y=first.y, z=first.z + z_offset),
+            carla.Rotation(yaw=first.yaw_deg),
+        )
+        actor = world.try_spawn_actor(blueprint, transform)
+        if actor is None:
+            continue
+        actor.set_target_velocity(carla.Vector3D(0.0, 0.0, 0.0))
+        actor.set_target_angular_velocity(carla.Vector3D(0.0, 0.0, 0.0))
+        actor.apply_control(carla.VehicleControl(throttle=0.0, brake=1.0, steer=0.0))
+        return actor, {
+            "source": "spawned",
+            "actor_id": actor_id,
+            "ego_role_name": ego_role_name,
+            "spawn_z_offset_m": z_offset,
+            "spawn_transform": {
+                "x": first.x,
+                "y": first.y,
+                "z": first.z + z_offset,
+                "yaw_deg": first.yaw_deg,
+            },
+        }
+
+    raise SystemExit(
+        "ego spawn failed: "
+        f"actor_id={actor_id}, role={ego_role_name}, "
+        f"route_start=({first.x},{first.y},{first.z}), z_offsets={spawn_z_offsets}"
+    )
+
+
+def find_or_spawn_ego(carla: Any, world: Any, args: argparse.Namespace, first: RoutePoint) -> tuple[Any, dict[str, Any]]:
+    if args.destroy_existing_ego:
+        destroy_matching_vehicles(world, args.actor_id, args.ego_role_name)
+        time.sleep(args.settle_sec)
+    if not args.destroy_existing_ego:
+        find_timeout = args.actor_wait_sec
+        if args.spawn_if_missing:
+            find_timeout = min(args.actor_wait_sec, args.spawn_find_timeout_sec)
+        try:
+            actor = find_ego(world, args.actor_id, args.ego_role_name, find_timeout)
+            return actor, {
+                "source": "existing",
+                "actor_id": str(getattr(actor, "type_id", args.actor_id)),
+                "ego_role_name": actor_role(actor),
+            }
+        except SystemExit:
+            if not args.spawn_if_missing:
+                raise
+
+    if not args.spawn_if_missing:
+        raise SystemExit(f"ego actor not found: role={args.ego_role_name}, type={args.actor_id}")
+    return spawn_ego_at_route_start(
+        carla,
+        world,
+        actor_id=args.actor_id,
+        ego_role_name=args.ego_role_name,
+        first=first,
+        spawn_z_offsets=parse_float_list(args.spawn_z_offsets, name="--spawn-z-offsets"),
+    )
 
 
 def speed_mps(actor: Any) -> float:
@@ -725,7 +820,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
     client = carla.Client(args.carla_host, args.carla_port)
     client.set_timeout(args.carla_timeout)
     world = client.get_world()
-    ego = find_ego(world, args.actor_id, args.ego_role_name, args.actor_wait_sec)
+    ego, ego_source = find_or_spawn_ego(carla, world, args, route[0])
     if args.reset_to_route_start:
         reset_to_route_start(carla, ego, route[0])
         time.sleep(args.settle_sec)
@@ -928,6 +1023,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         "origin_map_xyz": list(origin),
         "route_start": route[0].__dict__,
         "route_end": route[-1].__dict__,
+        "ego_source": ego_source,
     }
     overall_passed = completed and kinematic_sanity_passed and failed_reason is None
     metrics = build_metrics(summary)
@@ -985,6 +1081,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--actor-id", default=os.environ.get("SIMCTL_CARLA_VEHICLE_TYPE", "vehicle.pixmoving.robobus"))
     parser.add_argument("--ego-role-name", default=os.environ.get("SIMCTL_CARLA_EGO_ROLE_NAME", "ego_vehicle"))
     parser.add_argument("--actor-wait-sec", type=float, default=30.0)
+    parser.add_argument("--spawn-if-missing", action="store_true")
+    parser.add_argument("--destroy-existing-ego", action="store_true")
+    parser.add_argument("--spawn-find-timeout-sec", type=float, default=2.0)
+    parser.add_argument("--spawn-z-offsets", default="0.0,0.5,1.0")
     parser.add_argument("--reset-to-route-start", action="store_true")
     parser.add_argument("--settle-sec", type=float, default=1.0)
     parser.add_argument("--route-min-spacing-m", type=float, default=20.0)
