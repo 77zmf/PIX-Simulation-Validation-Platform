@@ -1,0 +1,49 @@
+scenario_id: shadow_l2_reconstruction_guiyang_nurec_6cam_lidar_handoff
+stack: stable
+map_id: guiyang_nurec_visual_layer
+asset_bundle: nvidia_guiyang_nurec_6cam_lidar_20k
+ego_init:
+  local_pose:
+    x: 0.0
+    y: 0.0
+    yaw_deg: 0.0
+goal:
+  local_pose:
+    x: 1.0
+    y: 0.0
+    yaw_deg: 0.0
+traffic_profile:
+  mode: offline_nurec_visual_handoff
+  vehicles: 0
+  pedestrians: 0
+weather_profile:
+  preset: source_capture_weather
+sensor_profile: reconstruction_capture
+algorithm_profile: reconstruction_static_public_road_gaussians
+seed: 20260713
+recording:
+  rosbag2:
+    enabled: false
+  carla_recorder:
+    enabled: false
+kpi_gate: reconstruction_nurec_visual_handoff_gate
+labels:
+  - L2
+  - public_road
+  - reconstruction_support
+  - nvidia_nurec
+  - visual_research
+  - shadow_comparison
+  - handoff_candidate
+  - blocked_quality_metrics
+  - blocked_source_lock
+metadata:
+  source_assets:
+    - assets/manifests/nvidia_guiyang_nurec_6cam_lidar_20k.yaml
+    - external://company-ubuntu/data/pix/reconstruction/handoffs/guiyang_nurec_6cam_lidar_20k_20260713/handoff_manifest.json
+    - external://company-ubuntu/data/pix/reconstruction/handoffs/guiyang_nurec_6cam_lidar_20k_20260713/source_lock.json
+  validation_method: Static intake and shadow promotion review; this scenario does not launch CARLA or put NuRec into the stable driving loop.
+  validation_command: blocked until PSNR/SSIM/LPIPS evidence exists and source_lock.clean=true; simctl asset-check only verifies the intake manifest.
+  acceptance_boundary: A passed mock run validates schema wiring only. Formal promotion requires real NuRec replay evidence and does not imply CARLA 0.9.15 map acceptance.
+execution:
+  mode: external

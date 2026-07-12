@@ -1,0 +1,41 @@
+gate_id: reconstruction_nurec_visual_handoff_gate
+description: Shadow promotion gate for a traceable and reproducible NVIDIA NuRec visual reconstruction handoff
+failure_labels:
+  - reconstruction_handoff_failure
+  - reconstruction_quality_failure
+  - reconstruction_source_reproducibility_failure
+  - reconstruction_carla_boundary_failure
+metrics:
+  nurec_handoff_manifest_present:
+    op: ">="
+    value: 1
+  nurec_handoff_file_count:
+    op: ">="
+    value: 17
+  nurec_sha256_coverage_ratio:
+    op: ">="
+    value: 1.0
+  nurec_source_trace_complete:
+    op: ">="
+    value: 1
+  nurec_camera_count:
+    op: ">="
+    value: 6
+  nurec_pose_count:
+    op: ">="
+    value: 200
+  nurec_checkpoint_20k_present:
+    op: ">="
+    value: 1
+  nurec_visual_preview_present:
+    op: ">="
+    value: 1
+  nurec_quality_metrics_present:
+    op: ">="
+    value: 1
+  nurec_source_lock_clean:
+    op: ">="
+    value: 1
+  nurec_carla_import_boundary_declared:
+    op: ">="
+    value: 1

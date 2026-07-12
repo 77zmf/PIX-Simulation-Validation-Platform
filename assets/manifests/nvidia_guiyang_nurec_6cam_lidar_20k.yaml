@@ -1,0 +1,128 @@
+bundle_id: nvidia_guiyang_nurec_6cam_lidar_20k
+site_id: guiyang_nurec_6cam_lidar_20260709
+description: Colleague-produced Guiyang NuRec 6-camera plus LiDAR 20k visual reconstruction handoff for shadow evaluation
+source:
+  type: external_nvidia_nurec_research_artifact
+  host_role: company_ubuntu_reconstruction_host
+  runtime_target: nvidia_visual_research_or_hybrid_carla_handoff
+  handoff_manifest: external://company-ubuntu/data/pix/reconstruction/handoffs/guiyang_nurec_6cam_lidar_20k_20260713/handoff_manifest.json
+  source_lock: external://company-ubuntu/data/pix/reconstruction/handoffs/guiyang_nurec_6cam_lidar_20k_20260713/source_lock.json
+  artifact_sha256_inventory: external://company-ubuntu/data/pix/reconstruction/handoffs/guiyang_nurec_6cam_lidar_20k_20260713/ARTIFACT_SHA256SUMS
+  handoff_package_sha256_inventory: external://company-ubuntu/data/pix/reconstruction/handoffs/guiyang_nurec_6cam_lidar_20k_20260713/SHA256SUMS
+  source_root: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec
+maps:
+  source_manifest:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/pix_data/guiyang/params/manifest.json
+    sha256: c44ca60bcb7d9b838418e321e627c535b7d9cea50ad784f7d443a5e90c32f4cd
+    size_bytes: 630113
+  calibration:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/pix_data/guiyang/params/calibration.json
+    sha256: 54b42dd4a69f4eb140043bb7dd4153066d8b67686a709b58d607ebb01ce0ba28
+    size_bytes: 7758
+  trajectory:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/pix_data/guiyang/trajectory/poses_slam.json
+    sha256: 2b3fa6c972fb27ab0f957cbb9ec09ec7d24c9f115f0a0569d04b8b110b4aec44
+    size_bytes: 152323
+  standard_20k_checkpoint:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_train_20k/JoTdMahFAWSCJthBYyf5WP/checkpoints/last.ckpt
+    sha256: 58d654c40ce52164ce735fb81ac4387913762a55a1e28ed3829037213d7ce840
+    size_bytes: 1244390367
+  standard_20k_usdz:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_train_20k/JoTdMahFAWSCJthBYyf5WP/artifacts/020000.usdz
+    sha256: 5af5418b17572b02839722bb6000d28c6738298cc9b768cdc7ab09ab17645818
+    size_bytes: 436801162
+  objects_20k_checkpoint:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_objects_train_20k/WZZtHhCCqhTzNpzqzbFUGS/checkpoints/last.ckpt
+    sha256: a5cc97fcac519a5fe4e8e5faba3f708b0dd6e63f50107ef4d05ab75270ff6ca3
+    size_bytes: 1708882893
+  objects_20k_usdz:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_objects_train_20k/WZZtHhCCqhTzNpzqzbFUGS/artifacts/020000.usdz
+    sha256: 30dd4f278d703d04fc029829c94b52d379b02cad2ef8855d9a47d4385c996f5d
+    size_bytes: 602981438
+  gaussian_background_ply:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_20k_gaussian_plys/background/model.ply
+    sha256: f6f1787b5b0970082e63e7dfc749aee273ce953266997c61a7b739e9aead8f51
+    size_bytes: 261324768
+  gaussian_road_ply:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_20k_gaussian_plys/road/model.ply
+    sha256: 6ba807978ee656b65194b7efdeba67942a2154c4ebde56fa455ffbbcdb5138f8
+    size_bytes: 45400797
+  gaussian_merged_ply:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_20k_gaussian_plys/merged/model_merged.ply
+    sha256: 83537af5abf65706a7464b6bc3b82a4cf0ead7b38b5a3683c8fa52b0eee8f05a
+    size_bytes: 260286822
+  standard_6cam_overview:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_overview_0p5_20k/guiyang_6cam_overview_0p5_gsplat_20k.png
+    sha256: 3649d984a8a5a6d2e68d8d7ae91b4993e6fd2a48b496ac2dc73a985ea16f44cc
+    size_bytes: 3699910
+  objects_6cam_overview:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_objects_overview_0p5_20k/guiyang_6cam_objects_overview_0p5_gsplat_20k.png
+    sha256: 0de053faec6994d7f2726d3add926b8e844d2ddd4879e224e1b5992d89bddbe5
+    size_bytes: 3772126
+  objects_camera1_video:
+    path: external://company-ubuntu/home/pixmoving/gaolf_ws/NuRec/output/nurec_guiyang_6cam_lidar_objects_video_camera1_20k/camera1.mp4
+    sha256: 77eeca376317ee022880f08f8226d17160f243f69bbfd20c02e35ab92a7087f9
+    size_bytes: 10792694
+metadata:
+  owner: reconstruction_team
+  lane: reconstruction_support
+  status:
+    integration_status: handoff_packaged_shadow_quality_pending
+    frame_count: 200
+    camera_count: 6
+    lidar_count: 1
+    pose_count: 200
+    tracked_objects_present: true
+    training_steps: 20000
+    handoff_file_count: 17
+    sha256_covered_file_count: 17
+    sha256_coverage_ratio: 1.0
+    handoff_package_file_count: 4
+    merged_gaussian_vertices: 1102904
+    quality_metrics_present: false
+    source_lock_clean: false
+  source_lock:
+    origin: https://github.com/NVIDIA/instant-nurec.git
+    branch: main
+    head: 24fc57154741f40ef2133121aa8a77de3aa81c65
+    clean: false
+    dirty_file_count: 5
+    diff_summary: 182 insertions and 63 deletions
+  visual_evidence:
+    video_duration_sec: 20
+    video_frames: 200
+    video_fps: 10
+    video_resolution: 1920x1088
+    local_review_cache: reports/colleague_nurec_review_20260713
+  asset_form: nvidia_nurec_6cam_lidar_visual_layer_not_carla0915_drivable_map
+  carla_import_contract:
+    stable_carla0915_drivable_asset: mesh_plus_opendrive_plus_collision_proxy
+    nvidia_visual_asset: nurec_checkpoint_usdz_and_gaussian_ply
+    decision: do_not_import_as_native_carla0915_map
+    reason: NuRec-compatible runtime, CARLA sandbox load smoke, OpenDRIVE and collision assets are not yet available.
+  quality_limits:
+    - PSNR, SSIM and LPIPS were not emitted, so visual quality cannot yet be promoted from reviewed preview to accepted reconstruction.
+    - Dynamic-object ghosting and blur require a reviewed quantitative and frame-level quality report.
+    - The producing Instant-NuRec worktree contains five uncommitted source changes and is not yet reproducible from a clean source lock.
+    - No CARLA-importable mesh, OpenDRIVE road network or collision proxy is included in this handoff.
+  next_milestones:
+    source_reproducibility:
+      target: Commit or patch-package the five Instant-NuRec changes and regenerate source_lock.json with clean=true.
+    visual_quality:
+      target: Emit PSNR, SSIM and LPIPS plus reviewed multi-camera keyframes for both standard and tracked-object runs.
+    nurec_runtime_smoke:
+      target: Replay the packaged checkpoint in a pinned compatible NuRec runtime and archive final runtime evidence.
+    carla_hybrid_handoff:
+      target: Keep this as a shadow visual layer unless a separate mesh, OpenDRIVE and collision bundle passes CARLA 0.9.15 sandbox load and route smoke.
+  rollback:
+    containment: Remove this lightweight manifest, scenario and gate only; all large artifacts remain under external reconstruction storage.
+  tags:
+    - public_road
+    - reconstruction
+    - nvidia_nurec
+    - guiyang
+    - six_camera
+    - lidar
+    - visual_research
+    - shadow_comparison
+    - carla_hybrid_handoff
